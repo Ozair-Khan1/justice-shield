@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ATTORNEY
+  ADMIN
+}
+
+enum VendorType {
+  ATTORNEY
+  MARKETING_SPECIALIST
+}
+
+model User {
+  id                      String             @id @default(uuid())
+  email                   String             @unique
+  password_hash           String
+  role                    Role               @default(USER)
+  full_name               String?
+  phone                   String?
+  emergency_contact_name  String?
+  emergency_contact_phone String?
+  membership_tier         String             @default("basic")
+  
+  created_at              DateTime           @default(now())
+  updated_at              DateTime           @updatedAt
+
+  encounter_sessions      EncounterSession[]
+  civil_intakes           CivilIntake[]
+  emergency_alerts        EmergencyAlert[]
+
+  @@index([role])
+}
+
+model EncounterSession {
+  id               String           @id @default(uuid())
+  user_id          String
+  user             User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  encounter_type   String
+  status           String           @default("active")
+  location_lat     Float?
+  location_lng     Float?
+  location_address String?
+  notes            String?
+  attorney_name    String?
+  recording_url    String?
+  started_at       DateTime         @default(now())
+  ended_at         DateTime?
+  created_at       DateTime         @default(now())
+
+  emergency_alerts EmergencyAlert[]
+
+  @@index([user_id])
+  @@index([status])
+}
+
+model CivilIntake {
+  id                String   @id @default(uuid())
+  user_id           String
+  user              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  matter_type       String
+  urgency           String   @default("standard")
+  subject           String
+  description       String
+  preferred_contact String   @default("phone")
+  status            String   @default("pending")
+  assigned_attorney String?
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  @@index([user_id])
+  @@index([status])
+}
+
+model EmergencyAlert {
+  id            String            @id @default(uuid())
+  session_id    String?
+  session       EncounterSession? @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  user_id       String
+  user          User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  contact_name  String?
+  contact_phone String?
+  message       String?
+  sent_at       DateTime          @default(now())
+
+  @@index([user_id])
+  @@index([session_id])
+}
+
+model VendorApplication {
+  id               String   @id @default(uuid())
+  vendor_type      VendorType
+  full_name        String
+  firm_name        String?
+  email            String
+  phone            String?
+  location         String?
+  website          String?
+  specialties      String?
+  bar_number       String?
+  years_experience Int?     @default(0)
+  message          String?
+  status           String   @default("pending")
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  @@index([status])
+}
+
+model Otp {
+  id         String   @id @default(uuid())
+  email      String
+  otp_hash   String
+  expires_at DateTime
+  created_at DateTime @default(now())
+
+  @@index([email])
+}

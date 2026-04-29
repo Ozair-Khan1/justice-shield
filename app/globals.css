@@ -1,26 +1,205 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-titanium-50: var(--titanium-50);
+  --color-titanium-200: var(--titanium-200);
+  --color-titanium-300: var(--titanium-300);
+  --color-titanium-400: var(--titanium-400);
+  --color-titanium-500: var(--titanium-500);
+  --color-titanium-700: var(--titanium-700);
+  --color-titanium-800: var(--titanium-800);
+  --color-titanium-900: var(--titanium-900);
+  --color-titanium-950: var(--titanium-950);
+  --color-action: var(--action);
+  --color-action-foreground: var(--action-foreground);
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Courier New", monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --radius: 0.375rem;
+
+  /* Tactical palette - dark mode by default */
+  --titanium-50: oklch(0.985 0 0);
+  --titanium-200: oklch(0.91 0.002 286);
+  --titanium-300: oklch(0.82 0.005 286);
+  --titanium-400: oklch(0.68 0.01 286);
+  --titanium-500: oklch(0.55 0.012 286);
+  --titanium-700: oklch(0.32 0.012 286);
+  --titanium-800: oklch(0.23 0.013 286);
+  --titanium-900: oklch(0.17 0.013 286);
+  --titanium-950: oklch(0.11 0.014 286);
+  --action: oklch(0.68 0.21 38);
+  /* operator orange #ff5f1f */
+  --action-foreground: oklch(0.985 0 0);
+
+  --background: var(--titanium-950);
+  --foreground: var(--titanium-50);
+  --card: var(--titanium-900);
+  --card-foreground: var(--titanium-50);
+  --popover: var(--titanium-900);
+  --popover-foreground: var(--titanium-50);
+  --primary: var(--action);
+  --primary-foreground: var(--titanium-50);
+  --secondary: var(--titanium-800);
+  --secondary-foreground: var(--titanium-50);
+  --muted: var(--titanium-800);
+  --muted-foreground: var(--titanium-400);
+  --accent: var(--titanium-800);
+  --accent-foreground: var(--titanium-50);
+  --destructive: oklch(0.62 0.24 28);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.28 0.013 286);
+  --input: oklch(0.23 0.013 286);
+  --ring: var(--action);
+  --chart-1: var(--action);
+  --chart-2: oklch(0.65 0.15 220);
+  --chart-3: oklch(0.7 0.12 160);
+  --chart-4: oklch(0.7 0.18 80);
+  --chart-5: oklch(0.62 0.24 28);
+}
+
+.dark {
+  /* same as root - we are dark by default */
+  --background: var(--titanium-950);
+  --foreground: var(--titanium-50);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html,
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .tactical-grid {
+    background-image:
+      linear-gradient(to right, oklch(0.23 0.013 286 / 0.4) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(0.23 0.013 286 / 0.4) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  .glow-action {
+    box-shadow: 0 0 40px -8px var(--action);
+  }
+
+  @keyframes shake {
+
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+
+    25% {
+      transform: translateX(-4px);
+    }
+
+    75% {
+      transform: translateX(4px);
+    }
+  }
+
+  .animate-shake {
+    animation: shake 0.2s ease-in-out 0s 2;
+  }
+
+  /* Phone Input Custom Styling */
+  .phone-input-custom {
+    @apply flex items-center w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus-within:border-action;
+  }
+
+  .phone-input-custom input {
+    @apply bg-transparent border-none outline-none text-titanium-50 w-full ml-2;
+  }
+
+  .phone-input-custom .PhoneInputCountry {
+    @apply flex items-center;
+  }
+
+  .PhoneInputCountrySelectArrow {
+    @apply text-titanium-400;
+  }
+}
+
+@media screen and (max-width: 320px) {
+  .change-direction {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+/* Customizing the phone input for Dark Theme */
+.PhoneInput {
+  --PhoneInput-color--focus: #3b82f6;
+  /* Your blue accent (Tailwind blue-500) */
+  --PhoneInputCountrySelectArrow-color--focus: #3b82f6;
+  --PhoneInputCountrySelectArrow-opacity: 0.7;
+}
+
+/* Style the text input to match your dark/glassmorphism theme */
+
+/* Style the country dropdown (select) */
+.PhoneInputCountrySelect {
+  @apply bg-slate-800 text-white cursor-pointer;
+}
+
+/* Dark mode tweaks for the country icon/flag wrapper */
+.PhoneInputCountryIcon {
+  @apply filter brightness-90 contrast-125;
 }
