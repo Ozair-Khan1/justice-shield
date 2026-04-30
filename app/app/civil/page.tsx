@@ -27,8 +27,52 @@ export default function CivilIntakePage() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-    setError("Submission is currently disabled.");
+
+    try {
+      if (!subject) {
+        throw new Error("Please enter a subject");
+      } else if (subject.length < 3) {
+        throw new Error("Subject must be at least 3 characters long");
+      } else if (subject.length > 100) {
+        throw new Error("Subject must be less than 140 characters long");
+      }
+
+      if (!description) {
+        throw new Error("Description is required");
+      } else if (description.length < 10) {
+        throw new Error("Description must be at least 10 characters long");
+      }
+
+      if (!user) {
+        throw new Error("You must be logged in to submit an intake.");
+      }
+
+      setError(null);
+      setSubmitting(true);
+
+      const res = await fetch("/api/civil/intake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          matterType,
+          urgency,
+          subject,
+          description,
+          preferredContact,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to submit intake");
+
+      // Redirect to history upon successful submission
+      router.push("/app/history");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An unexpected error occurred.";
+      setError(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -66,14 +110,14 @@ export default function CivilIntakePage() {
 
         <div>
           <Label>Subject</Label>
-          <input type="text" required maxLength={140} value={subject} onChange={(e) => setSubject(e.target.value)}
+          <input type="text" value={subject} onChange={(e) => setSubject(e.target.value)}
             placeholder="e.g. Landlord refuses to return security deposit"
             className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm outline-none focus:border-action" />
         </div>
 
         <div>
           <Label>Describe the situation</Label>
-          <textarea required rows={6} maxLength={4000} value={description} onChange={(e) => setDescription(e.target.value)}
+          <textarea rows={6} value={description} onChange={(e) => setDescription(e.target.value)}
             placeholder="Include dates, parties involved, and what outcome you're seeking..."
             className="mt-2 w-full resize-y rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm leading-relaxed outline-none focus:border-action" />
         </div>

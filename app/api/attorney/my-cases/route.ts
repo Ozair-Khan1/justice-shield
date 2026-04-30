@@ -16,34 +16,20 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Verify user is an attorney or admin
     const user = await prisma.user.findUnique({
       where: { id: payload.id as string },
-      select: { role: true, full_name: true },
+      select: { id: true, role: true },
     });
 
     if (!user || (user.role !== "ATTORNEY" && user.role !== "ADMIN")) {
       return NextResponse.json({ error: "Access denied. Attorney role required." }, { status: 403 });
     }
 
-    // Fetch all active SOS sessions
-    const sosSessions = await prisma.encounterSession.findMany({
-      orderBy: { started_at: "desc" },
-      include: {
-        user: {
-          select: {
-            full_name: true,
-            email: true,
-            phone: true,
-          }
-        }
-      }
-    });
-
-    // Fetch all civil intakes
+    // Fetch accepted cases for this attorney
     const civilIntakes = await prisma.civilIntake.findMany({
       where: {
-        status: "pending"
+        assigned_attorney: user.id,
+        status: "assigned",
       },
       orderBy: { created_at: "desc" },
       include: {
@@ -57,9 +43,9 @@ export async function GET(req: Request) {
       }
     });
 
-    return NextResponse.json({ sosSessions, civilIntakes });
+    return NextResponse.json({ cases: civilIntakes });
   } catch (error) {
-    console.error("Attorney API error:", error);
+    console.error("Fetch attorney cases error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

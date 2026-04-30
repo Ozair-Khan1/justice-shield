@@ -25,11 +25,6 @@ export async function GET(req: Request) {
     const recentUsers = await prisma.user.findMany({
       orderBy: { created_at: "desc" },
       take: 10,
-      where: {
-        role: {
-          in: ["USER", "ATTORNEY"],
-        },
-      },
       select: {
         id: true,
         email: true,

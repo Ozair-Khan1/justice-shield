@@ -4,12 +4,26 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { ShieldMark } from "./ShieldMark";
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion"
 
 export function SiteHeader() {
   const { user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [attorneyCount, setAttorneyCount] = useState(0);
+
+  useEffect(() => {
+    const fetchAttorneyCount = async () => {
+      try {
+        const res = await fetch("/api/attorneys");
+        const data = await res.json();
+        setAttorneyCount(data.attorneys?.length || 0);
+      } catch (error) {
+        console.error("Error fetching attorney count:", error);
+      }
+    }
+    fetchAttorneyCount();
+  }, [])
 
   const handleDashboardRedirect = () => {
     if (user?.role === "ADMIN") {
@@ -35,7 +49,6 @@ export function SiteHeader() {
     { href: "/pricing", label: "Pricing" },
     { href: "/vendors", label: "Vendors" },
     { href: "/contact", label: "Contact" },
-    { href: handleDashboardRedirect(), label: "Dashboard", style: "rounded-sm bg-action px-4 py-2 text-xs font-bold uppercase tracking-widest text-action-foreground transition-colors hover:bg-action/90 min-[446px]:hidden" },
   ];
 
   return (
@@ -51,7 +64,7 @@ export function SiteHeader() {
           <div className="items-center gap-1 rounded-full border border-titanium-800 bg-titanium-900 px-3 py-1 flex max-[667px]:hidden">
             <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" />
             <span className="font-mono text-[10px] uppercase tracking-widest text-titanium-400">
-              1,842 Attorneys Live
+              {attorneyCount} Attorneys Live
             </span>
           </div>
         </div>
@@ -112,11 +125,22 @@ export function SiteHeader() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`${link.style ? link.style : "block rounded-sm px-4 py-3 font-mono text-[11px] font-bold uppercase tracking-widest text-titanium-400 transition-colors hover:bg-titanium-900 hover:text-titanium-50"}`}
+                  className='block rounded-sm px-4 py-3 font-mono text-[11px] font-bold uppercase tracking-widest text-titanium-400 transition-colors hover:bg-titanium-900 hover:text-titanium-50'
                 >
                   {link.label}
                 </Link>
               ))}
+              {user && (
+                <>
+                  <Link
+                    href={handleDashboardRedirect()}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="rounded-sm bg-action px-4 py-2 text-xs font-bold uppercase tracking-widest text-action-foreground transition-colors hover:bg-action/90 min-[446px]:hidden"
+                  >
+                    Dashboard
+                  </Link>
+                </>
+              )}
               {user ? (
                 <>
                   <div className="my-2 h-px bg-titanium-800/60" />

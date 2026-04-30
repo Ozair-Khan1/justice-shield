@@ -8,11 +8,12 @@ import { ShieldMark } from "@/components/ShieldMark";
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 
+type AuthMode = "signin" | "signup" | "forgot";
 
 export default function AuthPage() {
   const router = useRouter();
   const { user, loading, refreshUser } = useAuth();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<AuthMode>("signin");
   const [step, setStep] = useState<"details" | "verification">("details");
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState("")
@@ -82,6 +83,7 @@ export default function AuthPage() {
       if (!res.ok) throw new Error(data.error || "Failed to send OTP");
       setStep("verification");
       setResendTimer(60);
+      setEmailSent(email);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to send OTP");
     } finally {
@@ -90,71 +92,108 @@ export default function AuthPage() {
   };
 
   const validatePassword = (pass: string) => {
+
+    if (mode === 'signup') {
+      if (pass.trim().length === 0) {
+        return "Please enter your password.";
+      }
+      if (pass.length < 6) return "Password must be at least 6 characters long.";
+      if (!/[0-9]/.test(pass)) return "Password must contain at least one number.";
+      if (!/[@$!%*?&]/.test(pass)) return "Password must contain at least one special character (@$!%*?&).";
+      return null;
+    }
+
     if (pass.length < 6) return "Password must be at least 6 characters long.";
-    if (!/[0-9]/.test(pass)) return "Password must contain at least one number.";
-    if (!/[@$!%*?&]/.test(pass)) return "Password must contain at least one special character (@$!%*?&).";
-    return null;
+    return null
+
   };
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
+
     try {
-      if (mode === "signup") {
-        if (step === "details") {
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          const passwordError = validatePassword(password);
+      switch (mode) {
+        case "signup":
+          if (step === "details") {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const passwordError = validatePassword(password);
 
-          if (fullName.trim().length === 0) {
-            throw new Error("Please enter your full name.");
-          } else if (fullName.trim().length < 3) {
-            throw new Error("Full name must be at least 3 characters long.");
-          }
-
-          if (phone) {
-            const digits = phone.replace(/\D/g, "");
-            if (digits.length < 4 || digits.length > 15) {
-              throw new Error("Phone number must be between 4 and 15 digits.");
+            if (fullName.trim().length === 0) {
+              throw new Error("Please enter your full name.");
+            } else if (fullName.trim().length < 3) {
+              throw new Error("Full name must be at least 3 characters long.");
             }
-          } else {
-            throw new Error("Please enter your phone number.");
-          }
 
+            if (phone) {
+              const digits = phone.replace(/\D/g, "");
+              if (digits.length < 4 || digits.length > 15) {
+                throw new Error("Phone number must be between 4 and 15 digits.");
+              }
+            } else {
+              throw new Error("Please enter your phone number.");
+            }
+
+            if (!emailRegex.test(email)) {
+              throw new Error("Please enter a valid email address.");
+            }
+
+            if (passwordError) {
+              throw new Error(passwordError);
+            }
+
+            if (!acceptedTerms) {
+              throw new Error("You must accept the Terms of Agreement to create an account.");
+            }
+            await onSendOtp();
+            return;
+          } else {
+            const res = await fetch("/api/auth/signup", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email, password, full_name: fullName, phone, otp }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Signup failed");
+            sessionStorage.removeItem("pending_signup");
+          }
+          break;
+
+        case "forgot": {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (!emailRegex.test(email)) {
             throw new Error("Please enter a valid email address.");
           }
+          const res = await fetch("/api/auth/password/reset/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Request failed");
+          setStep("verification");
+          return;
+        }
 
+        case "signin": {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(email)) {
+            throw new Error("Please enter a valid email address.");
+          }
+          const passwordError = validatePassword(password);
           if (passwordError) {
             throw new Error(passwordError);
           }
-
-          if (!acceptedTerms) {
-            throw new Error("You must accept the Terms of Agreement to create an account.");
-          }
-
-          // Phase 1: Just send OTP
-          await onSendOtp();
-          return;
-        } else {
-          // Phase 2: Complete signup with OTP
-          const res = await fetch("/api/auth/signup", {
+          const res = await fetch("/api/auth/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password, full_name: fullName, phone, otp }),
+            body: JSON.stringify({ email, password }),
           });
           const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Signup failed");
-          sessionStorage.removeItem("pending_signup");
+          if (!res.ok) throw new Error(data.error || "Login failed");
+          break;
         }
-      } else {
-        const res = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Login failed");
       }
 
       await refreshUser();
@@ -185,14 +224,16 @@ export default function AuthPage() {
             </span>
           </div>
           <h1 className="mt-4 font-display text-4xl font-bold tracking-tight">
-            {mode === "signin" ? "Sign in" : step === "verification" ? "Verify email" : "Create account"}
+            {mode === "signin" ? "Sign in" : mode === "forgot" ? "Reset password" : step === "verification" ? "Verify email" : "Create account"}
           </h1>
           <p className="mt-2 text-sm text-titanium-400">
             {mode === "signin"
               ? "Access your encrypted dashboard."
-              : step === "verification"
-                ? `Enter the code sent to ${emailSent}`
-                : "Active protection in under a minute."}
+              : mode === "forgot"
+                ? step === "verification" ? "Reset link sent. Check your inbox." : "Enter your email to receive a reset link."
+                : step === "verification"
+                  ? `Enter the code sent to ${emailSent}`
+                  : "Active protection in under a minute."}
           </p>
 
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
@@ -215,6 +256,19 @@ export default function AuthPage() {
                   <Field label="Password" type="password" value={password} onChange={setPassword} />
                 </div>
               </>
+            )}
+
+            {mode === "forgot" && step === "details" && (
+              <Field label="Email" type="email" value={email} onChange={setEmail} required />
+            )}
+
+            {mode === "forgot" && step === "verification" && (
+              <div className="rounded-sm border border-emerald-500/40 bg-emerald-500/10 p-4 font-mono text-xs text-emerald-500">
+                <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                  <span>We've sent a password reset link to your email</span>
+                </div>
+              </div>
             )}
 
             {mode === "signup" && step === "verification" && (
@@ -243,7 +297,18 @@ export default function AuthPage() {
             {mode === "signin" && (
               <>
                 <Field label="Email" type="email" value={email} onChange={setEmail} required />
-                <Field label="Password" type="password" value={password} onChange={setPassword} required minLength={6} />
+                <div className="space-y-3">
+                  <Field label="Password" type="password" value={password} onChange={setPassword} />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => { setMode("forgot"); setStep("details"); setError(null); }}
+                      className="font-mono text-[10px] uppercase tracking-widest text-titanium-500 hover:text-action"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                </div>
               </>
             )}
 
@@ -278,24 +343,47 @@ export default function AuthPage() {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full rounded-sm bg-action px-6 py-4 text-sm font-bold uppercase tracking-widest text-action-foreground transition-colors hover:bg-action/90 disabled:opacity-50"
-            >
-              {submitting ? "Processing..." : mode === "signin" ? "Sign In →" : step === "verification" ? "Complete Setup →" : "Activate Shield →"}
-            </button>
+            {mode === "forgot" && step === "verification" && (
+              <button
+                type="button"
+                onClick={() => { setMode("signin"); setStep("details"); }}
+                className="w-full rounded-sm border border-titanium-700 bg-titanium-800 px-6 py-4 text-sm font-bold uppercase tracking-widest text-titanium-200 transition-colors hover:border-action hover:text-action"
+              >
+                Back to Sign In
+              </button>
+            )}
+
+            {mode === "forgot" && step === "details" && (
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-sm bg-action px-6 py-4 text-sm font-bold uppercase tracking-widest text-action-foreground transition-colors hover:bg-action/90 disabled:opacity-50"
+              >
+                {submitting ? "Sending Link..." : "Send Link ->"}
+              </button>
+            )}
+
+            {(mode === "signin" || mode === "signup") && (
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-sm bg-action px-6 py-4 text-sm font-bold uppercase tracking-widest text-action-foreground transition-colors hover:bg-action/90 disabled:opacity-50"
+              >
+                {submitting ? "Processing..." : mode === "signin" ? "Sign In ->" : step === "verification" ? "Complete Setup ->" : "Activate Shield ->"}
+              </button>
+            )}
           </form>
 
           <div className="mt-6 text-center">
             <button
               onClick={() => {
                 setMode(mode === "signin" ? "signup" : "signin");
+                setStep("details");
                 setError(null);
               }}
               className="font-mono text-xs uppercase tracking-widest text-titanium-400 hover:text-titanium-50"
             >
-              {mode === "signin" ? "→ Need an account? Sign up" : "→ Have an account? Sign in"}
+              {mode === "forgot" ? "<- Back to login" : mode === "signin" ? "-> Need an account? Sign up" : "-> Have an account? Sign in"}
             </button>
           </div>
         </div>

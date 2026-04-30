@@ -5,11 +5,17 @@ import { verifyOtp } from "@/lib/otp";
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
+    const { email, token, password } = await req.json();
 
-    if (!password) {
-      return NextResponse.json({ error: "All fields are required" }, { status: 400 });
+    if (!email || !token || !password) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    const isValidToken = await verifyOtp(email, token);
+    if (!isValidToken) {
+      return NextResponse.json({ error: "Invalid or expired token" }, { status: 400 });
+    }
+
     // 2. Find User
     const user = await prisma.user.findUnique({
       where: { email },
@@ -19,6 +25,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    const vendorApplication = await prisma.vendorApplication.findUnique({
+      where: { email },
+    });
+
     // 3. Update password and clear vendor_pending status if applicable
     const password_hash = await bcrypt.hash(password, 12);
 
@@ -26,6 +36,13 @@ export async function POST(req: Request) {
       where: { email },
       data: {
         password_hash,
+        // Only update vendor fields if the application exists
+        ...(vendorApplication ? {
+          firm_name: vendorApplication.firm_name,
+          specialties: vendorApplication.specialties,
+          bar_number: vendorApplication.bar_number,
+          years_experience: vendorApplication.years_experience,
+        } : {}),
       },
     });
 

@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
   const isAppRoute = request.nextUrl.pathname.startsWith("/app");
 
   // Define public API routes that don't need auth
-  const publicApiPaths = ["/api/auth", "/api/vendors/apply", "/api/sos/trigger"]; // added trigger if public
+  const publicApiPaths = ["/api/auth", "/api/vendors/apply", "/api/sos/trigger", "/api/attorneys", "/api/contact"]; // added trigger if public
 
   if (!user) {
     if (isApiRoute && !publicApiPaths.some(p => request.nextUrl.pathname.startsWith(p))) {

@@ -25,6 +25,10 @@ model User {
   role                    Role               @default(USER)
   full_name               String?
   phone                   String?
+  firm_name               String?
+  specialties             String?
+  bar_number              String?
+  years_experience        Int?               @default(0)
   emergency_contact_name  String?
   emergency_contact_phone String?
   membership_tier         String             @default("basic")
@@ -99,7 +103,7 @@ model VendorApplication {
   vendor_type      VendorType
   full_name        String
   firm_name        String?
-  email            String
+  email            String   @unique
   phone            String?
   location         String?
   website          String?
@@ -122,4 +126,15 @@ model Otp {
   created_at DateTime @default(now())
 
   @@index([email])
+}
+
+model ContactMessage {
+  id         String   @id @default(uuid())
+  name       String
+  email      String
+  message    String
+  status     String   @default("unread") // "unread", "read", "archived"
+  created_at DateTime @default(now())
+
+  @@index([status])
 }

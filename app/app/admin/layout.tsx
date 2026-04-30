@@ -10,7 +10,9 @@ import { useRouter } from "next/navigation";
 const adminNav = [
   { href: "/app/admin", label: "Overview", exact: true },
   { href: "/app/admin/users", label: "Users" },
+  { href: "/app/admin/attorneys", label: "Attorneys" },
   { href: "/app/admin/vendors", label: "Vendors" },
+  { href: "/app/admin/messages", label: "Messages" },
   { href: "/app/admin/account", label: "Account" },
 ];
 

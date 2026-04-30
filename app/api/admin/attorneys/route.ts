@@ -12,7 +12,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const users = await prisma.user.findMany({
+    const attorneys = await prisma.user.findMany({
+      where: { role: "ATTORNEY" },
       orderBy: { created_at: "desc" },
       select: {
         id: true,
@@ -20,20 +21,24 @@ export async function GET(req: Request) {
         role: true,
         full_name: true,
         phone: true,
+        firm_name: true,
+        specialties: true,
+        bar_number: true,
+        years_experience: true,
         membership_tier: true,
         created_at: true,
         _count: {
           select: {
             encounter_sessions: true,
             civil_intakes: true,
-            emergency_alerts: true,
           },
         },
       },
     });
 
-    return NextResponse.json({ users });
-  } catch {
+    return NextResponse.json({ attorneys });
+  } catch (err) {
+    console.error("Admin attorneys API error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

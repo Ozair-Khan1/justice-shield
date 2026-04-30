@@ -11,9 +11,12 @@ import {
   AlertCircle,
   ChevronRight,
   Loader2,
-  Search
+  Search,
+  Mail,
+  Phone,
+  X
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface CaseUser {
   full_name: string | null;
@@ -35,6 +38,8 @@ interface CivilIntake {
   matter_type: string;
   urgency: string;
   subject: string;
+  description: string;
+  preferred_contact: string;
   status: string;
   created_at: string;
   user: CaseUser;
@@ -47,23 +52,49 @@ export default function AttorneyHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [selectedIntake, setSelectedIntake] = useState<CivilIntake | null>(null);
+  const [accepting, setAccepting] = useState(false);
+
+  async function fetchAllHistory() {
+    try {
+      const res = await fetch("/api/attorney/cases");
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setSosSessions(data.sosSessions || []);
+      setCivilIntakes(data.civilIntakes || []);
+    } catch (err: any) {
+      setError(err.message || "Failed to load records");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function fetchAllHistory() {
-      try {
-        const res = await fetch("/api/attorney/cases");
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        setSosSessions(data.sosSessions || []);
-        setCivilIntakes(data.civilIntakes || []);
-      } catch (err: any) {
-        setError(err.message || "Failed to load records");
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchAllHistory();
   }, []);
+
+  const handleAcceptCase = async () => {
+    if (!selectedIntake) return;
+    setAccepting(true);
+    try {
+      const res = await fetch("/api/attorney/cases/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intakeId: selectedIntake.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to accept case");
+
+      // Remove the accepted case from the local pending list
+      setCivilIntakes(prev => prev.filter(i => i.id !== selectedIntake.id));
+      setSelectedIntake(null);
+      fetchAllHistory()
+    } catch (err: any) {
+      alert(err.message || "An error occurred");
+    } finally {
+      setAccepting(false);
+    }
+  };
 
   const filteredSOS = sosSessions.filter(s =>
     s.user.full_name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -173,7 +204,7 @@ export default function AttorneyHistoryPage() {
                       </div>
                     </div>
                   </div>
-                  <button className="flex items-center gap-2 rounded-sm border border-titanium-700 bg-titanium-800 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-300 transition-colors hover:border-action hover:text-action">
+                  <button onClick={() => setSelectedIntake(i)} className="flex items-center gap-2 rounded-sm border border-titanium-700 bg-titanium-800 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-300 transition-colors hover:border-action hover:text-action">
                     Case Details <ChevronRight className="size-3" />
                   </button>
                 </div>
@@ -182,6 +213,96 @@ export default function AttorneyHistoryPage() {
           </div>
         </section>
       </div>
+      <AnimatePresence>
+        {selectedIntake && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/80 p-4 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-2xl overflow-hidden rounded-lg border border-titanium-700 bg-titanium-900 shadow-2xl"
+            >
+              <div className="flex items-center justify-between border-b border-titanium-800 bg-titanium-950/50 p-6">
+                <div className="space-y-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className={`rounded-full px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-widest border ${selectedIntake.urgency === "CRITICAL" ? "text-red-400 border-red-400/20 bg-red-400/10" : "text-titanium-400 border-titanium-800"}`}>
+                      {selectedIntake.urgency} Priority
+                    </span>
+                    <span className="font-mono text-[10px] text-titanium-500 uppercase tracking-widest">{selectedIntake.matter_type.replace("_", " ")}</span>
+                  </div>
+                  <h2 className="font-display text-2xl font-bold text-titanium-50 break-words">{selectedIntake.subject}</h2>
+                </div>
+                <button
+                  onClick={() => setSelectedIntake(null)}
+                  className="rounded-full p-2 text-titanium-400 hover:bg-titanium-800 hover:text-titanium-50"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+
+              <div className="max-h-[60vh] overflow-y-auto p-6 space-y-8">
+                <div className="space-y-3">
+                  <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Client Information</h3>
+                  <div className="rounded-lg border border-titanium-800 bg-titanium-950/30 p-4 grid gap-4 sm:grid-cols-2">
+                    <div className="min-w-0">
+                      <span className="block text-xs text-titanium-500">Name</span>
+                      <div className="mt-1 flex items-center gap-2 text-sm text-titanium-200 min-w-0">
+                        <UserIcon className="size-4 shrink-0 text-action" />
+                        <span className="truncate">{selectedIntake.user.full_name || "Not provided"}</span>
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-xs text-titanium-500">Phone</span>
+                      <div className="mt-1 flex items-center gap-2 text-sm text-titanium-200 min-w-0">
+                        <Phone className="size-4 shrink-0 text-action" />
+                        <span className="truncate">{selectedIntake.user.phone || "Not provided"}</span>
+                      </div>
+                    </div>
+                    <div className="sm:col-span-2 min-w-0">
+                      <span className="block text-xs text-titanium-500">Email</span>
+                      <div className="mt-1 flex items-center gap-2 text-sm text-titanium-200 min-w-0">
+                        <Mail className="size-4 shrink-0 text-action" />
+                        <span className="truncate">{selectedIntake.user.email}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Case Description</h3>
+                  <div className="w-full overflow-hidden rounded-lg border border-titanium-800 bg-titanium-950/30 p-4">
+                    <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-titanium-300">
+                      {selectedIntake.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-titanium-500">
+                  <span>Preferred Contact: <strong className="uppercase">{selectedIntake.preferred_contact}</strong></span>
+                  <span>Submitted: {new Date(selectedIntake.created_at).toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="border-t border-titanium-800 bg-titanium-950/50 p-6 flex justify-end gap-4">
+                <button
+                  onClick={() => setSelectedIntake(null)}
+                  className="rounded-sm border border-titanium-700 px-6 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-300 hover:bg-titanium-800 hover:text-titanium-50"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleAcceptCase}
+                  disabled={accepting}
+                  className="rounded-sm bg-action px-6 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-action-foreground hover:bg-action/90 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {accepting && <Loader2 className="size-3 animate-spin" />}
+                  {accepting ? "Accepting..." : "Accept Case"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

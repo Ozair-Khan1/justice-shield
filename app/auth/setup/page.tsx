@@ -9,6 +9,7 @@ function SetupContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const email = searchParams.get("email") || "";
+  const token = searchParams.get("token") || "";
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -39,11 +40,10 @@ function SetupContent() {
     setLoading(true);
     setError(null);
     try {
-      // We'll use a special endpoint or update signup to handle this
       const res = await fetch("/api/auth/setup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, token, password }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Setup failed");

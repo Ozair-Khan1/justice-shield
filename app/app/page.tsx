@@ -45,7 +45,7 @@ export default function AppDashboard() {
       </header>
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <Link href="/app/sos" className="group relative overflow-hidden rounded-lg border border-action/30 bg-gradient-to-br from-action/15 via-titanium-900 to-titanium-900 p-8 transition-all hover:border-action/60 hover:glow-action">
+        <Link href="/app/sos" className="group relative overflow-hidden rounded-lg border border-action/30 bg-linear-to-br from-action/15 via-titanium-900 to-titanium-900 p-8 transition-all hover:border-action/60 hover:glow-action">
           <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-action">Tier 1 / Emergency</span>
           <h2 className="mt-4 font-display text-3xl font-bold">Trigger SOS</h2>
           <p className="mt-3 text-sm text-titanium-400">Police encounter? Tap to launch the emergency attorney patch.</p>

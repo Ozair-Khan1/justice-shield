@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJwt, getAuthToken } from "@/lib/jwt";
-import { sendVendorWelcomeEmail, sendRejectionEmail, sendMarketingWelcomeEmail } from "@/lib/mail";
+import { generateOtp, createOtpRecord } from "@/lib/otp";
+import {
+  sendVendorWelcomeEmail, sendRejectionEmail, sendMarketingWelcomeEmail
+} from "@/lib/mail";
 
 export async function PATCH(
   req: Request,
@@ -43,15 +46,14 @@ export async function PATCH(
           where: { email: application.email },
           data: {
             role: application.vendor_type === "ATTORNEY" ? "ATTORNEY" : "USER",
-            membership_tier: "vendor_active",
+            membership_tier: "basic",
+            specialties: application.specialties,
+            firm_name: application.firm_name,
+            bar_number: application.bar_number,
+            years_experience: application.years_experience,
           },
         });
       } else {
-        await tx.user.update({
-          where: { email: application.email },
-          data: { membership_tier: "vendor_rejected" },
-        });
-
         await tx.user.delete({
           where: { email: application.email },
         });
@@ -65,10 +67,13 @@ export async function PATCH(
     // Trigger emails outside of the database transaction
     try {
       if (status === "approved") {
+        const token = generateOtp();
+        await createOtpRecord(application.email, token);
+
         if (application.vendor_type === "ATTORNEY") {
-          await sendVendorWelcomeEmail(application.email, application.full_name);
+          await sendVendorWelcomeEmail(application.email, application.full_name, token);
         } else {
-          await sendMarketingWelcomeEmail(application.email, application.full_name);
+          await sendMarketingWelcomeEmail(application.email, application.full_name, token);
         }
       } else {
         await sendRejectionEmail(application.email, application.full_name);

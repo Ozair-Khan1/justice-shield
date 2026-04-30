@@ -27,7 +27,6 @@ export async function verifyOtp(email: string, otp: string): Promise<boolean> {
   const isValid = await bcrypt.compare(otp, record.otp_hash);
 
   if (isValid) {
-    // Delete the OTP after successful verification to prevent reuse
     await prisma.otp.delete({
       where: { id: record.id },
     });
