@@ -15,7 +15,7 @@ const MATTER_TYPES = [
 ];
 
 export default function CivilIntakePage() {
-  const { user, supabase } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const [matterType, setMatterType] = useState("landlord_tenant");
   const [urgency, setUrgency] = useState("standard");
@@ -28,20 +28,7 @@ export default function CivilIntakePage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!user) return;
-    setSubmitting(true);
-    setError(null);
-    const { error: err } = await supabase.from("civil_intakes").insert({
-      user_id: user.id,
-      matter_type: matterType,
-      urgency,
-      subject,
-      description,
-      preferred_contact: preferredContact,
-      status: "pending",
-    });
-    setSubmitting(false);
-    if (err) { setError(err.message); return; }
-    router.push("/app/history");
+    setError("Submission is currently disabled.");
   };
 
   return (
