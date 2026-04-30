@@ -65,7 +65,7 @@
     "zod": "^4.3.6"
   },
   "prisma": {
-    "seed": "npx tsx prisma/seed.ts"
+    "seed": "npx tsx --env-file=.env prisma/seed.ts"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
