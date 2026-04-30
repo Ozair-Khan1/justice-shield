@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth";
 import { ShieldMark } from "@/components/ShieldMark";
+import PhoneInput from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
+
 
 export default function AuthPage() {
   const router = useRouter();
@@ -12,9 +15,10 @@ export default function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [step, setStep] = useState<"details" | "verification">("details");
   const [email, setEmail] = useState("");
+  const [emailSent, setEmailSent] = useState("")
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState<string | undefined>("");
   const [otp, setOtp] = useState("");
   const [resendTimer, setResendTimer] = useState(0);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -25,6 +29,8 @@ export default function AuthPage() {
     if (!loading && user) {
       if (user.role === 'ADMIN') {
         router.push('/app/admin');
+      } else if (user.role === "ATTORNEY") {
+        router.push('/app/attorney');
       } else {
         router.push('/app');
       }
@@ -37,10 +43,7 @@ export default function AuthPage() {
     if (saved) {
       try {
         const data = JSON.parse(saved);
-        if (data.email) setEmail(data.email);
-        if (data.fullName) setFullName(data.fullName);
-        if (data.phone) setPhone(data.phone);
-        if (data.password) setPassword(data.password);
+        if (data.emailSent) setEmailSent(data.email);
         if (data.mode) setMode(data.mode);
         if (data.step) setStep(data.step);
       } catch (e) {
@@ -100,22 +103,34 @@ export default function AuthPage() {
     try {
       if (mode === "signup") {
         if (step === "details") {
-          if (!acceptedTerms) {
-            throw new Error("You must accept the Terms of Agreement to create an account.");
-          }
-
-          if (fullName.trim().length < 3) {
-            throw new Error("Please enter your full name.");
-          }
-
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          const passwordError = validatePassword(password);
+
+          if (fullName.trim().length === 0) {
+            throw new Error("Please enter your full name.");
+          } else if (fullName.trim().length < 3) {
+            throw new Error("Full name must be at least 3 characters long.");
+          }
+
+          if (phone) {
+            const digits = phone.replace(/\D/g, "");
+            if (digits.length < 4 || digits.length > 15) {
+              throw new Error("Phone number must be between 4 and 15 digits.");
+            }
+          } else {
+            throw new Error("Please enter your phone number.");
+          }
+
           if (!emailRegex.test(email)) {
             throw new Error("Please enter a valid email address.");
           }
 
-          const passwordError = validatePassword(password);
           if (passwordError) {
             throw new Error(passwordError);
+          }
+
+          if (!acceptedTerms) {
+            throw new Error("You must accept the Terms of Agreement to create an account.");
           }
 
           // Phase 1: Just send OTP
@@ -176,18 +191,28 @@ export default function AuthPage() {
             {mode === "signin"
               ? "Access your encrypted dashboard."
               : step === "verification"
-                ? `Enter the code sent to ${email}`
+                ? `Enter the code sent to ${emailSent}`
                 : "Active protection in under a minute."}
           </p>
 
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
             {mode === "signup" && step === "details" && (
               <>
-                <Field label="Full name" type="text" value={fullName} onChange={setFullName} required />
-                <Field label="Phone" type="tel" value={phone} onChange={setPhone} placeholder="+1 555 555 5555" />
-                <Field label="Email" type="email" value={email} onChange={setEmail} required />
+                <Field label="Full name" type="text" value={fullName} onChange={setFullName} />
+                <label className="block">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Phone <span className="text-red-500">*</span></span>
+                  <PhoneInput
+                    placeholder="Enter phone number"
+                    value={phone}
+                    onChange={setPhone}
+                    defaultCountry="US"
+                    international={false}
+                    className="phone-input-custom mt-2"
+                  />
+                </label>
+                <Field label="Email" type="email" value={email} onChange={setEmail} />
                 <div className="space-y-1">
-                  <Field label="Password" type="password" value={password} onChange={setPassword} required minLength={6} />
+                  <Field label="Password" type="password" value={password} onChange={setPassword} />
                 </div>
               </>
             )}
@@ -228,7 +253,6 @@ export default function AuthPage() {
                   type="checkbox"
                   checked={acceptedTerms}
                   onChange={(e) => setAcceptedTerms(e.target.checked)}
-                  required
                   className="mt-0.5 size-4 cursor-pointer accent-action"
                 />
                 <span className="font-mono text-[11px] leading-relaxed text-titanium-400">
@@ -294,13 +318,12 @@ function Field({
 
   return (
     <label className="block">
-      <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">{label}</span>
+      <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">{label} <span className="text-red-500">*</span></span>
       <div className="relative">
         <input
           type={type === 'password' ? typePassword ? 'text' : 'password' : type}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          required={required}
           minLength={minLength}
           placeholder={placeholder}
           className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action pr-12"

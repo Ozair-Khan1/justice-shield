@@ -12,11 +12,26 @@ function SetupContent() {
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [typePassword, setTypePassword] = useState(false);
+  const [typeConfirmPassword, setTypeConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const onSetup = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      return;
+    }
+    if (!/[0-9]/.test(password)) {
+      setError("Password must contain at least one number");
+      return;
+    }
+    if (!/[!@#$%^&*]/.test(password)) {
+      setError("Password must contain at least one special character");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -54,25 +69,41 @@ function SetupContent() {
       <div className="mt-8">
         <form onSubmit={onSetup} className="space-y-4">
           <label className="block">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">New Password</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-red-500"
-            />
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Password</span>
+            <div className="relative">
+              <input
+                type={typePassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action pr-12"
+              />
+
+              <button
+                type="button"
+                onClick={() => setTypePassword(!typePassword)}
+                className="absolute right-4 top-8 -translate-y-1/2 text-titanium-400 hover:text-titanium-200"
+              >
+                {typePassword ? <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-eye-closed-icon lucide-eye-closed"><path d="m15 18-.722-3.25" /><path d="M2 8a10.645 10.645 0 0 0 20 0" /><path d="m20 15-1.726-2.05" /><path d="m4 15 1.726-2.05" /><path d="m9 18 .722-3.25" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-eye-icon lucide-eye"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></svg>}
+              </button>
+            </div>
           </label>
           <label className="block">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Confirm Password</span>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-red-500"
-            />
+            <div className="relative">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Confirm Password</span>
+              <input
+                type={typeConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-red-500 pr-12"
+              />
+              <button
+                type="button"
+                onClick={() => setTypeConfirmPassword(!typeConfirmPassword)}
+                className="absolute right-4 top-14 -translate-y-1/2 text-titanium-400 hover:text-titanium-200"
+              >
+                {typeConfirmPassword ? <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-eye-closed-icon lucide-eye-closed"><path d="m15 18-.722-3.25" /><path d="M2 8a10.645 10.645 0 0 0 20 0" /><path d="m20 15-1.726-2.05" /><path d="m4 15 1.726-2.05" /><path d="m9 18 .722-3.25" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-eye-icon lucide-eye"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></svg>}
+              </button>
+            </div>
           </label>
 
           {error && (
@@ -89,8 +120,8 @@ function SetupContent() {
             {loading ? "Activating..." : "Activate Account →"}
           </button>
         </form>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }
 

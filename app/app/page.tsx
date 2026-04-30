@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { motion } from "framer-motion";
 
 interface SessionRow { id: string; encounter_type: string; status: string; started_at: string }
 interface IntakeRow { id: string; matter_type: string; subject: string; status: string; created_at: string }
@@ -14,23 +15,33 @@ export default function AppDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) return;
-    Promise.all([
-      supabase.from("encounter_sessions").select("id,encounter_type,status,started_at").order("started_at", { ascending: false }).limit(3),
-      supabase.from("civil_intakes").select("id,matter_type,subject,status,created_at").order("created_at", { ascending: false }).limit(3),
-    ]).then(([s, i]) => {
-      setSessions((s.data ?? []) as SessionRow[]);
-      setIntakes((i.data ?? []) as IntakeRow[]);
-      setLoading(false);
-    });
-  }, [user, supabase]);
+    async function fetchDashboardData() {
+      if (!user) return;
+      try {
+        const res = await fetch("/api/history");
+        const data = await res.json();
+        if (data.sessions) setSessions(data.sessions.slice(0, 3));
+        if (data.intakes) setIntakes(data.intakes.slice(0, 3));
+      } catch (err) {
+        console.error("Dashboard fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchDashboardData();
+  }, [user]);
 
   return (
-    <div className="space-y-12">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6 }}
+      className="space-y-12"
+    >
       <header>
         <span className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-action">Operations Console</span>
         <h1 className="mt-3 font-display text-4xl font-bold tracking-tight md:text-5xl">Standby. Shield armed.</h1>
-        <p className="mt-3 text-titanium-400">Welcome back, {user?.email}</p>
+        <p className="mt-3 text-titanium-400">Welcome back, {user?.full_name}</p>
       </header>
 
       <section className="grid gap-6 lg:grid-cols-2">
@@ -86,6 +97,6 @@ export default function AppDashboard() {
           </div>
         )}
       </section>
-    </div>
+    </motion.div>
   );
 }

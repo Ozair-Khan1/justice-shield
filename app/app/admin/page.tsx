@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Shield, Users, FileText, AlertTriangle, Briefcase, Clock } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import Link from "next/link";
+import { motion } from "framer-motion";
 
 interface Stats {
   userCount: number;
@@ -31,6 +33,21 @@ interface RecentVendor {
   created_at: string;
 }
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0 }
+};
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentUsers, setRecentUsers] = useState<RecentUser[]>([]);
@@ -58,12 +75,17 @@ export default function AdminDashboard() {
     { label: "SOS Sessions", value: stats?.sessionCount ?? 0, icon: Shield, color: "text-red-400" },
     { label: "Civil Intakes", value: stats?.intakeCount ?? 0, icon: FileText, color: "text-amber-400" },
     { label: "Emergency Alerts", value: stats?.alertCount ?? 0, icon: AlertTriangle, color: "text-orange-400" },
-    { label: "Vendor Applications", value: stats?.vendorCount ?? 0, icon: Briefcase, color: "text-emerald-400" },
-    { label: "Pending Vendors", value: stats?.pendingVendors ?? 0, icon: Clock, color: "text-purple-400" },
+    { label: "Vendor Applications", value: stats?.vendorCount ?? 0, icon: Briefcase, color: "text-emerald-400", href: "/app/admin/vendors" },
+    { label: "Pending Vendors", value: stats?.pendingVendors ?? 0, icon: Clock, color: "text-purple-400", href: "/app/admin/vendors" },
   ];
 
   return (
-    <div className="space-y-10">
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6 }}
+      className="space-y-10"
+    >
       <header>
         <span className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-red-500">
           Admin Panel
@@ -75,20 +97,37 @@ export default function AdminDashboard() {
       </header>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        {statCards.map((card) => (
-          <div
-            key={card.label}
-            className="rounded-sm border border-titanium-800 bg-titanium-900/50 p-4"
-          >
-            <card.icon className={`size-5 ${card.color}`} />
-            <p className="mt-3 font-display text-2xl font-bold">{card.value}</p>
-            <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-titanium-500">
-              {card.label}
-            </p>
-          </div>
-        ))}
-      </div>
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6"
+      >
+        {statCards.map((card) => {
+          const content = (
+            <motion.div
+              variants={itemVariants}
+              className="rounded-sm border border-titanium-800 bg-titanium-900/50 p-4 transition-colors hover:border-titanium-700 h-full cursor-pointer group"
+            >
+              <card.icon className={`size-5 transition-transform group-hover:scale-110 ${card.color}`} />
+              <p className="mt-3 font-display text-2xl font-bold">{card.value}</p>
+              <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-titanium-500">
+                {card.label}
+              </p>
+            </motion.div>
+          );
+
+          if (card.href) {
+            return (
+              <Link key={card.label} href={card.href}>
+                {content}
+              </Link>
+            );
+          }
+
+          return <div key={card.label}>{content}</div>;
+        })}
+      </motion.div>
 
       {/* Recent Users Table */}
       <section>
@@ -185,6 +224,6 @@ export default function AdminDashboard() {
           </table>
         </div>
       </section>
-    </div>
+    </motion.div>
   );
 }

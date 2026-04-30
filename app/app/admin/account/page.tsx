@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
+import PhoneInput from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
 
 export default function AdminAccountPage() {
     const { user, refreshUser } = useAuth();
@@ -12,39 +14,74 @@ export default function AdminAccountPage() {
     const [emergencyPhone, setEmergencyPhone] = useState("");
     const [password, setPassword] = useState("");
     const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [savedAt, setSavedAt] = useState<number | null>(null);
 
     useEffect(() => {
         if (!user) return;
         setEmail(user.email ?? "");
         setFullName(user.full_name ?? "");
-        setPhone(user.phone ?? "");
+
+        // Normalize phone numbers for react-phone-number-input (must start with +)
+        const normalize = (p: string | null) => {
+            if (!p) return "";
+            return p.startsWith("+") ? p : `+${p}`;
+        };
+
+        setPhone(normalize(user.phone));
         setEmergencyName(user.emergency_contact_name ?? "");
-        setEmergencyPhone(user.emergency_contact_phone ?? "");
+        setEmergencyPhone(normalize(user.emergency_contact_phone ?? ""));
     }, [user]);
 
     if (!user) return <div className="font-mono text-xs text-titanium-500">Loading...</div>;
 
     const onSave = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
+        setError(null);
+
+        // Validation
+        if (fullName.trim().length < 3) {
+            setError("Full name must be at least 3 characters long.");
+            return;
+        }
+
+        const phoneDigits = phone.replace(/\D/g, "");
+        if (phoneDigits.length < 4 || phoneDigits.length > 15) {
+            setError("Primary phone number must be between 4 and 15 digits.");
+            return;
+        }
+
+        if (emergencyPhone) {
+            const emergencyDigits = emergencyPhone.replace(/\D/g, "");
+            if (emergencyDigits.length < 4 || emergencyDigits.length > 15) {
+                setError("Emergency contact number must be between 4 and 15 digits.");
+                return;
+            }
+        }
 
         setSaving(true);
-        const res = await fetch("/api/auth/account", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                email: email,
-                full_name: fullName,
-                phone,
-                password: password,
-                emergency_contact_name: emergencyName,
-                emergency_contact_phone: emergencyPhone,
-            }),
-        });
-        setSaving(false);
-        if (res.ok) {
+        try {
+            const res = await fetch("/api/auth/account", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: email,
+                    full_name: fullName,
+                    phone,
+                    password: password,
+                    emergency_contact_name: emergencyName,
+                    emergency_contact_phone: emergencyPhone,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to save changes");
+
             setSavedAt(Date.now());
             await refreshUser();
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -62,7 +99,16 @@ export default function AdminAccountPage() {
                     <Field label="Email" type="email" required value={email} onChange={setEmail} />
                     <Field label="Password" type="password" value={password} onChange={setPassword} />
                     <Field label="Full Name" value={fullName} onChange={setFullName} />
-                    <Field label="Phone" value={phone} onChange={setPhone} />
+                    <Field label="Phone">
+                        <PhoneInput
+                            placeholder="Enter phone number"
+                            value={phone}
+                            onChange={(v) => setPhone(v ?? "")}
+                            defaultCountry="US"
+                            international={false}
+                            className="phone-input-custom mt-2"
+                        />
+                    </Field>
                 </div>
             </section>
 
@@ -71,7 +117,16 @@ export default function AdminAccountPage() {
                 <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-titanium-400">Emergency Contact</h2>
                 <div className="grid gap-5 sm:grid-cols-2">
                     <Field label="Contact Name" value={emergencyName} onChange={setEmergencyName} />
-                    <Field label="Contact Phone" value={emergencyPhone} onChange={setEmergencyPhone} />
+                    <Field label="Contact Phone">
+                        <PhoneInput
+                            placeholder="Enter phone number"
+                            value={emergencyPhone}
+                            onChange={(v) => setEmergencyPhone(v ?? "")}
+                            defaultCountry="US"
+                            international={false}
+                            className="phone-input-custom mt-2"
+                        />
+                    </Field>
                 </div>
             </section>
 
@@ -88,18 +143,27 @@ export default function AdminAccountPage() {
 
             {/* Save */}
             <div className="flex items-center gap-4">
-                <button
-                    type="submit"
-                    disabled={saving}
-                    className="rounded-sm bg-red-600 px-6 py-3 text-sm font-bold uppercase tracking-widest text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-                >
-                    {saving ? "Saving..." : "Save Changes"}
-                </button>
-                {savedAt && (
-                    <span className="font-mono text-[10px] text-emerald-500">
-                        ✓ Saved
-                    </span>
-                )}
+                <div className="flex flex-col gap-4">
+                    {error && (
+                        <div className="rounded-sm border border-red-500/40 bg-red-500/10 p-3 font-mono text-xs text-red-500">
+                            {error}
+                        </div>
+                    )}
+                    <div className="flex items-center gap-4">
+                        <button
+                            type="submit"
+                            disabled={saving}
+                            className="rounded-sm bg-red-600 px-6 py-3 text-sm font-bold uppercase tracking-widest text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+                        >
+                            {saving ? "Saving..." : "Save Changes"}
+                        </button>
+                        {savedAt && !error && (
+                            <span className="font-mono text-[10px] text-emerald-500">
+                                ✓ Saved
+                            </span>
+                        )}
+                    </div>
+                </div>
             </div>
         </form>
     );

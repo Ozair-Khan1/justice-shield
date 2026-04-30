@@ -39,7 +39,7 @@ export default function RefundsPage() {
               New members may request a full refund of their first membership payment within
               fourteen (14) days of initial signup, provided no SOS dispatch, civil intake, or
               attorney engagement has been initiated under the account. Refunds in this window
-              are issued to the original payment method within 5â€“10 business days.
+              are issued to the original payment method within 5-10 business days.
             </p>
           </section>
 

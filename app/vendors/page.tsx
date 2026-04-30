@@ -13,13 +13,33 @@ const vendorSchema = z.object({
   full_name: z.string().trim().min(3, "Please enter your full name").max(120),
   firm_name: z.string().trim().max(160).optional().or(z.literal("")),
   email: z.string().trim().email("Invalid email").max(255),
-  phone: z.string().trim().min(10, "Phone number is required").max(40),
+  phone: z.string().trim().refine((val) => {
+    const digits = val.replace(/\D/g, "");
+    return digits.length >= 4 && digits.length <= 15;
+  }, "Phone number must be between 4 and 15 digits"),
   location: z.string().trim().min(1, "Location is required").max(160),
-  website: z.string().trim().max(255).url("Invalid URL").optional().or(z.literal("")),
+  website: z.string().trim().max(255).optional().or(z.literal("")),
   specialties: z.string().trim().min(1, "Please specify your specialties").max(500),
-  bar_number: z.string().trim().min(1, "Bar number is required").max(60),
-  years_experience: z.coerce.number().int().min(0, "Must be 0 or more").max(80),
+  bar_number: z.string().trim().max(60).optional().or(z.literal("")),
+  years_experience: z.string().trim().optional().or(z.literal("")),
   message: z.string().trim().max(1500).optional().or(z.literal("")),
+}).superRefine((data, ctx) => {
+  if (data.vendor_type === "attorney") {
+    if (!data.bar_number || data.bar_number.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Bar number is required for attorneys",
+        path: ["bar_number"],
+      });
+    }
+    if (!data.years_experience || data.years_experience.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter your years of experience",
+        path: ["years_experience"],
+      });
+    }
+  }
 });
 
 export default function VendorsPage() {
@@ -33,10 +53,7 @@ export default function VendorsPage() {
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
-    if (!acceptedTerms) {
-      setError("You must accept the Terms of Agreement to apply.");
-      return;
-    }
+
     const fd = new FormData(e.currentTarget);
     const raw = {
       vendor_type: vendorType,
@@ -55,6 +72,11 @@ export default function VendorsPage() {
     const parsed = vendorSchema.safeParse(raw);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Invalid input");
+      return;
+    }
+
+    if (!acceptedTerms) {
+      setError("You must accept the Terms of Agreement to apply.");
       return;
     }
 
@@ -121,7 +143,7 @@ export default function VendorsPage() {
                   <Field name="firm_name" label={vendorType === "attorney" ? "Firm" : "Company"} />
                   <Field name="email" label="Email" type="email" />
                   <div className="block">
-                    <Label>Phone *</Label>
+                    <Label>Phone <span className="text-red-600">*</span></Label>
                     <div className="mt-2">
                       <PhoneInput
                         placeholder="Enter phone number"
@@ -153,7 +175,7 @@ export default function VendorsPage() {
                   </div>
                 )}
                 <label className="flex items-start gap-3">
-                  <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} required className="mt-0.5 size-4 cursor-pointer accent-action" />
+                  <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-0.5 size-4 cursor-pointer accent-action" />
                   <span className="font-mono text-[11px] leading-relaxed text-titanium-400">
                     I have read and agree to the{" "}
                     <Link href="/terms" target="_blank" className="text-action underline-offset-4 hover:underline">Terms of Agreement</Link>{" "}and{" "}
@@ -181,7 +203,7 @@ function Label({ children }: { children: React.ReactNode }) {
 function Field({ name, label, type = "text", required, placeholder }: { name: string; label: string; type?: string; required?: boolean; placeholder?: string }) {
   return (
     <label className="block">
-      <Label>{label}{required && " *"}</Label>
+      <Label>{label} {label === "Full name" || label === "Email" || label === "Bar number" || label === "Years of experience" || label === 'City / State' ? <span className="text-red-600">*</span> : ''}</Label>
       <input name={name} type={type} required={required} placeholder={placeholder}
         className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action" />
     </label>
@@ -191,7 +213,7 @@ function Field({ name, label, type = "text", required, placeholder }: { name: st
 function TextArea({ name, label, rows = 4, required }: { name: string; label: string; rows?: number; required?: boolean }) {
   return (
     <label className="block">
-      <Label>{label}{required && " *"}</Label>
+      <Label>{label} {label === "Practice areas / specialties" || label === "Marketing specialties (SEO, paid, brand, etc.)" ? <span className="text-red-600">*</span> : ''}</Label>
       <textarea name={name} rows={rows} required={required}
         className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action" />
     </label>

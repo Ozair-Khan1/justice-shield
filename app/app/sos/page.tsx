@@ -15,7 +15,7 @@ const ENCOUNTER_TYPES = [
 ] as const;
 
 export default function SOSPage() {
-  const { user, supabase } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const [stage, setStage] = useState<"select" | "armed" | "connecting">("select");
   const [encounterType, setEncounterType] = useState<string | null>(null);
@@ -43,21 +43,23 @@ export default function SOSPage() {
 
     setStage("connecting");
 
-    const { error: insertError } = await supabase
-      .from("encounter_sessions")
-      .insert({
-        user_id: user.id,
-        encounter_type: type,
-        status: "active",
-        location_lat: coords?.latitude ?? null,
-        location_lng: coords?.longitude ?? null,
-        attorney_name: "Patricia Ngo, Esq.",
-      })
-      .select()
-      .single();
+    try {
+      const res = await fetch("/api/sos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          encounter_type: type,
+          location_lat: coords?.latitude ?? null,
+          location_lng: coords?.longitude ?? null,
+        }),
+      });
 
-    if (insertError) {
-      setError(insertError.message);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      // Successfully connected
+    } catch (err: any) {
+      setError(err.message || "Failed to initiate emergency protocol");
       setStage("select");
       return;
     }

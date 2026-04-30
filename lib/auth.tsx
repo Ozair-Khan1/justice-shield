@@ -7,9 +7,9 @@ interface User {
   id: string;
   email: string;
   role: string;
-  full_name?: string | null;
-  phone?: string | null;
-  membership_tier?: string;
+  full_name: string;
+  phone: string;
+  membership_tier: string;
   emergency_contact_name?: string | null;
   emergency_contact_phone?: string | null;
 }

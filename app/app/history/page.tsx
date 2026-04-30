@@ -3,27 +3,54 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 
-interface Session { id: string; encounter_type: string; status: string; started_at: string; ended_at: string | null; attorney_name: string | null; location_lat: number | null; location_lng: number | null }
-interface Intake { id: string; matter_type: string; urgency: string; subject: string; status: string; created_at: string; assigned_attorney: string | null }
+interface Session {
+  id: string;
+  encounter_type: string;
+  status: string;
+  started_at: string;
+  ended_at: string | null;
+  attorney_name: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
+}
+
+interface Intake {
+  id: string;
+  matter_type: string;
+  urgency: string;
+  subject: string;
+  status: string;
+  created_at: string;
+  assigned_attorney: string | null;
+}
 
 export default function HistoryPage() {
-  const { user, supabase } = useAuth();
+  const { user } = useAuth();
   const [tab, setTab] = useState<"sos" | "civil">("sos");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [intakes, setIntakes] = useState<Intake[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) return;
-    Promise.all([
-      supabase.from("encounter_sessions").select("*").order("started_at", { ascending: false }),
-      supabase.from("civil_intakes").select("*").order("created_at", { ascending: false }),
-    ]).then(([s, i]) => {
-      setSessions((s.data ?? []) as Session[]);
-      setIntakes((i.data ?? []) as Intake[]);
-      setLoading(false);
-    });
-  }, [user, supabase]);
+    async function fetchHistory() {
+      if (!user) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/history");
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        setSessions(data.sessions || []);
+        setIntakes(data.intakes || []);
+      } catch (err: any) {
+        setError(err.message || "Failed to load history");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchHistory();
+  }, [user]);
 
   return (
     <div className="space-y-8">
@@ -45,6 +72,10 @@ export default function HistoryPage() {
 
       {loading ? (
         <div className="font-mono text-xs text-titanium-500">Loading...</div>
+      ) : error ? (
+        <div className="font-mono text-xs text-red-500 p-4 border border-red-500/20 bg-red-500/5 rounded-sm">
+          {error}
+        </div>
       ) : tab === "sos" ? (
         sessions.length === 0 ? <Empty label="No emergency sessions on record" /> : (
           <div className="divide-y divide-titanium-800 rounded-lg border border-titanium-800 bg-titanium-900/40">

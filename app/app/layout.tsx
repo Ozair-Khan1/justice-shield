@@ -5,17 +5,23 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { ShieldMark } from "@/components/ShieldMark";
 
-const navItems = [
-  { href: "/app", label: "Dashboard", exact: true },
-  { href: "/app/sos", label: "SOS" },
-  { href: "/app/civil", label: "Civil" },
-  { href: "/app/history", label: "History" },
-  { href: "/app/account", label: "Account" },
-];
-
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
+
+  const navItems = user?.role === "ATTORNEY"
+    ? [
+      { href: "/app/attorney", label: "Dashboard", exact: true },
+      { href: "/app/attorney/history", label: "All Records" },
+      { href: "/app/account", label: "Account" },
+    ]
+    : [
+      { href: "/app", label: "Dashboard", exact: true },
+      { href: "/app/sos", label: "SOS" },
+      { href: "/app/civil", label: "Civil" },
+      { href: "/app/history", label: "History" },
+      { href: "/app/account", label: "Account" },
+    ];
 
   if (pathname.startsWith("/app/admin")) {
     return <>{children}</>;
@@ -25,7 +31,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh bg-titanium-950 text-titanium-50">
       <nav className="sticky top-0 z-40 border-b border-titanium-800 bg-titanium-950/90 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/app" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5">
             <ShieldMark className="size-7 text-action" />
             <span className="font-display text-base font-bold uppercase italic tracking-tighter">
               Justice <span className="text-action">Shield</span>

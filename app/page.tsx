@@ -11,10 +11,10 @@ export default function HomePage() {
 
       <main>
         {/* HERO */}
-        <section className="relative overflow-hidden border-b border-titanium-800">
+        <section className="relative border-b border-titanium-800">
           <div className="absolute inset-0 tactical-grid opacity-40 [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
-          <div className="relative mx-auto grid max-w-7xl gap-16 px-6 pt-16 pb-24 lg:grid-cols-2 lg:items-center lg:pt-24">
-            <div className="space-y-8">
+          <div className="relative items-center justify-center mx-auto grid max-w-7xl gap-16 px-6 pt-16 pb-24 lg:grid-cols-2 lg:items-center lg:pt-24">
+            <div className="space-y-8 w-auto">
               <div className="inline-flex items-center gap-2 rounded-full border border-action/30 bg-action/5 px-3 py-1">
                 <span className="size-1.5 animate-pulse rounded-full bg-action" />
                 <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-action">
@@ -57,7 +57,7 @@ export default function HomePage() {
             </div>
 
             <div className="relative">
-              <div className="absolute -inset-4 -z-10 rounded-3xl bg-gradient-to-tr from-action/10 via-transparent to-transparent" />
+              <div className="-inset-4 -z-10 rounded-3xl bg-gradient-to-tr from-action/10 via-transparent to-transparent" />
               <DualModePanel />
             </div>
           </div>

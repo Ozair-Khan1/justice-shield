@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJwt, getAuthToken } from "@/lib/jwt";
-import { sendRejectionEmail, sendVendorWelcomeEmail } from "@/lib/mail";
+import { sendRejectionEmail, sendVendorWelcomeEmail, sendMarketingWelcomeEmail } from "@/lib/mail";
 
 export async function GET(req: Request) {
   try {
@@ -13,11 +13,11 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const vendors = await prisma.vendorApplication.findMany({
+    const applications = await prisma.vendorApplication.findMany({
       orderBy: { created_at: "desc" },
     });
 
-    return NextResponse.json({ vendors });
+    return NextResponse.json({ applications });
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
@@ -58,7 +58,7 @@ export async function PATCH(req: Request) {
         await tx.user.update({
           where: { email: application.email },
           data: {
-            role: "ATTORNEY",
+            role: application.vendor_type === "ATTORNEY" ? "ATTORNEY" : "USER",
             membership_tier: 'basic',
           },
         });
@@ -67,7 +67,11 @@ export async function PATCH(req: Request) {
 
     if (status === "approved") {
       try {
-        await sendVendorWelcomeEmail(application.email, application.full_name);
+        if (application.vendor_type === "ATTORNEY") {
+          await sendVendorWelcomeEmail(application.email, application.full_name);
+        } else {
+          await sendMarketingWelcomeEmail(application.email, application.full_name);
+        }
       } catch (emailError) {
         console.error("Failed to send welcome email:", emailError);
         // We don't fail the whole request since the DB is updated, but we log it
