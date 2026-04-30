@@ -105,7 +105,8 @@ export default function AttorneyHistoryPage() {
   const filteredCivil = civilIntakes.filter(i =>
     i.user.full_name?.toLowerCase().includes(search.toLowerCase()) ||
     i.user.email.toLowerCase().includes(search.toLowerCase()) ||
-    i.subject.toLowerCase().includes(search.toLowerCase())
+    i.subject.toLowerCase().includes(search.toLowerCase()) ||
+    i.matter_type.toLowerCase().includes(search.toLowerCase())
   );
 
   if (loading) {
@@ -213,6 +214,7 @@ export default function AttorneyHistoryPage() {
           </div>
         </section>
       </div>
+
       <AnimatePresence>
         {selectedIntake && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/80 p-4 backdrop-blur-sm">
