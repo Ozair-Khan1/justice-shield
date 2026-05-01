@@ -45,6 +45,13 @@ export default function TermsPage() {
           </section>
 
           <section>
+            <h2 className="font-display text-2xl font-bold text-titanium-50">2.2 Member discount on attorney hourly rates</h2>
+            <p className="mt-3">
+              As a membership benefit, members receive a 25% discount off the network attorney's standard hourly rate for work performed during a covered case that falls outside the complimentary services described in Section 2.1. The discount applies only while membership is active and in good standing, is calculated against the attorney's then-current standard hourly rate, and cannot be combined with other promotions, contingency arrangements, flat-fee engagements, or court-awarded fees. Eligibility, scope of the covered case, and acceptance of representation remain subject to the attorney's independent professional judgment, conflict-of-interest checks, and a separate written engagement agreement between the member and the attorney. Justice Shield does not set legal fees, does not receive a portion of attorney fees, and may modify or discontinue this benefit at any time on a prospective basis.
+            </p>
+          </section>
+
+          <section>
             <h2 className="font-display text-2xl font-bold text-titanium-50">3. Eligibility</h2>
             <p className="mt-3">
               You must be at least 18 years old and able to enter into a binding contract to use the Service. By registering, you represent that the information you provide is accurate and complete.
