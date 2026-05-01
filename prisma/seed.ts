@@ -15,10 +15,23 @@ async function main() {
 
   const password_hash = await bcrypt.hash(adminPassword, 12);
 
-  const admin = await prisma.user.delete({
-    where: { email: 'admin@test' },
+  const admin = await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: {
+      password_hash,
+      role: "ADMIN",
+      full_name: "Platform Admin",
+    },
+    create: {
+      email: adminEmail,
+      password_hash,
+      role: "ADMIN",
+      full_name: "Platform Admin",
+      membership_tier: "enterprise",
+    },
   });
-  console.log(`✅ Admin ${admin.email} is deleted`);
+
+  console.log(`✅ Admin ${admin.email} is ready (Created or Updated)`);
 }
 
 main()
