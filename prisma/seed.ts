@@ -11,19 +11,18 @@ async function main() {
     throw new Error("❌ Missing ADMIN_EMAIL or ADMIN_PASS in .env file");
   }
 
-  // Check if admin already exists
-  const existing = await prisma.user.findUnique({
-    where: { email: adminEmail },
-  });
-
-  if (existing) {
-    return;
-  }
+  console.log(`Checking admin: ${adminEmail}`);
 
   const password_hash = await bcrypt.hash(adminPassword, 12);
 
-  const admin = await prisma.user.create({
-    data: {
+  const admin = await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: {
+      password_hash,
+      role: "ADMIN",
+      full_name: "Platform Admin",
+    },
+    create: {
       email: adminEmail,
       password_hash,
       role: "ADMIN",
@@ -31,6 +30,8 @@ async function main() {
       membership_tier: "enterprise",
     },
   });
+
+  console.log(`✅ Admin ${admin.email} is ready (Created or Updated)`);
 }
 
 main()
