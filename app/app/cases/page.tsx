@@ -136,7 +136,7 @@ export default function CasesPage() {
                           </div>
                         )}
                       </div>
-                      
+
                       <div className="space-y-3">
                         {c.attorney.phone && (
                           <div className="flex items-center gap-3">

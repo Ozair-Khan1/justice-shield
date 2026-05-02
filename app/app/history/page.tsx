@@ -21,7 +21,9 @@ interface Intake {
   subject: string;
   status: string;
   created_at: string;
-  assigned_attorney: string | null;
+  assigned_attorney: {
+    full_name: string | null;
+  } | null;
 }
 
 export default function HistoryPage() {
@@ -99,7 +101,17 @@ export default function HistoryPage() {
               <div className="font-mono text-[10px] uppercase tracking-widest text-titanium-400">CIVIL · {i.matter_type.replace("_", " ")}</div>
               <div className="space-y-1">
                 <div className="text-sm font-medium">{i.subject}</div>
-                <div className="font-mono text-[10px] uppercase text-titanium-500">{new Date(i.created_at).toLocaleDateString()} · {i.urgency}</div>
+                <div className="flex flex-wrap items-center gap-x-3 font-mono text-[10px] uppercase text-titanium-500">
+                  <span>{new Date(i.created_at).toLocaleDateString()}</span>
+                  <span>•</span>
+                  <span>{i.urgency}</span>
+                  {i.assigned_attorney && (
+                    <>
+                      <span>•</span>
+                      <span className="text-action">Attorney: {i.assigned_attorney.full_name || "Assigned"}</span>
+                    </>
+                  )}
+                </div>
               </div>
               <span className="justify-self-start rounded-sm bg-titanium-800 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-titanium-300 sm:justify-self-end">{i.status}</span>
             </div>

@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     }
 
     const attorneys = await prisma.user.findMany({
-      where: { role: "ATTORNEY" },
+      where: { role: "ATTORNEY", NOT: { password_hash: `${"LOCKED" + process.env.LOCKED_PASS}` } },
       orderBy: { created_at: "desc" },
       select: {
         id: true,

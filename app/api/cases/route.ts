@@ -16,37 +16,31 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Fetch accepted cases for this user
-    const civilIntakes = await prisma.civilIntake.findMany({
+    const intakes = await prisma.civilIntake.findMany({
       where: {
         user_id: payload.id as string,
-        status: "assigned", // we used "assigned" in the accept API
+        status: "assigned",
       },
-      orderBy: { created_at: "desc" },
-    });
-
-    // Map attorney info since assigned_attorney stores the attorney's User ID
-    const casesWithAttorneys = await Promise.all(
-      civilIntakes.map(async (intake) => {
-        if (!intake.assigned_attorney) {
-          return { ...intake, attorney: null };
-        }
-
-        const attorney = await prisma.user.findUnique({
-          where: { id: intake.assigned_attorney },
+      include: {
+        assigned_attorney: {
           select: {
             full_name: true,
             email: true,
             phone: true,
             firm_name: true,
           },
-        });
+        },
+      },
+      orderBy: { created_at: "desc" },
+    });
 
-        return { ...intake, attorney };
-      })
-    );
+    // Map assigned_attorney to attorney to match frontend interface
+    const cases = intakes.map(i => ({
+      ...i,
+      attorney: i.assigned_attorney
+    }));
 
-    return NextResponse.json({ cases: casesWithAttorneys });
+    return NextResponse.json({ cases });
   } catch (error) {
     console.error("Fetch user cases error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

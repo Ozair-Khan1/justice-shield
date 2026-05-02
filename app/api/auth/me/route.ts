@@ -28,9 +28,31 @@ export async function GET(req: Request) {
         membership_tier: true,
         emergency_contact_name: true,
         emergency_contact_phone: true,
-        emergency_alerts: true,
-        encounter_sessions: true,
-        civil_intakes: true,
+        emergency_alerts: {
+          select: {
+            id: true,
+            contact_name: true,
+            contact_phone: true,
+            message: true,
+            sent_at: true,
+          }
+        },
+        encounter_sessions: {
+          select: {
+            id: true,
+            encounter_type: true,
+            status: true,
+            started_at: true,
+          }
+        },
+        civil_intakes: {
+          select: {
+            id: true,
+            matter_type: true,
+            status: true,
+            created_at: true,
+          }
+        },
       },
     });
 
@@ -72,9 +94,9 @@ export async function PUT(req: Request) {
       },
     });
 
-    return NextResponse.json(updatedUser);
+    return NextResponse.json({ user: updatedUser });
   } catch (error) {
-    return NextResponse.json({ error: "Error updating profile" }, { status: 500 });
+    console.error("Update profile error:", error);
+    return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
   }
 }
-

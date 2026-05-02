@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Shield, Users, FileText, AlertTriangle, Briefcase, Clock } from "lucide-react";
+import { Shield, Users, FileText, AlertTriangle, Briefcase, Clock, MapPin, User as UserIcon, RefreshCw, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Stats {
   userCount: number;
@@ -33,6 +33,42 @@ interface RecentVendor {
   created_at: string;
 }
 
+interface SOSSession {
+  id: string;
+  encounter_type: string;
+  status: string;
+  started_at: string;
+  location_address: string | null;
+  user: {
+    full_name: string | null;
+    email: string;
+  };
+}
+
+interface CivilIntake {
+  id: string;
+  matter_type: string;
+  subject: string;
+  status: string;
+  created_at: string;
+  user: {
+    full_name: string | null;
+    email: string;
+  };
+}
+
+interface EmergencyAlert {
+  id: string;
+  contact_name: string | null;
+  contact_phone: string | null;
+  message: string | null;
+  sent_at: string;
+  user: {
+    full_name: string | null;
+    email: string;
+  };
+}
+
 const containerVariants = {
   hidden: { opacity: 0 },
   show: {
@@ -52,31 +88,59 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentUsers, setRecentUsers] = useState<RecentUser[]>([]);
   const [recentVendors, setRecentVendors] = useState<RecentVendor[]>([]);
+  const [sosSessions, setSosSessions] = useState<SOSSession[]>([]);
+  const [civilIntakes, setCivilIntakes] = useState<CivilIntake[]>([]);
+  const [emergencyAlerts, setEmergencyAlerts] = useState<EmergencyAlert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedView, setSelectedView] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState<string | null>(null);
+
+  const fetchData = async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const res = await fetch("/api/admin/stats");
+      const data = await res.json();
+      setStats(data.stats);
+      setRecentUsers(data.recentUsers ?? []);
+      setRecentVendors(data.recentVendors ?? []);
+      setSosSessions(data.sosSessions ?? []);
+      setCivilIntakes(data.civilIntakes ?? []);
+      setEmergencyAlerts(data.emergencyAlerts ?? []);
+    } catch (error) {
+      console.error("Fetch admin stats error:", error);
+    } finally {
+      if (!silent) setLoading(false);
+      setRefreshing(null);
+    }
+  };
 
   useEffect(() => {
-    fetch("/api/admin/stats")
-      .then((res) => res.json())
-      .then((data) => {
-        setStats(data.stats);
-        setRecentUsers(data.recentUsers ?? []);
-        setRecentVendors(data.recentVendors ?? []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    fetchData();
   }, []);
 
+  const handleRefresh = (id: string) => {
+    setRefreshing(id);
+    fetchData(true);
+  };
+
   if (loading) {
-    return <div className="font-mono text-xs text-titanium-500">Loading admin data...</div>;
+    return (
+      <div className="flex h-[400px] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="size-8 animate-spin text-red-500" />
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-titanium-500">Accessing Central Command...</span>
+        </div>
+      </div>
+    );
   }
 
   const statCards = [
-    { label: "Total Users", value: stats?.userCount ?? 0, icon: Users, color: "text-blue-400" },
-    { label: "SOS Sessions", value: stats?.sessionCount ?? 0, icon: Shield, color: "text-red-400" },
-    { label: "Civil Intakes", value: stats?.intakeCount ?? 0, icon: FileText, color: "text-amber-400" },
-    { label: "Emergency Alerts", value: stats?.alertCount ?? 0, icon: AlertTriangle, color: "text-orange-400" },
-    { label: "Vendor Applications", value: stats?.vendorCount ?? 0, icon: Briefcase, color: "text-emerald-400", href: "/app/admin/vendors" },
-    { label: "Pending Vendors", value: stats?.pendingVendors ?? 0, icon: Clock, color: "text-purple-400", href: "/app/admin/vendors" },
+    { id: "users", label: "Total Users", value: stats?.userCount ?? 0, icon: Users, color: "text-blue-400", href: "/app/admin/users" },
+    { id: "sos", label: "SOS Sessions", value: stats?.sessionCount ?? 0, icon: Shield, color: "text-red-400" },
+    { id: "civil", label: "Civil Intakes", value: stats?.intakeCount ?? 0, icon: FileText, color: "text-amber-400" },
+    { id: "alerts", label: "Emergency Alerts", value: stats?.alertCount ?? 0, icon: AlertTriangle, color: "text-orange-400" },
+    { id: "vendors", label: "Vendor Apps", value: stats?.vendorCount ?? 0, icon: Briefcase, color: "text-emerald-400", href: "/app/admin/vendors" },
+    { id: "pending", label: "Pending Vendors", value: stats?.pendingVendors ?? 0, icon: Clock, color: "text-purple-400", href: "/app/admin/vendors" },
   ];
 
   return (
@@ -84,16 +148,29 @@ export default function AdminDashboard() {
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
-      className="space-y-10"
+      className="space-y-10 pb-20"
     >
-      <header>
-        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-red-500">
-          Admin Panel
-        </span>
-        <h1 className="mt-3 font-display text-4xl font-bold tracking-tight">Platform Overview</h1>
-        <p className="mt-2 text-sm text-titanium-400">
-          Real-time statistics and recent activity across the platform.
-        </p>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-red-500">
+            Admin Panel
+          </span>
+          <h1 className="mt-3 font-display text-4xl font-bold tracking-tight">Platform Overview</h1>
+          <p className="mt-2 text-sm text-titanium-400">
+            Real-time statistics and recent activity across the platform.
+          </p>
+        </div>
+        <button
+          onClick={() => handleRefresh("all")}
+          className="group flex items-center gap-2 rounded-sm border border-titanium-800 bg-titanium-900/50 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500 transition-all hover:border-action/50 hover:text-action"
+        >
+          {refreshing === "all" ? (
+            <Loader2 className="size-3 animate-spin text-action" />
+          ) : (
+            <RefreshCw className="size-3 transition-transform group-hover:rotate-180" />
+          )}
+          Refresh
+        </button>
       </header>
 
       {/* Stat Cards */}
@@ -104,12 +181,16 @@ export default function AdminDashboard() {
         className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6"
       >
         {statCards.map((card) => {
+          const isSelected = selectedView === card.id;
           const content = (
             <motion.div
               variants={itemVariants}
-              className="rounded-sm border border-titanium-800 bg-titanium-900/50 p-4 transition-colors hover:border-titanium-700 h-full cursor-pointer group"
+              onClick={() => !card.href && setSelectedView(isSelected ? null : card.id)}
+              className={`rounded-sm border p-4 transition-all h-full cursor-pointer group ${isSelected
+                ? "border-action bg-action/5 shadow-[0_0_20px_rgba(var(--action-rgb),0.1)]"
+                : "border-titanium-800 bg-titanium-900/50 hover:border-titanium-700"}`}
             >
-              <card.icon className={`size-5 transition-transform group-hover:scale-110 ${card.color}`} />
+              <card.icon className={`size-5 transition-transform group-hover:scale-110 ${isSelected ? "text-action" : card.color}`} />
               <p className="mt-3 font-display text-2xl font-bold">{card.value}</p>
               <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-titanium-500">
                 {card.label}
@@ -129,11 +210,158 @@ export default function AdminDashboard() {
         })}
       </motion.div>
 
+      {/* Dynamic Detail View */}
+      <AnimatePresence mode="wait">
+        {selectedView === "sos" && (
+          <motion.section
+            key="sos-view"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="space-y-6 overflow-hidden"
+          >
+            <div className="flex items-center justify-between border-b border-titanium-800 pb-4">
+              <div className="flex items-center gap-3">
+                <h2 className="font-display text-xl font-bold text-red-400">Recent SOS Sessions</h2>
+                <button onClick={() => handleRefresh("sos")} className="p-1 text-titanium-600 hover:text-red-500 transition-colors">
+                  <RefreshCw className={`size-3.5 ${refreshing === "sos" ? "animate-spin text-red-500" : ""}`} />
+                </button>
+              </div>
+              <button onClick={() => setSelectedView(null)} className="font-mono text-[10px] uppercase tracking-widest text-titanium-500 hover:text-titanium-300">Close</button>
+            </div>
+            <div className="grid gap-4">
+              {sosSessions.map((s) => (
+                <div key={s.id} className="rounded-sm border border-titanium-800 bg-titanium-900/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-red-500">{s.encounter_type.replace("_", " ")}</span>
+                      <span className={`text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full border ${s.status === "active" ? "border-red-500/30 text-red-400 bg-red-500/5" : "border-titanium-700 text-titanium-500"}`}>
+                        {s.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-titanium-200">
+                      <UserIcon className="size-3.5 text-titanium-500" />
+                      {s.user.full_name || s.user.email}
+                    </div>
+                  </div>
+                  <div className="space-y-1 sm:text-right">
+                    <div className="flex items-center gap-2 text-xs text-titanium-400 sm:justify-end">
+                      <MapPin className="size-3.5" />
+                      {s.location_address || "No location info"}
+                    </div>
+                    <div className="font-mono text-[10px] text-titanium-600 uppercase tracking-widest">
+                      {new Date(s.started_at).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {sosSessions.length === 0 && <p className="text-center py-8 text-titanium-600 font-mono text-[10px] uppercase tracking-widest">No SOS sessions recorded</p>}
+            </div>
+          </motion.section>
+        )}
+
+        {selectedView === "civil" && (
+          <motion.section
+            key="civil-view"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="space-y-6 overflow-hidden"
+          >
+            <div className="flex items-center justify-between border-b border-titanium-800 pb-4">
+              <div className="flex items-center gap-3">
+                <h2 className="font-display text-xl font-bold text-amber-400">Recent Civil Intakes</h2>
+                <button onClick={() => handleRefresh("civil")} className="p-1 text-titanium-600 hover:text-amber-500 transition-colors">
+                  <RefreshCw className={`size-3.5 ${refreshing === "civil" ? "animate-spin text-amber-500" : ""}`} />
+                </button>
+              </div>
+              <button onClick={() => setSelectedView(null)} className="font-mono text-[10px] uppercase tracking-widest text-titanium-500 hover:text-titanium-300">Close</button>
+            </div>
+            <div className="grid gap-4">
+              {civilIntakes.map((i) => (
+                <div key={i.id} className="rounded-sm border border-titanium-800 bg-titanium-900/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-500">{i.matter_type.replace("_", " ")}</span>
+                      <span className={`text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full border border-titanium-700 text-titanium-500`}>
+                        {i.status}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-bold text-titanium-100">{i.subject}</h3>
+                    <div className="flex items-center gap-2 text-xs text-titanium-400">
+                      <UserIcon className="size-3.5 text-titanium-500" />
+                      {i.user.full_name || i.user.email}
+                    </div>
+                  </div>
+                  <div className="sm:text-right">
+                    <div className="font-mono text-[10px] text-titanium-600 uppercase tracking-widest">
+                      {new Date(i.created_at).toLocaleString()}
+                    </div>
+                    <Link href="/app/admin/cases" className="mt-2 inline-block font-mono text-[9px] uppercase tracking-widest text-action hover:underline">View in Dispatch</Link>
+                  </div>
+                </div>
+              ))}
+              {civilIntakes.length === 0 && <p className="text-center py-8 text-titanium-600 font-mono text-[10px] uppercase tracking-widest">No civil intakes yet</p>}
+            </div>
+          </motion.section>
+        )}
+
+        {selectedView === "alerts" && (
+          <motion.section
+            key="alerts-view"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="space-y-6 overflow-hidden"
+          >
+            <div className="flex items-center justify-between border-b border-titanium-800 pb-4">
+              <div className="flex items-center gap-3">
+                <h2 className="font-display text-xl font-bold text-orange-400">Emergency Alerts</h2>
+                <button onClick={() => handleRefresh("alerts")} className="p-1 text-titanium-600 hover:text-orange-500 transition-colors">
+                  <RefreshCw className={`size-3.5 ${refreshing === "alerts" ? "animate-spin text-orange-500" : ""}`} />
+                </button>
+              </div>
+              <button onClick={() => setSelectedView(null)} className="font-mono text-[10px] uppercase tracking-widest text-titanium-500 hover:text-titanium-300">Close</button>
+            </div>
+            <div className="grid gap-4">
+              {emergencyAlerts.map((a) => (
+                <div key={a.id} className="rounded-sm border border-orange-500/20 bg-orange-500/5 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-orange-500">Contact: {a.contact_name || "Primary"}</span>
+                      <span className="text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full border border-orange-500/20 text-orange-400 font-mono">
+                        {a.contact_phone}
+                      </span>
+                    </div>
+                    <p className="text-sm text-titanium-200 italic">"{a.message || "No message provided"}"</p>
+                    <div className="flex items-center gap-2 text-sm text-titanium-400">
+                      <UserIcon className="size-3.5 text-titanium-500" />
+                      {a.user.full_name || a.user.email}
+                    </div>
+                  </div>
+                  <div className="space-y-1 sm:text-right">
+                    <div className="font-mono text-[10px] text-titanium-600 uppercase tracking-widest">
+                      {new Date(a.sent_at).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {emergencyAlerts.length === 0 && <p className="text-center py-8 text-titanium-600 font-mono text-[10px] uppercase tracking-widest">No emergency alerts active</p>}
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
+
       {/* Recent Users Table */}
-      <section>
-        <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-titanium-400">
-          Recent Users
-        </h2>
+      <section className="space-y-4">
+        <div className="flex items-center gap-3 border-b border-titanium-800 pb-2">
+          <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-titanium-400">
+            Recent Users
+          </h2>
+          <button onClick={() => handleRefresh("recent-users")} className="p-1 text-titanium-600 hover:text-blue-400 transition-colors">
+            <RefreshCw className={`size-3 ${refreshing === "recent-users" ? "animate-spin text-blue-400" : ""}`} />
+          </button>
+        </div>
         <div className="mt-4 overflow-x-auto rounded-sm border border-titanium-800">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-titanium-800 bg-titanium-900/60">
@@ -177,10 +405,15 @@ export default function AdminDashboard() {
       </section>
 
       {/* Recent Vendor Applications */}
-      <section>
-        <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-titanium-400">
-          Recent Vendor Applications
-        </h2>
+      <section className="space-y-4">
+        <div className="flex items-center gap-3 border-b border-titanium-800 pb-2">
+          <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-titanium-400">
+            Recent Vendor Applications
+          </h2>
+          <button onClick={() => handleRefresh("recent-vendors")} className="p-1 text-titanium-600 hover:text-emerald-500 transition-colors">
+            <RefreshCw className={`size-3 ${refreshing === "recent-vendors" ? "animate-spin text-emerald-500" : ""}`} />
+          </button>
+        </div>
         <div className="mt-4 overflow-x-auto rounded-sm border border-titanium-800">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-titanium-800 bg-titanium-900/60">

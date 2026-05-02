@@ -37,7 +37,8 @@ model User {
   updated_at              DateTime           @updatedAt
 
   encounter_sessions      EncounterSession[]
-  civil_intakes           CivilIntake[]
+  civil_intakes           CivilIntake[]      @relation("UserIntakes")
+  assigned_intakes        CivilIntake[]      @relation("AttorneyIntakes")
   emergency_alerts        EmergencyAlert[]
 
   @@index([role])
@@ -68,19 +69,25 @@ model EncounterSession {
 model CivilIntake {
   id                String   @id @default(uuid())
   user_id           String
-  user              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user              User     @relation("UserIntakes", fields: [user_id], references: [id], onDelete: Cascade)
   matter_type       String
   urgency           String   @default("standard")
   subject           String
   description       String
   preferred_contact String   @default("phone")
-  status            String   @default("pending")
-  assigned_attorney String?
+  status            String   @default("pending") // "pending", "reviewing", "active", "resolved", "rejected"
+  
+  assigned_attorney_id String?
+  assigned_attorney    User?    @relation("AttorneyIntakes", fields: [assigned_attorney_id], references: [id])
+  
+  metadata          Json?
+  
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
 
   @@index([user_id])
   @@index([status])
+  @@index([assigned_attorney_id])
 }
 
 model EmergencyAlert {

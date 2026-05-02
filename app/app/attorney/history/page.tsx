@@ -61,7 +61,9 @@ export default function AttorneyHistoryPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setSosSessions(data.sosSessions || []);
-      setCivilIntakes(data.civilIntakes || []);
+      // Combine pending and assigned cases for the "All Records" history view
+      const allIntakes = [...(data.pendingCases || [])];
+      setCivilIntakes(allIntakes);
     } catch (err: any) {
       setError(err.message || "Failed to load records");
     } finally {
@@ -134,7 +136,7 @@ export default function AttorneyHistoryPage() {
         <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-titanium-500" />
         <input
           type="text"
-          placeholder="Search by member name, email, or case type..."
+          placeholder="Search by member name, email"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full rounded-sm border border-titanium-800 bg-titanium-900/50 py-4 pl-12 pr-4 font-mono text-xs text-titanium-50 outline-none focus:border-action"

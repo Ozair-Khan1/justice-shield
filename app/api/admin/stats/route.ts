@@ -48,12 +48,70 @@ export async function GET(req: Request) {
       },
     });
 
+    const sosSessions = await prisma.encounterSession.findMany({
+      orderBy: { started_at: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        encounter_type: true,
+        status: true,
+        started_at: true,
+        location_address: true,
+        user: {
+          select: {
+            full_name: true,
+            email: true,
+          }
+        }
+      }
+    });
+
+    const civilIntakes = await prisma.civilIntake.findMany({
+      orderBy: { created_at: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        matter_type: true,
+        subject: true,
+        status: true,
+        created_at: true,
+        user: {
+          select: {
+            full_name: true,
+            email: true,
+          }
+        }
+      }
+    });
+
+    const emergencyAlerts = await prisma.emergencyAlert.findMany({
+      orderBy: { sent_at: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        contact_name: true,
+        contact_phone: true,
+        message: true,
+        sent_at: true,
+        user: {
+          select: {
+            full_name: true,
+            email: true,
+          }
+        }
+      }
+    });
+
     return NextResponse.json({
       stats: { userCount, sessionCount, intakeCount, alertCount, vendorCount, pendingVendors },
       recentUsers,
       recentVendors,
+      sosSessions,
+      civilIntakes,
+      emergencyAlerts,
     });
-  } catch {
+  } catch (error) {
+    console.error("Admin stats error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -28,7 +28,7 @@ export async function GET(req: Request) {
     // Fetch accepted cases for this attorney
     const civilIntakes = await prisma.civilIntake.findMany({
       where: {
-        assigned_attorney: user.id,
+        assigned_attorney_id: user.id,
         status: "assigned",
       },
       orderBy: { created_at: "desc" },

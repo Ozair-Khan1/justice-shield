@@ -3,8 +3,19 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const specialty = searchParams.get("specialty");
+
     const attorneys = await prisma.user.findMany({
-      where: { role: "ATTORNEY" },
+      where: {
+        role: "ATTORNEY",
+        ...(specialty ? {
+          specialties: {
+            contains: specialty,
+            mode: "insensitive"
+          }
+        } : {})
+      },
       orderBy: { full_name: "asc" },
       select: {
         id: true,

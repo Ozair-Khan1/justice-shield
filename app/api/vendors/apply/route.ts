@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       prisma.user.create({
         data: {
           email,
-          password_hash: "LOCKED_" + Math.random().toString(36),
+          password_hash: `${'LOCKED' + process.env.LOCKED_PASS}`,
           full_name,
           phone: phone || null,
           role: "USER",

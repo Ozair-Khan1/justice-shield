@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { Scale, Phone, Mail, MapPin, User as UserIcon, AlertCircle, Loader2 } from "lucide-react";
+import { Scale, Phone, Mail, MapPin, User as UserIcon, AlertCircle, Loader2, CheckCircle2, RefreshCw } from "lucide-react";
 import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
 
 interface CaseUser {
   full_name: string | null;
@@ -28,23 +29,46 @@ export default function AttorneyCasesPage() {
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+
+  const fetchCases = async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const res = await fetch("/api/attorney/my-cases");
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setCases(data.cases || []);
+    } catch (err: any) {
+      setError(err.message || "Failed to load your cases");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchCases() {
-      if (!user) return;
-      try {
-        const res = await fetch("/api/attorney/my-cases");
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        setCases(data.cases || []);
-      } catch (err: any) {
-        setError(err.message || "Failed to load your cases");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchCases();
+    if (user) fetchCases();
   }, [user]);
+
+  const handleResolveCase = async (intakeId: string) => {
+    setResolvingId(intakeId);
+    try {
+      const res = await fetch(`/api/cases/${intakeId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "resolved" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to resolve case");
+
+      // Update local state
+      setCases(prev => prev.map(c => c.id === intakeId ? { ...c, status: "resolved" } : c));
+      fetchCases()
+    } catch (err: any) {
+      alert(err.message || "An error occurred");
+    } finally {
+      setResolvingId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -63,6 +87,9 @@ export default function AttorneyCasesPage() {
         <AlertCircle className="mx-auto size-12 text-red-500 opacity-50" />
         <h2 className="mt-6 font-display text-2xl font-bold text-titanium-50">Access Restricted</h2>
         <p className="mt-2 text-titanium-400 max-w-md mx-auto">{error}</p>
+        <Button onClick={() => fetchCases()} variant="link" className="mt-4 font-mono text-[10px] uppercase tracking-widest text-action">
+          Retry Authentication
+        </Button>
       </div>
     );
   }
@@ -74,15 +101,24 @@ export default function AttorneyCasesPage() {
       transition={{ duration: 0.6 }}
       className="space-y-12"
     >
-      <header className="relative">
-        <div className="absolute -left-4 top-0 h-full w-1 bg-action/50 blur-[2px]" />
-        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.4em] text-action">Counselor Console</span>
-        <h1 className="mt-3 font-display text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
-          My <span className="text-titanium-500">Cases</span>
-        </h1>
-        <p className="mt-4 max-w-2xl text-titanium-400 leading-relaxed">
-          Manage the civil matters you have accepted. Review case details and reach out to clients using their preferred contact method.
-        </p>
+      <header className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between relative">
+        <div className="relative">
+          <div className="absolute -left-4 top-0 h-full w-1 bg-action/50 blur-[2px]" />
+          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.4em] text-action">Counselor Console</span>
+          <h1 className="mt-3 font-display text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
+            My <span className="text-titanium-500">Cases</span>
+          </h1>
+          <p className="mt-4 max-w-2xl text-titanium-400 leading-relaxed">
+            Manage the civil matters you have accepted. Review case details and reach out to clients using their preferred contact method.
+          </p>
+        </div>
+        <button
+          onClick={() => fetchCases(true)}
+          className="group flex items-center gap-2 rounded-sm border border-titanium-800 bg-titanium-900/50 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500 transition-all hover:border-action/50 hover:text-action"
+        >
+          <RefreshCw className="size-3 transition-transform group-hover:rotate-180" />
+          Refresh
+        </button>
       </header>
 
       {cases.length === 0 ? (
@@ -101,14 +137,31 @@ export default function AttorneyCasesPage() {
                         {c.urgency} Priority
                       </span>
                       <span className="font-mono text-[10px] text-titanium-500 uppercase tracking-widest">{c.matter_type.replace("_", " ")}</span>
+                      {c.status === "resolved" && (
+                        <span className="rounded-full px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-widest border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
+                          Resolved
+                        </span>
+                      )}
                     </div>
                     <h3 className="font-display text-2xl font-bold text-titanium-50 break-words">{c.subject}</h3>
                     <p className="font-mono text-[10px] text-titanium-500 uppercase tracking-widest">
                       Filed on {new Date(c.created_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-action/10 text-action">
-                    <Scale className="size-6" />
+                  <div className="flex items-center gap-4">
+                    {c.status !== "resolved" && (
+                      <Button
+                        onClick={() => handleResolveCase(c.id)}
+                        disabled={resolvingId === c.id}
+                        className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white h-12 px-6 font-mono text-[10px] font-bold uppercase tracking-widest"
+                      >
+                        {resolvingId === c.id ? <Loader2 className="size-3 animate-spin mr-2" /> : <CheckCircle2 className="size-3.5 mr-2" />}
+                        Resolve Case
+                      </Button>
+                    )}
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-action/10 text-action shrink-0">
+                      <Scale className="size-6" />
+                    </div>
                   </div>
                 </div>
               </div>

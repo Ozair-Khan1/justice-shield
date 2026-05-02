@@ -37,8 +37,17 @@ export async function POST(req: Request) {
       where: { id: intakeId },
       data: {
         status: "assigned",
-        assigned_attorney: user.id,
+        assigned_attorney_id: user.id,
       },
+      include: {
+        user: {
+          select: {
+            full_name: true,
+            email: true,
+            phone: true,
+          }
+        }
+      }
     });
 
     return NextResponse.json({ success: true, intake: updatedIntake });
