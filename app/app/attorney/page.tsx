@@ -67,6 +67,7 @@ interface DashboardStats {
 export default function AttorneyDashboard() {
   const { user } = useAuth();
   const [sosSessions, setSosSessions] = useState<SOSSession[]>([]);
+  const [assignedSessions, setAssignedSessions] = useState<SOSSession[]>([]);
   const [pendingCases, setPendingCases] = useState<CivilIntake[]>([]);
   const [assignedCases, setAssignedCases] = useState<CivilIntake[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -84,6 +85,7 @@ export default function AttorneyDashboard() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setSosSessions(data.sosSessions || []);
+      setAssignedSessions(data.assignedSessions || []);
       setPendingCases(data.pendingCases || []);
       setAssignedCases(data.assignedCases || []);
       setStats(data.stats);
@@ -163,6 +165,29 @@ export default function AttorneyDashboard() {
       } : null);
 
       setSelectedIntake(null);
+    } catch (err: any) {
+      alert(err.message || "An error occurred");
+    } finally {
+      setAccepting(false);
+    }
+  };
+
+  const handleResolveSos = async (id: string) => {
+    setAccepting(true);
+    try {
+      const res = await fetch(`/api/sos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "resolved" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to resolve SOS");
+
+      setAssignedSessions(prev => prev.filter(s => s.id !== id));
+      setStats(prev => prev ? {
+        ...prev,
+        totalAssignedCount: Math.max(0, prev.totalAssignedCount - 1)
+      } : null);
     } catch (err: any) {
       alert(err.message || "An error occurred");
     } finally {
@@ -258,6 +283,50 @@ export default function AttorneyDashboard() {
         </Card>
       </section>
 
+      {/* Active Engagement Section */}
+      {assignedSessions.length > 0 && (
+        <section className="space-y-6">
+          <div className="flex items-center gap-3 border-b border-titanium-800 pb-2">
+            <div className="size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+            <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.3em] text-emerald-500">Active Engagement ({assignedSessions.length})</h2>
+          </div>
+          <div className="grid gap-4">
+            {assignedSessions.map((s) => (
+              <Card key={s.id} className="border-emerald-500/30 bg-emerald-500/5">
+                <CardContent className="p-6">
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <Badge className="bg-emerald-500 text-white font-mono text-[9px] uppercase tracking-widest">
+                          In Progress
+                        </Badge>
+                        <span className="font-mono text-[10px] text-titanium-400 uppercase tracking-widest">{s.encounter_type.replace("_", " ")}</span>
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="font-display text-2xl font-bold text-titanium-50">{s.user.full_name}</h3>
+                        <p className="text-sm text-titanium-400">{s.location_address || "Location Tracking Active"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button variant="outline" asChild className="border-titanium-700 bg-titanium-900 h-12 px-6 font-mono text-[10px] uppercase tracking-widest">
+                        <a href={`tel:${s.user.phone}`}>Call Member</a>
+                      </Button>
+                      <Button
+                        onClick={() => handleResolveSos(s.id)}
+                        disabled={accepting}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white h-12 px-8 font-bold uppercase tracking-widest text-[10px]"
+                      >
+                        {accepting ? <Loader2 className="size-3 animate-spin" /> : "Resolve Session"}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Emergency Queue */}
       {sosSessions.length > 0 && (
         <section className="space-y-6">
@@ -335,7 +404,7 @@ export default function AttorneyDashboard() {
               Available ({pendingCases.length})
             </TabsTrigger>
             <TabsTrigger value="my-active" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-widest px-6">
-              My Cases ({assignedCases.length})
+              My Cases ({assignedCases.length + assignedSessions.length})
             </TabsTrigger>
           </TabsList>
         </div>
@@ -358,14 +427,56 @@ export default function AttorneyDashboard() {
         </TabsContent>
 
         <TabsContent value="my-active" className="grid gap-4 focus-visible:ring-0">
-          {assignedCases.length === 0 ? (
+          {assignedCases.length === 0 && assignedSessions.length === 0 ? (
             <div className="rounded-lg border border-dashed border-titanium-800 p-12 text-center text-titanium-600 font-mono text-[10px] uppercase tracking-widest">
-              You have no active cases assigned
+              You have no active cases or SOS sessions assigned
             </div>
           ) : (
-            assignedCases.map((i) => (
-              <CaseCard key={i.id} i={i} onReview={() => setSelectedIntake(i)} />
-            ))
+            <>
+              {assignedSessions.map((s) => (
+                <Card key={s.id} className="group border-red-500/30 bg-red-500/5 hover:border-red-500 transition-all overflow-hidden">
+                  <CardContent className="p-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <Badge className="bg-red-500 text-white font-mono text-[9px] uppercase tracking-widest h-5">
+                            SOS ENGAGEMENT
+                          </Badge>
+                          <span className="font-mono text-[10px] text-titanium-500 uppercase tracking-widest">{s.encounter_type.replace("_", " ")}</span>
+                        </div>
+                        <h3 className="font-display text-lg font-bold text-titanium-50 group-hover:text-red-400 transition-colors">Emergency: {s.user.full_name || s.user.email}</h3>
+                        <div className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-widest text-titanium-500">
+                          <div className="flex items-center gap-1.5">
+                            <Phone className="size-3 text-red-500" />
+                            <span>{s.user.phone}</span>
+                          </div>
+                          <span className="text-titanium-800">•</span>
+                          <div className="flex items-center gap-1.5">
+                            <MapPin className="size-3" />
+                            <span className="max-w-[150px] truncate">{s.location_address || "GPS Active"}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button asChild variant="outline" className="border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-red-400 h-10 px-4 font-mono text-[10px] uppercase">
+                          <a href={`tel:${s.user.phone}`}>Call</a>
+                        </Button>
+                        <Button
+                          onClick={() => handleResolveSos(s.id)}
+                          disabled={accepting}
+                          className="bg-red-500 hover:bg-red-600 text-white h-10 px-4 font-bold uppercase text-[9px]"
+                        >
+                          Resolve
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {assignedCases.map((i) => (
+                <CaseCard key={i.id} i={i} onReview={() => setSelectedIntake(i)} />
+              ))}
+            </>
           )}
           <div className="mt-4 text-center">
             <Button asChild variant="link" className="font-mono text-[10px] uppercase tracking-widest text-titanium-500 hover:text-action">

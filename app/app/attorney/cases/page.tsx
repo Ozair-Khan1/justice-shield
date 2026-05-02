@@ -14,6 +14,7 @@ interface CaseUser {
 
 interface Case {
   id: string;
+  type?: "civil" | "sos";
   matter_type: string;
   urgency: string;
   subject: string;
@@ -21,6 +22,7 @@ interface Case {
   preferred_contact: string;
   status: string;
   created_at: string;
+  location_address?: string | null;
   user: CaseUser;
 }
 
@@ -37,7 +39,21 @@ export default function AttorneyCasesPage() {
       const res = await fetch("/api/attorney/my-cases");
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setCases(data.cases || []);
+      const combined = [
+        ...(data.cases || []).map((c: any) => ({ ...c, type: 'civil' })),
+        ...(data.sessions || []).map((s: any) => ({
+          ...s,
+          type: 'sos',
+          matter_type: s.encounter_type,
+          subject: `Emergency SOS: ${s.encounter_type.replace('_', ' ')}`,
+          urgency: 'CRITICAL',
+          description: `Active SOS engagement`,
+          preferred_contact: 'PHONE',
+          created_at: s.started_at
+        }))
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setCases(combined);
     } catch (err: any) {
       setError(err.message || "Failed to load your cases");
     } finally {
@@ -49,19 +65,20 @@ export default function AttorneyCasesPage() {
     if (user) fetchCases();
   }, [user]);
 
-  const handleResolveCase = async (intakeId: string) => {
-    setResolvingId(intakeId);
+  const handleResolveCase = async (id: string, type: "civil" | "sos" = "civil") => {
+    setResolvingId(id);
     try {
-      const res = await fetch(`/api/cases/${intakeId}/status`, {
+      const endpoint = type === "sos" ? `/api/sos/${id}` : `/api/cases/${id}/status`;
+      const res = await fetch(endpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "resolved" }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to resolve case");
+      if (!res.ok) throw new Error(data.error || `Failed to resolve ${type}`);
 
       // Update local state
-      setCases(prev => prev.map(c => c.id === intakeId ? { ...c, status: "resolved" } : c));
+      setCases(prev => prev.map(c => c.id === id ? { ...c, status: "resolved" } : c));
       fetchCases()
     } catch (err: any) {
       alert(err.message || "An error occurred");
@@ -151,7 +168,7 @@ export default function AttorneyCasesPage() {
                   <div className="flex items-center gap-4">
                     {c.status !== "resolved" && (
                       <Button
-                        onClick={() => handleResolveCase(c.id)}
+                        onClick={() => handleResolveCase(c.id, c.type)}
                         disabled={resolvingId === c.id}
                         className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white h-12 px-6 font-mono text-[10px] font-bold uppercase tracking-widest"
                       >
@@ -187,6 +204,14 @@ export default function AttorneyCasesPage() {
                     </div>
 
                     <div className="space-y-3 min-w-0">
+                      {c.type === 'sos' && (
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex shrink-0 h-8 w-8 items-center justify-center rounded-sm bg-titanium-900 text-red-500">
+                            <MapPin className="size-4" />
+                          </div>
+                          <span className="font-mono text-sm text-titanium-200 truncate">{c.location_address || "GPS Active"}</span>
+                        </div>
+                      )}
                       {c.user.phone && (
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="flex shrink-0 h-8 w-8 items-center justify-center rounded-sm bg-titanium-900 text-action">

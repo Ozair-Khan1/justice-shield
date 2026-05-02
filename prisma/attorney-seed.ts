@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { email } from "zod";
 
 const prisma = new PrismaClient();
 
@@ -51,6 +52,13 @@ const ATTORNIES = [
     specialties: "small_claims, other",
     years_experience: 5,
     phone: "1234567890",
+  },
+  {
+    email: "accident@gmail.com",
+    full_name: "Trent Bolt",
+    specialties: "accident",
+    year_experience: 6,
+    phone: "1234567890"
   }
 ];
 

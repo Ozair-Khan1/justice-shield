@@ -57,6 +57,12 @@ export async function GET(req: Request) {
         status: true,
         started_at: true,
         location_address: true,
+        assigned_attorney_id: true,
+        assigned_attorney: {
+          select: {
+            full_name: true,
+          }
+        },
         user: {
           select: {
             full_name: true,
@@ -75,6 +81,12 @@ export async function GET(req: Request) {
         subject: true,
         status: true,
         created_at: true,
+        assigned_attorney_id: true,
+        assigned_attorney: {
+          select: {
+            full_name: true,
+          }
+        },
         user: {
           select: {
             full_name: true,

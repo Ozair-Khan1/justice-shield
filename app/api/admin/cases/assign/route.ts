@@ -12,21 +12,32 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { intakeId, attorneyId } = await req.json();
+    const { intakeId, sessionId, attorneyId } = await req.json();
 
-    if (!intakeId || !attorneyId) {
-      return NextResponse.json({ error: "Missing intakeId or attorneyId" }, { status: 400 });
+    if (!(intakeId || sessionId) || !attorneyId) {
+      return NextResponse.json({ error: "Missing ID or attorneyId" }, { status: 400 });
     }
 
-    const updatedIntake = await prisma.civilIntake.update({
-      where: { id: intakeId },
-      data: {
-        assigned_attorney_id: attorneyId,
-        status: "assigned",
-      },
-    });
+    let updated;
+    if (intakeId) {
+      updated = await prisma.civilIntake.update({
+        where: { id: intakeId },
+        data: {
+          assigned_attorney_id: attorneyId,
+          status: "assigned",
+        },
+      });
+    } else {
+      updated = await prisma.encounterSession.update({
+        where: { id: sessionId },
+        data: {
+          assigned_attorney_id: attorneyId,
+          status: "assigned",
+        },
+      });
+    }
 
-    return NextResponse.json({ success: true, intake: updatedIntake });
+    return NextResponse.json({ success: true, updated });
   } catch (error) {
     console.error("Case assignment error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     const { encounter_type, location_lat, location_lng } = body;
 
     let address = null;
-    if (location_lat !== null && location_lng !== null) {
+    if (location_lat != null && location_lng != null) {
       console.log(`Reverse Geocoding: ${location_lat}, ${location_lng}`);
       try {
         const geoRes = await fetch(
@@ -30,16 +30,16 @@ export async function POST(req: Request) {
         );
 
         if (!geoRes.ok) {
-          console.error("Nominatim Rate Limit Hit (429)");
-          address = "Address lookup pending (Rate limited)";
+          console.error(`Nominatim API Error: ${geoRes.status}`);
+          address = `${location_lat}, ${location_lng}`;
         } else {
           const geoData = await geoRes.json();
-          address = geoData.display_name;
+          address = geoData.display_name || `${location_lat}, ${location_lng}`;
           console.log("Resolved Address:", address);
         }
       } catch (e) {
         console.error("Geocoding network error:", e);
-        address = "Address lookup failed (Network error)";
+        address = `${location_lat}, ${location_lng}`;
       }
     }
 
@@ -77,7 +77,26 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ session });
+    // Fetch recommended attorneys based on encounter type
+    const keywords = encounter_type.split("_");
+    const recommendedAttorneys = await prisma.user.findMany({
+      where: {
+        role: "ATTORNEY",
+        OR: keywords.map((kw: string) => ({
+          specialties: { contains: kw, mode: "insensitive" }
+        }))
+      },
+      select: {
+        id: true,
+        full_name: true,
+        firm_name: true,
+        specialties: true,
+        years_experience: true,
+      },
+      take: 3,
+    });
+
+    return NextResponse.json({ session, recommendedAttorneys });
   } catch (error) {
     console.error("SOS API error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

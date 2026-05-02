@@ -39,6 +39,7 @@ model User {
   encounter_sessions      EncounterSession[]
   civil_intakes           CivilIntake[]      @relation("UserIntakes")
   assigned_intakes        CivilIntake[]      @relation("AttorneyIntakes")
+  assigned_encounters     EncounterSession[] @relation("AttorneyEncounters")
   emergency_alerts        EmergencyAlert[]
 
   @@index([role])
@@ -60,10 +61,14 @@ model EncounterSession {
   ended_at         DateTime?
   created_at       DateTime         @default(now())
 
+  assigned_attorney_id String?
+  assigned_attorney    User?    @relation("AttorneyEncounters", fields: [assigned_attorney_id], references: [id])
+
   emergency_alerts EmergencyAlert[]
 
   @@index([user_id])
   @@index([status])
+  @@index([assigned_attorney_id])
 }
 
 model CivilIntake {

@@ -53,6 +53,42 @@ export async function middleware(request: NextRequest) {
       url.pathname = "/auth";
       return NextResponse.redirect(url);
     }
+  } else {
+    // Redirect logged in users away from /auth
+    if (request.nextUrl.pathname.startsWith("/auth")) {
+      const url = request.nextUrl.clone();
+      if (user.role === "ADMIN") url.pathname = "/app/admin";
+      else if (user.role === "ATTORNEY") url.pathname = "/app/attorney";
+      else url.pathname = "/app";
+      return NextResponse.redirect(url);
+    }
+
+    // Protect /app/admin routes
+    if (request.nextUrl.pathname.startsWith("/app/admin") && user.role !== "ADMIN") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/app";
+      return NextResponse.redirect(url);
+    }
+
+    // Protect /app/attorney routes
+    if (request.nextUrl.pathname.startsWith("/app/attorney") && user.role !== "ATTORNEY" && user.role !== "ADMIN") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/app";
+      return NextResponse.redirect(url);
+    }
+
+    // Redirect admins and attorneys away from the generic /app dashboard
+    if (request.nextUrl.pathname === "/app") {
+      if (user.role === "ADMIN") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/app/admin";
+        return NextResponse.redirect(url);
+      } else if (user.role === "ATTORNEY") {
+        const url = request.nextUrl.clone();
+        url.pathname = "/app/attorney";
+        return NextResponse.redirect(url);
+      }
+    }
   }
 
   // Add CORS headers to all successful responses
@@ -67,5 +103,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/api/:path*"],
+  matcher: ["/app/:path*", "/api/:path*", "/auth/:path*"],
 };

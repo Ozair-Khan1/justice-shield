@@ -12,24 +12,24 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const intakes = await prisma.civilIntake.findMany({
-      include: {
-        user: {
-          select: {
-            full_name: true,
-            email: true,
-          }
+    const [intakes, sessions] = await Promise.all([
+      prisma.civilIntake.findMany({
+        include: {
+          user: { select: { full_name: true, email: true } },
+          assigned_attorney: { select: { full_name: true } }
         },
-        assigned_attorney: {
-          select: {
-            full_name: true,
-          }
-        }
-      },
-      orderBy: { created_at: "desc" },
-    });
+        orderBy: { created_at: "desc" },
+      }),
+      prisma.encounterSession.findMany({
+        include: {
+          user: { select: { full_name: true, email: true } },
+          assigned_attorney: { select: { full_name: true } }
+        },
+        orderBy: { created_at: "desc" },
+      })
+    ]);
 
-    return NextResponse.json({ intakes });
+    return NextResponse.json({ intakes, sessions });
   } catch (error) {
     console.error("Admin fetch cases error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
