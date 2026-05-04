@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { ShieldMark } from "@/components/ShieldMark";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 
 const adminNav = [
   { href: "/app/admin", label: "Overview", exact: true },
@@ -20,13 +19,6 @@ const adminNav = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const pathname = usePathname();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && user?.role !== "ADMIN") {
-      router.push("/app");
-    }
-  }, [user, loading, router]);
 
   if (loading) {
     return (

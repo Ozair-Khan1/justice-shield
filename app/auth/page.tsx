@@ -26,17 +26,7 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!loading && user) {
-      if (user.role === 'ADMIN') {
-        router.push('/app/admin');
-      } else if (user.role === "ATTORNEY") {
-        router.push('/app/attorney');
-      } else {
-        router.push('/app');
-      }
-    }
-  }, [user, loading, router]);
+  // Removed frontend redirect logic - now handled by middleware.ts
 
   // Restore state on mount
   useEffect(() => {
@@ -197,6 +187,7 @@ export default function AuthPage() {
       }
 
       await refreshUser();
+      router.push('/app'); // Middleware will catch this and route based on role
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Authentication failed";
       setError(message);

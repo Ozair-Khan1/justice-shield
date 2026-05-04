@@ -3,6 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { motion, AnimatePresence } from "framer-motion";
+import { User, Shield, ChevronRight, Loader2, Scale } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 const ENCOUNTER_TYPES = [
   { id: "traffic_stop", label: "Traffic Stop" },
@@ -17,9 +21,12 @@ const ENCOUNTER_TYPES = [
 export default function SOSPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [stage, setStage] = useState<"select" | "armed" | "connecting">("select");
+  const [stage, setStage] = useState<"select" | "armed" | "connecting" | "match">("select");
   const [encounterType, setEncounterType] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [recommendedAttorneys, setRecommendedAttorneys] = useState<any[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [assigning, setAssigning] = useState(false);
 
   const onTrigger = async (type: string) => {
     if (!user) return;
@@ -57,16 +64,39 @@ export default function SOSPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
-      // Successfully connected
+      setSessionId(data.session.id);
+
+      if (data.recommendedAttorneys && data.recommendedAttorneys.length > 0) {
+        setRecommendedAttorneys(data.recommendedAttorneys);
+        setStage("match");
+      } else {
+        // No recommended attorneys, go to history
+        setTimeout(() => {
+          router.push("/app/history");
+        }, 3500);
+      }
     } catch (err: any) {
       setError(err.message || "Failed to initiate emergency protocol");
       setStage("select");
       return;
     }
+  };
 
-    setTimeout(() => {
+  const onAssign = async (attorneyId: string | null) => {
+    if (!sessionId) return;
+    setAssigning(true);
+    try {
+      const res = await fetch(`/api/sos/${sessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigned_attorney_id: attorneyId }),
+      });
+      if (!res.ok) throw new Error("Failed to assign attorney");
       router.push("/app/history");
-    }, 3500);
+    } catch (err: any) {
+      setError(err.message);
+      setAssigning(false);
+    }
   };
 
   if (stage === "armed" || stage === "connecting") {
@@ -81,7 +111,7 @@ export default function SOSPage() {
         <div className="mt-12 space-y-2">
           <div className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-action">Shield Activated</div>
           <h1 className="font-display text-3xl font-bold">
-            {stage === "armed" ? "Capturing location..." : "Patching attorney..."}
+            {stage === "armed" ? "Capturing location..." : "Scanning network..."}
           </h1>
           <p className="text-sm text-titanium-400">Encounter logged: {encounterType?.replace("_", " ")}</p>
         </div>
@@ -91,6 +121,71 @@ export default function SOSPage() {
           <Indicator label="Counsel" active={stage === "connecting"} />
         </div>
       </div>
+    );
+  }
+
+  if (stage === "match") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-10 max-w-2xl mx-auto"
+      >
+        <div className="text-center space-y-4">
+          <div className="mx-auto size-16 bg-action/10 rounded-full flex items-center justify-center border border-action/20">
+            <Shield className="size-8 text-action" />
+          </div>
+          <h1 className="font-display text-4xl font-bold tracking-tight">Specialist <span className="text-action">Found.</span></h1>
+          <p className="text-titanium-400 max-w-md mx-auto">
+            We've identified attorneys on standby specializing in <span className="text-titanium-200 uppercase font-mono text-xs">{encounterType?.replace("_", " ")}</span>. Select one to bridge them in now.
+          </p>
+        </div>
+
+        <div className="grid gap-4">
+          {recommendedAttorneys.map((attorney) => (
+            <Card key={attorney.id} className="group border-titanium-800 bg-titanium-900/40 hover:border-action/30 transition-all cursor-pointer overflow-hidden" onClick={() => onAssign(attorney.id)}>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-5">
+                    <div className="size-12 rounded-full bg-titanium-950 flex items-center justify-center border border-titanium-800 group-hover:border-action/50 transition-colors">
+                      <User className="size-6 text-titanium-400 group-hover:text-action transition-colors" />
+                    </div>
+                    <div>
+                      <h3 className="font-display text-lg font-bold text-titanium-50 group-hover:text-action transition-colors">{attorney.full_name}</h3>
+                      <p className="text-sm text-titanium-400">{attorney.firm_name || "Specialized Response Counsel"}</p>
+                      <div className="mt-2 flex items-center gap-3 font-mono text-[10px] uppercase tracking-wider">
+                        <span className="text-titanium-600">{attorney.years_experience || 0} Years Exp.</span>
+                        <span className="text-titanium-800">•</span>
+                        <span className="text-action/70">{attorney.specialties || "Generalist"}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight className="size-5 text-titanium-600 group-hover:text-action group-hover:translate-x-1 transition-all" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          <div className="relative py-4">
+            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+              <div className="w-full border-t border-titanium-800"></div>
+            </div>
+            <div className="relative flex justify-center text-[10px] uppercase font-mono tracking-widest">
+              <span className="bg-background px-4 text-titanium-500">No Preference?</span>
+            </div>
+          </div>
+
+          <Button
+            variant="outline"
+            disabled={assigning}
+            onClick={() => onAssign(null)}
+            className="w-full h-16 border-titanium-800 bg-titanium-950/50 hover:bg-titanium-900 hover:border-titanium-700 text-titanium-400 font-mono text-[10px] uppercase tracking-widest"
+          >
+            {assigning ? <Loader2 className="size-4 animate-spin mr-2" /> : <Scale className="size-4 mr-2 text-action" />}
+            Let Admin Dispatch (Fastest)
+          </Button>
+        </div>
+      </motion.div>
     );
   }
 

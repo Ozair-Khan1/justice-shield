@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Shield, Users, FileText, AlertTriangle, Briefcase, Clock, MapPin, User as UserIcon, RefreshCw, Loader2 } from "lucide-react";
+import { Shield, Users, FileText, AlertTriangle, Briefcase, Clock, MapPin, User as UserIcon, RefreshCw, Loader2, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -39,6 +39,10 @@ interface SOSSession {
   status: string;
   started_at: string;
   location_address: string | null;
+  assigned_attorney_id: string | null;
+  assigned_attorney: {
+    full_name: string | null;
+  } | null;
   user: {
     full_name: string | null;
     email: string;
@@ -51,10 +55,22 @@ interface CivilIntake {
   subject: string;
   status: string;
   created_at: string;
+  assigned_attorney_id: string | null;
+  assigned_attorney: {
+    full_name: string | null;
+  } | null;
   user: {
     full_name: string | null;
     email: string;
   };
+}
+
+interface Attorney {
+  id: string;
+  full_name: string | null;
+  email: string;
+  firm_name: string | null;
+  specialties: string | null;
 }
 
 interface EmergencyAlert {
@@ -94,18 +110,29 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedView, setSelectedView] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<string | null>(null);
+  const [attorneys, setAttorneys] = useState<Attorney[]>([]);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
+  const [assigningType, setAssigningType] = useState<"civil" | "sos" | null>(null);
+  const [selectedAttorney, setSelectedAttorney] = useState("");
+  const [processing, setProcessing] = useState(false);
 
   const fetchData = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await fetch("/api/admin/stats");
+      const [res, attorneysRes] = await Promise.all([
+        fetch("/api/admin/stats"),
+        fetch("/api/admin/attorneys")
+      ]);
       const data = await res.json();
+      const attorneysData = await attorneysRes.json();
+
       setStats(data.stats);
       setRecentUsers(data.recentUsers ?? []);
       setRecentVendors(data.recentVendors ?? []);
       setSosSessions(data.sosSessions ?? []);
       setCivilIntakes(data.civilIntakes ?? []);
       setEmergencyAlerts(data.emergencyAlerts ?? []);
+      setAttorneys(attorneysData.attorneys ?? []);
     } catch (error) {
       console.error("Fetch admin stats error:", error);
     } finally {
@@ -114,9 +141,43 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleAssign = async (caseId: string, type: "civil" | "sos") => {
+    if (!selectedAttorney) return;
+    setProcessing(true);
+    try {
+      const res = await fetch("/api/admin/cases/assign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          [type === "civil" ? "intakeId" : "sessionId"]: caseId,
+          attorneyId: selectedAttorney
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      fetchData(true);
+      setAssigningId(null);
+      setAssigningType(null);
+      setSelectedAttorney("");
+    } catch (err: any) {
+      alert(err.message || "Assignment failed");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
+
+  const getSortedAttorneys = (matterType: string) => {
+    return [...attorneys].sort((a, b) => {
+      const aMatches = a.specialties?.toLowerCase().includes(matterType.toLowerCase()) ? 1 : 0;
+      const bMatches = b.specialties?.toLowerCase().includes(matterType.toLowerCase()) ? 1 : 0;
+      return bMatches - aMatches;
+    });
+  };
 
   const handleRefresh = (id: string) => {
     setRefreshing(id);
@@ -243,15 +304,52 @@ export default function AdminDashboard() {
                       <UserIcon className="size-3.5 text-titanium-500" />
                       {s.user.full_name || s.user.email}
                     </div>
-                  </div>
-                  <div className="space-y-1 sm:text-right">
-                    <div className="flex items-center gap-2 text-xs text-titanium-400 sm:justify-end">
-                      <MapPin className="size-3.5" />
+                    <div className="flex items-center gap-2 text-[11px] text-titanium-400">
+                      <MapPin className="size-3" />
                       {s.location_address || "No location info"}
                     </div>
                     <div className="font-mono text-[10px] text-titanium-600 uppercase tracking-widest">
                       {new Date(s.started_at).toLocaleString()}
                     </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 min-w-[200px] items-end">
+                    {s.assigned_attorney ? (
+                      <div className="flex items-center gap-2 text-emerald-500 font-mono text-[10px] uppercase tracking-widest">
+                        <Shield className="size-3" />
+                        Assigned: {s.assigned_attorney.full_name}
+                      </div>
+                    ) : assigningId === s.id ? (
+                      <div className="flex items-center gap-2 border border-titanium-800 p-1 rounded-sm">
+                        <select
+                          value={selectedAttorney}
+                          onChange={(e) => setSelectedAttorney(e.target.value)}
+                          className="bg-transparent text-[11px] p-1 outline-none text-titanium-200 font-mono uppercase"
+                        >
+                          <option value="" className="bg-titanium-950">Select Counsel...</option>
+                          {attorneys.map(a => (
+                            <option key={a.id} value={a.id} className="bg-titanium-950">{a.full_name || a.email}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => handleAssign(s.id, "sos")}
+                          disabled={!selectedAttorney || processing}
+                          className="bg-red-500 text-white text-[11px] px-3 py-1 rounded-sm font-bold uppercase"
+                        >
+                          {processing ? <Loader2 className="size-3 animate-spin" /> : "Set"}
+                        </button>
+                        <button onClick={() => setAssigningId(null)} className="text-titanium-500 hover:text-titanium-300 px-1">
+                          <AlertTriangle className="size-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setAssigningId(s.id); setAssigningType("sos"); }}
+                        className="font-mono text-[10px] uppercase tracking-widest font-bold text-red-500 border border-red-500/30 px-4 py-2 flex items-center gap-2 hover:bg-red-500/10 transition-all"
+                      >
+                        Assign Attorney <ChevronRight className="size-3" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -293,11 +391,47 @@ export default function AdminDashboard() {
                       {i.user.full_name || i.user.email}
                     </div>
                   </div>
-                  <div className="sm:text-right">
+                  <div className="flex flex-col gap-2 min-w-[200px] items-end">
                     <div className="font-mono text-[10px] text-titanium-600 uppercase tracking-widest">
                       {new Date(i.created_at).toLocaleString()}
                     </div>
-                    <Link href="/app/admin/cases" className="mt-2 inline-block font-mono text-[9px] uppercase tracking-widest text-action hover:underline">View in Dispatch</Link>
+                    {i.assigned_attorney ? (
+                      <div className="flex items-center gap-2 text-blue-400 font-mono text-[10px] uppercase tracking-widest">
+                        <Briefcase className="size-3" />
+                        Assigned: {i.assigned_attorney.full_name}
+                      </div>
+                    ) : assigningId === i.id ? (
+                      <div className="flex items-center gap-2 bg-titanium-950/50 border border-titanium-800 p-1 rounded-sm">
+                        <select
+                          value={selectedAttorney}
+                          onChange={(e) => setSelectedAttorney(e.target.value)}
+                          className="bg-transparent text-[10px] p-1 outline-none text-titanium-200 font-mono uppercase"
+                        >
+                          <option value="" className="bg-titanium-950">Select Counsel...</option>
+                          {attorneys.map(a => (
+                            <option key={a.id} value={a.id} className="bg-titanium-950">{a.full_name || a.email}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => handleAssign(i.id, "civil")}
+                          disabled={!selectedAttorney || processing}
+                          className="bg-action text-action-foreground text-[9px] px-2 py-1 rounded-sm font-bold uppercase"
+                        >
+                          {processing ? <Loader2 className="size-3 animate-spin" /> : "Set"}
+                        </button>
+                        <button onClick={() => setAssigningId(null)} className="text-titanium-500 hover:text-titanium-300 px-1">
+                          <AlertTriangle className="size-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setAssigningId(i.id); setAssigningType("civil"); }}
+                        className="font-mono text-[10px] uppercase tracking-widest font-bold text-action border border-action/30 px-4 py-2 flex items-center gap-2 hover:bg-action/10 transition-all"
+                      >
+                        Assign Attorney <ChevronRight className="size-3" />
+                      </button>
+                    )}
+                    <Link href="/app/admin/cases" className="inline-block font-mono text-[9px] uppercase tracking-widest text-titanium-500 hover:text-action">Full Dispatch</Link>
                   </div>
                 </div>
               ))}

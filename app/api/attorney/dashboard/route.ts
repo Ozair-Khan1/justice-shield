@@ -78,8 +78,26 @@ export async function GET(req: Request) {
       }
     });
 
+    // Fetch SOS assigned to this attorney
+    const assignedSessions = await prisma.encounterSession.findMany({
+      where: {
+        assigned_attorney_id: payload.id as string,
+        status: "assigned"
+      },
+      orderBy: { started_at: "desc" },
+      include: {
+        user: {
+          select: {
+            full_name: true,
+            email: true,
+            phone: true,
+          }
+        }
+      }
+    });
+
     // Get counts for the stats cards
-    const [totalSosCount, totalPendingCount, totalAssignedCount] = await Promise.all([
+    const [totalSosCount, totalPendingCount, totalCivilAssignedCount, totalSosAssignedCount] = await Promise.all([
       prisma.encounterSession.count({ where: { status: "active" } }),
       prisma.civilIntake.count({
         where: {
@@ -93,16 +111,23 @@ export async function GET(req: Request) {
           status: "assigned"
         }
       }),
+      prisma.encounterSession.count({
+        where: {
+          assigned_attorney_id: payload.id as string,
+          status: "assigned"
+        }
+      }),
     ]);
 
     return NextResponse.json({
       sosSessions,
       pendingCases,
       assignedCases,
+      assignedSessions,
       stats: {
         totalSosCount,
         totalPendingCount,
-        totalAssignedCount
+        totalAssignedCount: totalCivilAssignedCount + totalSosAssignedCount
       }
     });
   } catch (error) {
