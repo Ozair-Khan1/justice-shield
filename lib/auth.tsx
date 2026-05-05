@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 interface User {
   id: string;
@@ -12,13 +13,15 @@ interface User {
   membership_tier: string;
   emergency_contact_name?: string | null;
   emergency_contact_phone?: string | null;
+  city?: string | null;
+  country?: string | null;
 }
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
   signOut: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -30,15 +33,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUser = async () => {
     try {
+      const start = Date.now();
       const res = await fetch("/api/auth/me");
+      const elapsed = Date.now() - start;
+      const minDelay = 1000; // 1 second
+
+      if (elapsed < minDelay) {
+        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+      }
+
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
+        return data.user;
       } else {
         setUser(null);
+        return null;
       }
     } catch (err) {
       setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -53,6 +67,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     router.push("/auth");
   };
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
 
   return (
     <AuthContext.Provider value={{ user, loading, signOut, refreshUser: fetchUser }}>

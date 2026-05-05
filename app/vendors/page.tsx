@@ -17,7 +17,8 @@ const vendorSchema = z.object({
     const digits = val.replace(/\D/g, "");
     return digits.length >= 4 && digits.length <= 15;
   }, "Phone number must be between 4 and 15 digits"),
-  location: z.string().trim().min(1, "Location is required").max(160),
+  city: z.string().trim().min(1, "City is required").max(100),
+  country: z.string().trim().min(1, "Country is required").max(100),
   website: z.string().trim().max(255).optional().or(z.literal("")),
   specialties: z.string().trim().min(1, "Please specify your specialties").max(500),
   bar_number: z.string().trim().max(60).optional().or(z.literal("")),
@@ -49,6 +50,23 @@ export default function VendorsPage() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | undefined>("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
+
+  const handlePhoneChange = (v: string | undefined) => {
+    setPhone(v);
+    if (v) {
+      try {
+        const { parsePhoneNumber } = require('react-phone-number-input');
+        const phoneNumber = parsePhoneNumber(v);
+        if (phoneNumber && phoneNumber.country && !country) {
+          const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+          const detected = regionNames.of(phoneNumber.country);
+          if (detected) setCountry(detected);
+        }
+      } catch (e) { }
+    }
+  };
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -61,7 +79,8 @@ export default function VendorsPage() {
       firm_name: String(fd.get("firm_name") ?? ""),
       email: String(fd.get("email") ?? ""),
       phone: phone || "",
-      location: String(fd.get("location") ?? ""),
+      city: city,
+      country: country,
       website: String(fd.get("website") ?? ""),
       specialties: String(fd.get("specialties") ?? ""),
       bar_number: String(fd.get("bar_number") ?? ""),
@@ -148,14 +167,35 @@ export default function VendorsPage() {
                       <PhoneInput
                         placeholder="Enter phone number"
                         value={phone}
-                        onChange={setPhone}
+                        onChange={handlePhoneChange}
                         defaultCountry="US"
                         international={false}
                         className="phone-input-custom"
                       />
                     </div>
                   </div>
-                  <Field name="location" label="City / State" />
+                  <label className="block">
+                    <Label>City <span className="text-red-600">*</span></Label>
+                    <input
+                      name="city"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      required
+                      placeholder="e.g. New York"
+                      className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action"
+                    />
+                  </label>
+                  <label className="block">
+                    <Label>Country <span className="text-red-600">*</span></Label>
+                    <input
+                      name="country"
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                      required
+                      placeholder="e.g. USA"
+                      className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action"
+                    />
+                  </label>
                   <Field name="website" label="Website" type="url" placeholder="https://" />
                   {vendorType === "attorney" && (
                     <>
@@ -203,7 +243,7 @@ function Label({ children }: { children: React.ReactNode }) {
 function Field({ name, label, type = "text", required, placeholder }: { name: string; label: string; type?: string; required?: boolean; placeholder?: string }) {
   return (
     <label className="block">
-      <Label>{label} {label === "Full name" || label === "Email" || label === "Bar number" || label === "Years of experience" || label === 'City / State' ? <span className="text-red-600">*</span> : ''}</Label>
+      <Label>{label} {label === "Full name" || label === "Email" || label === "Bar number" || label === "Years of experience" || label === 'City' || label === 'Country' ? <span className="text-red-600">*</span> : ''}</Label>
       <input name={name} type={type} required={required} placeholder={placeholder}
         className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action" />
     </label>

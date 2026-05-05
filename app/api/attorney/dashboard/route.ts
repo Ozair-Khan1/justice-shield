@@ -35,6 +35,8 @@ export async function GET(req: Request) {
             full_name: true,
             email: true,
             phone: true,
+            city: true,
+            country: true,
           }
         }
       }
@@ -54,6 +56,8 @@ export async function GET(req: Request) {
             full_name: true,
             email: true,
             phone: true,
+            city: true,
+            country: true,
           }
         }
       }
@@ -73,6 +77,8 @@ export async function GET(req: Request) {
             full_name: true,
             email: true,
             phone: true,
+            city: true,
+            country: true,
           }
         }
       }
@@ -91,6 +97,8 @@ export async function GET(req: Request) {
             full_name: true,
             email: true,
             phone: true,
+            city: true,
+            country: true,
           }
         }
       }

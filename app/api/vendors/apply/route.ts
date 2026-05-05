@@ -16,6 +16,8 @@ export async function POST(req: Request) {
       bar_number,
       years_experience,
       message,
+      city,
+      country,
     } = body;
 
     // Basic validation
@@ -39,6 +41,8 @@ export async function POST(req: Request) {
           email,
           phone: phone || null,
           location: location || null,
+          city: city || null,
+          country: country || null,
           website: website || null,
           specialties: specialties || null,
           bar_number: bar_number || null,
@@ -55,6 +59,8 @@ export async function POST(req: Request) {
           phone: phone || null,
           role: "USER",
           membership_tier: "vendor_pending",
+          city: city || null,
+          country: country || null,
         },
       }),
     ]);

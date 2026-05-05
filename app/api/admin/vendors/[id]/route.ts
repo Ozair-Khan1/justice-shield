@@ -51,6 +51,8 @@ export async function PATCH(
             firm_name: application.firm_name,
             bar_number: application.bar_number,
             years_experience: application.years_experience,
+            city: application.city,
+            country: application.country,
           },
         });
       } else {

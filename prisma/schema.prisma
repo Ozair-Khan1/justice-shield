@@ -29,6 +29,8 @@ model User {
   specialties             String?
   bar_number              String?
   years_experience        Int?               @default(0)
+  city                    String?
+  country                 String?
   emergency_contact_name  String?
   emergency_contact_phone String?
   membership_tier         String             @default("basic")
@@ -118,6 +120,8 @@ model VendorApplication {
   email            String   @unique
   phone            String?
   location         String?
+  city             String?
+  country          String?
   website          String?
   specialties      String?
   bar_number       String?

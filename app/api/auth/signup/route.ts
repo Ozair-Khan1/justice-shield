@@ -5,10 +5,11 @@ import { signJwt } from "@/lib/jwt";
 import { cookies } from "next/headers";
 
 import { verifyOtp } from "@/lib/otp";
+import { sendUserWelcomeEmail } from "@/lib/mail";
 
 export async function POST(req: Request) {
   try {
-    const { email, password, full_name, phone, otp } = await req.json();
+    const { email, password, full_name, phone, country, otp } = await req.json();
 
     if (!email || !password || !otp) {
       return NextResponse.json({ error: "Email, password, and OTP are required" }, { status: 400 });
@@ -36,8 +37,12 @@ export async function POST(req: Request) {
         password_hash,
         full_name,
         phone,
+        country,
       },
     });
+
+    // Send welcome email (async)
+    sendUserWelcomeEmail(user.email, user.full_name || "Member").catch(console.error);
 
     const token = await signJwt({ id: user.id, email: user.email, role: user.role });
 

@@ -57,11 +57,17 @@ export async function PATCH(
     const data: any = {};
     if (status) data.status = status;
     if (assigned_attorney_id) {
-        data.assigned_attorney_id = assigned_attorney_id;
-        // If an attorney is assigned, status automatically becomes "assigned" unless it's already "resolved"
-        if (!status || status === "active") {
-            data.status = "assigned";
-        }
+      const attorney = await prisma.user.findUnique({
+        where: { id: assigned_attorney_id },
+        select: { full_name: true }
+      });
+      data.assigned_attorney_id = assigned_attorney_id;
+      data.attorney_name = attorney?.full_name;
+
+      // If an attorney is assigned, status automatically becomes "assigned" unless it's already "resolved"
+      if (!status || status === "active") {
+        data.status = "assigned";
+      }
     }
     if (notes) data.notes = notes;
     if (status === "resolved") data.ended_at = new Date();
@@ -71,7 +77,7 @@ export async function PATCH(
       data,
       include: {
         assigned_attorney: {
-            select: { full_name: true }
+          select: { full_name: true }
         }
       }
     });

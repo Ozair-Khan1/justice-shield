@@ -64,14 +64,14 @@ export async function middleware(request: NextRequest) {
     }
 
     // Protect /app/admin routes
-    if (request.nextUrl.pathname.startsWith("/app/admin") && user.role !== "ADMIN") {
+    if ((request.nextUrl.pathname === "/app/admin" || request.nextUrl.pathname.startsWith("/app/admin/")) && user.role !== "ADMIN") {
       const url = request.nextUrl.clone();
       url.pathname = "/app";
       return NextResponse.redirect(url);
     }
 
     // Protect /app/attorney routes
-    if (request.nextUrl.pathname.startsWith("/app/attorney") && user.role !== "ATTORNEY" && user.role !== "ADMIN") {
+    if ((request.nextUrl.pathname === "/app/attorney" || request.nextUrl.pathname.startsWith("/app/attorney/")) && user.role !== "ATTORNEY") {
       const url = request.nextUrl.clone();
       url.pathname = "/app";
       return NextResponse.redirect(url);
@@ -79,11 +79,7 @@ export async function middleware(request: NextRequest) {
 
     // Redirect admins and attorneys away from the generic /app dashboard
     if (request.nextUrl.pathname === "/app") {
-      if (user.role === "ADMIN") {
-        const url = request.nextUrl.clone();
-        url.pathname = "/app/admin";
-        return NextResponse.redirect(url);
-      } else if (user.role === "ATTORNEY") {
+      if (user.role === "ATTORNEY") {
         const url = request.nextUrl.clone();
         url.pathname = "/app/attorney";
         return NextResponse.redirect(url);

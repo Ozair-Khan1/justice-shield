@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, useRef, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth";
 import { ShieldMark } from "@/components/ShieldMark";
 import PhoneInput from 'react-phone-number-input';
@@ -25,6 +25,7 @@ export default function AuthPage() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const isRestored = useRef(false);
 
   // Removed frontend redirect logic - now handled by middleware.ts
 
@@ -34,23 +35,30 @@ export default function AuthPage() {
     if (saved) {
       try {
         const data = JSON.parse(saved);
-        if (data.emailSent) setEmailSent(data.email);
+        if (data.email) setEmail(data.email);
+        if (data.fullName) setFullName(data.fullName);
+        if (data.phone) setPhone(data.phone);
+        if (data.password) setPassword(data.password);
+        if (data.emailSent) setEmailSent(data.emailSent);
         if (data.mode) setMode(data.mode);
         if (data.step) setStep(data.step);
       } catch (e) {
         console.error("Failed to restore signup state", e);
       }
     }
+    isRestored.current = true;
   }, []);
 
   // Persist state changes
   useEffect(() => {
+    if (!isRestored.current) return;
+
     if (mode === "signup") {
-      sessionStorage.setItem("pending_signup", JSON.stringify({ email, fullName, phone, password, mode, step }));
+      sessionStorage.setItem("pending_signup", JSON.stringify({ email, fullName, phone, password, emailSent, mode, step }));
     } else {
       sessionStorage.removeItem("pending_signup");
     }
-  }, [email, fullName, phone, password, mode, step]);
+  }, [email, fullName, phone, password, emailSent, mode, step]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -139,10 +147,29 @@ export default function AuthPage() {
             await onSendOtp();
             return;
           } else {
+            let detectedCountry = "";
+            if (phone) {
+              try {
+                const { parsePhoneNumber } = require('react-phone-number-input');
+                const parsed = parsePhoneNumber(phone);
+                if (parsed?.country) {
+                  const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+                  detectedCountry = regionNames.of(parsed.country) || "";
+                }
+              } catch (e) { }
+            }
+
             const res = await fetch("/api/auth/signup", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ email, password, full_name: fullName, phone, otp }),
+              body: JSON.stringify({
+                email,
+                password,
+                full_name: fullName,
+                phone,
+                country: detectedCountry,
+                otp
+              }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || "Signup failed");
@@ -186,8 +213,16 @@ export default function AuthPage() {
         }
       }
 
-      await refreshUser();
-      router.push('/app'); // Middleware will catch this and route based on role
+      const updatedUser = await refreshUser();
+
+      // Navigate based on role
+      if (updatedUser?.role === "ADMIN") {
+        router.push("/app/admin");
+      } else if (updatedUser?.role === "ATTORNEY") {
+        router.push("/app/attorney");
+      } else {
+        router.push("/app");
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Authentication failed";
       setError(message);

@@ -1,10 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Shield, Users, FileText, AlertTriangle, Briefcase, Clock, MapPin, User as UserIcon, RefreshCw, Loader2, ChevronRight } from "lucide-react";
+import { Shield, Users, FileText, AlertTriangle, Briefcase, Clock, MapPin, User as UserIcon, RefreshCw, Loader2, ChevronRight, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Mail, Phone } from "lucide-react";
 
 interface Stats {
   userCount: number;
@@ -52,7 +63,10 @@ interface SOSSession {
 interface CivilIntake {
   id: string;
   matter_type: string;
+  urgency: string;
   subject: string;
+  description: string;
+  preferred_contact: string;
   status: string;
   created_at: string;
   assigned_attorney_id: string | null;
@@ -62,7 +76,9 @@ interface CivilIntake {
   user: {
     full_name: string | null;
     email: string;
+    phone: string | null;
   };
+  metadata?: Record<string, any> | null;
 }
 
 interface Attorney {
@@ -71,6 +87,9 @@ interface Attorney {
   email: string;
   firm_name: string | null;
   specialties: string | null;
+  years_experience: number | null;
+  city: string | null;
+  country: string | null;
 }
 
 interface EmergencyAlert {
@@ -115,9 +134,11 @@ export default function AdminDashboard() {
   const [assigningType, setAssigningType] = useState<"civil" | "sos" | null>(null);
   const [selectedAttorney, setSelectedAttorney] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [selectedIntake, setSelectedIntake] = useState<CivilIntake | null>(null);
 
   const fetchData = async (silent = false) => {
     if (!silent) setLoading(true);
+    const start = Date.now();
     try {
       const [res, attorneysRes] = await Promise.all([
         fetch("/api/admin/stats"),
@@ -133,6 +154,12 @@ export default function AdminDashboard() {
       setCivilIntakes(data.civilIntakes ?? []);
       setEmergencyAlerts(data.emergencyAlerts ?? []);
       setAttorneys(attorneysData.attorneys ?? []);
+
+      const elapsed = Date.now() - start;
+      const minDelay = 1000;
+      if (!silent && elapsed < minDelay) {
+        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+      }
     } catch (error) {
       console.error("Fetch admin stats error:", error);
     } finally {
@@ -185,14 +212,7 @@ export default function AdminDashboard() {
   };
 
   if (loading) {
-    return (
-      <div className="flex h-[400px] items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="size-8 animate-spin text-red-500" />
-          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-titanium-500">Accessing Central Command...</span>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Accessing Central Command..." />;
   }
 
   const statCards = [
@@ -239,7 +259,7 @@ export default function AdminDashboard() {
         variants={containerVariants}
         initial="hidden"
         animate="show"
-        className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6"
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6"
       >
         {statCards.map((card) => {
           const isSelected = selectedView === card.id;
@@ -320,32 +340,39 @@ export default function AdminDashboard() {
                         Assigned: {s.assigned_attorney.full_name}
                       </div>
                     ) : assigningId === s.id ? (
-                      <div className="flex items-center gap-2 border border-titanium-800 p-1 rounded-sm">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-titanium-800 p-2 rounded-sm bg-titanium-950/50">
                         <select
                           value={selectedAttorney}
                           onChange={(e) => setSelectedAttorney(e.target.value)}
-                          className="bg-transparent text-[11px] p-1 outline-none text-titanium-200 font-mono uppercase"
+                          className="flex-1 min-w-0 bg-transparent text-[10px] sm:text-[11px] p-2 outline-none text-titanium-200 font-mono uppercase border border-titanium-800 sm:border-none rounded-sm sm:rounded-none"
                         >
                           <option value="" className="bg-titanium-950">Select Counsel...</option>
                           {attorneys.map(a => (
-                            <option key={a.id} value={a.id} className="bg-titanium-950">{a.full_name || a.email}</option>
+                            <option key={a.id} value={a.id} className="bg-titanium-950">
+                              {a.full_name} | {a.specialties}
+                            </option>
                           ))}
                         </select>
-                        <button
-                          onClick={() => handleAssign(s.id, "sos")}
-                          disabled={!selectedAttorney || processing}
-                          className="bg-red-500 text-white text-[11px] px-3 py-1 rounded-sm font-bold uppercase"
-                        >
-                          {processing ? <Loader2 className="size-3 animate-spin" /> : "Set"}
-                        </button>
-                        <button onClick={() => setAssigningId(null)} className="text-titanium-500 hover:text-titanium-300 px-1">
-                          <AlertTriangle className="size-3" />
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAssign(s.id, "sos")}
+                            disabled={!selectedAttorney || processing}
+                            className="flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white text-[11px] px-4 py-2 rounded-sm font-bold uppercase transition-colors"
+                          >
+                            {processing ? <Loader2 className="size-3 animate-spin" /> : "Set"}
+                          </button>
+                          <button
+                            onClick={() => setAssigningId(null)}
+                            className="p-2 text-titanium-500 hover:text-titanium-300 border border-titanium-800 sm:border-none rounded-sm"
+                          >
+                            <X className="size-4" />
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <button
                         onClick={() => { setAssigningId(s.id); setAssigningType("sos"); }}
-                        className="font-mono text-[10px] uppercase tracking-widest font-bold text-red-500 border border-red-500/30 px-4 py-2 flex items-center gap-2 hover:bg-red-500/10 transition-all"
+                        className="w-full md:w-auto font-mono text-[10px] uppercase tracking-widest font-bold text-red-500 border border-red-500/30 px-4 py-2 flex items-center justify-center gap-2 hover:bg-red-500/10 transition-all rounded-sm"
                       >
                         Assign Attorney <ChevronRight className="size-3" />
                       </button>
@@ -377,8 +404,8 @@ export default function AdminDashboard() {
             </div>
             <div className="grid gap-4">
               {civilIntakes.map((i) => (
-                <div key={i.id} className="rounded-sm border border-titanium-800 bg-titanium-900/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="space-y-1">
+                <div key={i.id} className="rounded-sm border border-titanium-800 bg-titanium-900/40 p-4 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all hover:border-titanium-700">
+                  <div className="space-y-3 flex-1">
                     <div className="flex items-center gap-3">
                       <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-500">{i.matter_type.replace("_", " ")}</span>
                       <span className={`text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full border border-titanium-700 text-titanium-500`}>
@@ -391,8 +418,8 @@ export default function AdminDashboard() {
                       {i.user.full_name || i.user.email}
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2 min-w-[200px] items-end">
-                    <div className="font-mono text-[10px] text-titanium-600 uppercase tracking-widest">
+                  <div className="flex flex-col gap-3 items-start md:items-end">
+                    <div className="font-mono text-[9px] text-titanium-600 uppercase tracking-[0.2em] bg-titanium-950/50 px-2 py-1 rounded-sm">
                       {new Date(i.created_at).toLocaleString()}
                     </div>
                     {i.assigned_attorney ? (
@@ -401,37 +428,57 @@ export default function AdminDashboard() {
                         Assigned: {i.assigned_attorney.full_name}
                       </div>
                     ) : assigningId === i.id ? (
-                      <div className="flex items-center gap-2 bg-titanium-950/50 border border-titanium-800 p-1 rounded-sm">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-titanium-800 p-2 rounded-sm bg-titanium-950/50">
                         <select
                           value={selectedAttorney}
                           onChange={(e) => setSelectedAttorney(e.target.value)}
-                          className="bg-transparent text-[10px] p-1 outline-none text-titanium-200 font-mono uppercase"
+                          className="flex-1 min-w-0 bg-transparent text-[10px] sm:text-[11px] p-2 outline-none text-titanium-200 font-mono uppercase border border-titanium-800 sm:border-none rounded-sm sm:rounded-none"
                         >
                           <option value="" className="bg-titanium-950">Select Counsel...</option>
                           {attorneys.map(a => (
-                            <option key={a.id} value={a.id} className="bg-titanium-950">{a.full_name || a.email}</option>
+                            <option key={a.id} value={a.id} className="bg-titanium-950">
+                              {a.full_name} | {a.specialties}
+                            </option>
                           ))}
                         </select>
-                        <button
-                          onClick={() => handleAssign(i.id, "civil")}
-                          disabled={!selectedAttorney || processing}
-                          className="bg-action text-action-foreground text-[9px] px-2 py-1 rounded-sm font-bold uppercase"
-                        >
-                          {processing ? <Loader2 className="size-3 animate-spin" /> : "Set"}
-                        </button>
-                        <button onClick={() => setAssigningId(null)} className="text-titanium-500 hover:text-titanium-300 px-1">
-                          <AlertTriangle className="size-3" />
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAssign(i.id, "civil")}
+                            disabled={!selectedAttorney || processing}
+                            className="flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white text-[11px] px-4 py-2 rounded-sm font-bold uppercase transition-colors"
+                          >
+                            {processing ? <Loader2 className="size-3 animate-spin" /> : "Set"}
+                          </button>
+                          <button
+                            onClick={() => setAssigningId(null)}
+                            className="p-2 text-titanium-500 hover:text-titanium-300 border border-titanium-800 sm:border-none rounded-sm"
+                          >
+                            <X className="size-4" />
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <button
                         onClick={() => { setAssigningId(i.id); setAssigningType("civil"); }}
-                        className="font-mono text-[10px] uppercase tracking-widest font-bold text-action border border-action/30 px-4 py-2 flex items-center gap-2 hover:bg-action/10 transition-all"
+                        className="w-full md:w-auto font-mono text-[10px] uppercase tracking-widest font-bold text-action border border-action/30 px-4 py-2 flex items-center justify-center gap-2 hover:bg-action/10 transition-all rounded-sm"
                       >
                         Assign Attorney <ChevronRight className="size-3" />
                       </button>
                     )}
-                    <Link href="/app/admin/cases" className="inline-block font-mono text-[9px] uppercase tracking-widest text-titanium-500 hover:text-action">Full Dispatch</Link>
+                    <div className="flex w-full md:w-auto items-center gap-2">
+                      <button
+                        onClick={() => setSelectedIntake(i)}
+                        className="flex-1 md:flex-none font-mono text-[9px] uppercase tracking-widest text-titanium-500 hover:text-action border border-titanium-800/50 px-3 py-1.5 rounded-sm transition-colors text-center"
+                      >
+                        Review Details
+                      </button>
+                      <Link
+                        href="/app/admin/cases"
+                        className="flex-1 md:flex-none text-center font-mono text-[9px] uppercase tracking-widest text-titanium-500 hover:text-action border border-titanium-800/50 px-3 py-1.5 rounded-sm transition-colors"
+                      >
+                        Full Dispatch
+                      </Link>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -591,6 +638,94 @@ export default function AdminDashboard() {
           </table>
         </div>
       </section>
-    </motion.div>
+      <Dialog open={!!selectedIntake} onOpenChange={(open) => !open && setSelectedIntake(null)}>
+        {selectedIntake && (
+          <DialogContent className="max-w-2xl bg-titanium-900 border-titanium-700 p-0 overflow-hidden">
+            <DialogHeader className="bg-titanium-950/50 p-6 border-b border-titanium-800">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Badge variant={selectedIntake.urgency?.toLowerCase() === "critical" || selectedIntake.urgency?.toLowerCase() === "urgent" ? "destructive" : "outline"} className="font-mono text-[9px] uppercase tracking-widest">
+                    {selectedIntake.urgency || "Standard"} Priority
+                  </Badge>
+                  <span className="font-mono text-[10px] text-titanium-500 uppercase tracking-widest">{selectedIntake.matter_type.replace("_", " ")}</span>
+                </div>
+                <DialogTitle className="font-display text-2xl font-bold text-titanium-50 mt-2">{selectedIntake.subject}</DialogTitle>
+              </div>
+            </DialogHeader>
+
+            <div className="max-h-[60vh] overflow-y-auto p-6 space-y-8">
+              <div className="space-y-3">
+                <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Client Information</h3>
+                <div className="rounded-lg border border-titanium-800 bg-titanium-950/30 p-4 grid gap-4 sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <span className="block text-xs text-titanium-500 font-mono uppercase tracking-tighter">Name</span>
+                    <div className="mt-1 flex items-center gap-2 text-sm text-titanium-200">
+                      <UserIcon className="size-4 shrink-0 text-action" />
+                      <span className="truncate font-medium">{selectedIntake.user.full_name || "Not provided"}</span>
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="block text-xs text-titanium-500 font-mono uppercase tracking-tighter">Phone</span>
+                    <div className="mt-1 flex items-center gap-2 text-sm text-titanium-200">
+                      <Phone className="size-4 shrink-0 text-action" />
+                      <span className="truncate font-medium">{selectedIntake.user.phone || "Not provided"}</span>
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2 min-w-0">
+                    <span className="block text-xs text-titanium-500 font-mono uppercase tracking-tighter">Email</span>
+                    <div className="mt-1 flex items-center gap-2 text-sm text-titanium-200">
+                      <Mail className="size-4 shrink-0 text-action" />
+                      <span className="truncate font-medium">{selectedIntake.user.email}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Case Description</h3>
+                <div className="w-full overflow-hidden rounded-lg border border-titanium-800 bg-titanium-950/30 p-4">
+                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-titanium-300">
+                    {selectedIntake.description}
+                  </p>
+                </div>
+              </div>
+
+              {selectedIntake.metadata && Object.keys(selectedIntake.metadata).length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Structured Data</h3>
+                  <div className="grid gap-2 rounded-lg border border-titanium-800 bg-titanium-950/30 p-4">
+                    {Object.entries(selectedIntake.metadata).map(([key, value]) => (
+                      <div key={key} className="flex justify-between text-sm items-center py-1 border-b border-titanium-800 last:border-0">
+                        <span className="text-titanium-500 capitalize text-xs">{key.replace(/_/g, " ")}:</span>
+                        <span className="font-medium text-titanium-200">{String(value)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-titanium-800">
+                <div className="text-xs text-titanium-500 font-mono">
+                  Preferred: <span className="text-titanium-300 uppercase">{selectedIntake.preferred_contact}</span>
+                </div>
+                <div className="text-xs text-titanium-500 font-mono">
+                  Submitted: <span className="text-titanium-300">{new Date(selectedIntake.created_at).toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="bg-titanium-950/50 p-6 border-t border-titanium-800">
+              <Button
+                variant="outline"
+                onClick={() => setSelectedIntake(null)}
+                className="border-titanium-700 bg-transparent text-titanium-300 hover:bg-titanium-800 h-11 px-6"
+              >
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
+    </motion.div >
   );
 }

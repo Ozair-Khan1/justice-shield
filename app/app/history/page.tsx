@@ -32,6 +32,7 @@ interface Session {
   attorney_name: string | null;
   location_lat: number | null;
   location_lng: number | null;
+  location_address: string | null;
 }
 
 interface Intake {
@@ -165,12 +166,11 @@ export default function HistoryPage() {
                             <Badge variant="outline" className="font-mono text-[9px] uppercase tracking-widest border-red-500/20 bg-red-500/5 text-red-400 whitespace-nowrap">
                               SOS · {s.encounter_type.replace("_", " ")}
                             </Badge>
-                            <span className="font-mono text-[9px] sm:text-[10px] text-titanium-600 truncate">ID: {s.id.slice(0, 8)}</span>
                           </div>
                           <div className="font-display text-lg sm:text-xl font-bold text-titanium-50 group-hover:text-red-400 transition-colors break-words">
                             {new Date(s.started_at).toLocaleString()}
                           </div>
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] sm:text-xs text-titanium-500 font-mono uppercase tracking-tighter">
+                          <div className="flex flex-col flex-wrap items-start gap-x-4 gap-y-1.5 text-[10px] sm:text-xs text-titanium-500 font-mono uppercase tracking-tighter">
                             {s.attorney_name && (
                               <div className="flex items-center gap-1.5">
                                 <UserIcon className="size-3 text-action" />
@@ -179,7 +179,7 @@ export default function HistoryPage() {
                             )}
                             <div className="flex items-center gap-1.5">
                               <MapPin className="size-3" />
-                              <span>GPS Sealed</span>
+                              <span>{s.location_address ? s.location_address : `${s.location_lat?.toFixed(4)}, ${s.location_lng?.toFixed(4)}`}</span>
                             </div>
                           </div>
                         </div>

@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Shield, ChevronRight, Loader2, Scale } from "lucide-react";
+import Link from "next/link";
+import { User, Shield, ChevronRight, Loader2, Scale, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -19,7 +20,7 @@ const ENCOUNTER_TYPES = [
 ] as const;
 
 export default function SOSPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const router = useRouter();
   const [stage, setStage] = useState<"select" | "armed" | "connecting" | "match">("select");
   const [encounterType, setEncounterType] = useState<string | null>(null);
@@ -27,9 +28,19 @@ export default function SOSPage() {
   const [recommendedAttorneys, setRecommendedAttorneys] = useState<any[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
+  const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+  const [locationCoords, setLocationCoords] = useState<{ lat: number | null, lng: number | null }>({ lat: null, lng: null });
+
+  useEffect(() => {
+    refreshUser();
+  }, []);
 
   const onTrigger = async (type: string) => {
     if (!user) return;
+    if (!user.emergency_contact_phone) {
+      setError("Emergency contact required to trigger SOS.");
+      return;
+    }
     setEncounterType(type);
     setStage("armed");
     setError(null);
@@ -44,6 +55,7 @@ export default function SOSPage() {
           { enableHighAccuracy: true, timeout: 8000 },
         );
       });
+      setLocationCoords({ lat: coords.latitude, lng: coords.longitude });
     } catch {
       // proceed without coords
     }
@@ -51,6 +63,7 @@ export default function SOSPage() {
     setStage("connecting");
 
     try {
+      setLocationCoords({ lat: coords?.latitude ?? null, lng: coords?.longitude ?? null });
       const res = await fetch("/api/sos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -64,16 +77,14 @@ export default function SOSPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
-      setSessionId(data.session.id);
+      setResolvedAddress(data.address);
 
       if (data.recommendedAttorneys && data.recommendedAttorneys.length > 0) {
         setRecommendedAttorneys(data.recommendedAttorneys);
         setStage("match");
       } else {
-        // No recommended attorneys, go to history
-        setTimeout(() => {
-          router.push("/app/history");
-        }, 3500);
+        // No recommended attorneys, establish protection via admin dispatch immediately
+        await onAssign(null);
       }
     } catch (err: any) {
       setError(err.message || "Failed to initiate emergency protocol");
@@ -83,13 +94,19 @@ export default function SOSPage() {
   };
 
   const onAssign = async (attorneyId: string | null) => {
-    if (!sessionId) return;
     setAssigning(true);
     try {
-      const res = await fetch(`/api/sos/${sessionId}`, {
-        method: "PATCH",
+      const res = await fetch("/api/sos", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assigned_attorney_id: attorneyId }),
+        body: JSON.stringify({
+          encounter_type: encounterType,
+          location_lat: locationCoords.lat,
+          location_lng: locationCoords.lng,
+          location_address: resolvedAddress,
+          assigned_attorney_id: attorneyId,
+          confirm: true,
+        }),
       });
       if (!res.ok) throw new Error("Failed to assign attorney");
       router.push("/app/history");
@@ -157,6 +174,8 @@ export default function SOSPage() {
                         <span className="text-titanium-600">{attorney.years_experience || 0} Years Exp.</span>
                         <span className="text-titanium-800">•</span>
                         <span className="text-action/70">{attorney.specialties || "Generalist"}</span>
+                        <span className="text-titanium-600">{attorney.city}</span>
+                        <span className="text-titanium-600">{attorney.country}</span>
                       </div>
                     </div>
                   </div>
@@ -199,18 +218,37 @@ export default function SOSPage() {
         </p>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        {ENCOUNTER_TYPES.map((t) => (
-          <button key={t.id} onClick={() => onTrigger(t.id)}
-            className="group flex items-center justify-between rounded-lg border border-titanium-700 bg-titanium-900 p-6 text-left transition-all hover:border-action hover:bg-titanium-800">
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-titanium-500 group-hover:text-action">{t.id.replace("_", "-")}</div>
-              <div className="mt-1 font-display text-xl font-bold">{t.label}</div>
-            </div>
-            <span className="font-mono text-action opacity-0 transition-opacity group-hover:opacity-100">→</span>
-          </button>
-        ))}
-      </div>
+      {!user?.emergency_contact_phone ? (
+        <Card className="border-action/30 bg-action/5 p-8 text-center relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-action/20" />
+          <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-action/10 border border-action/20 mb-6">
+            <AlertTriangle className="size-8 text-action" />
+          </div>
+          <h2 className="font-display text-2xl font-bold text-titanium-50">Emergency Contact Required</h2>
+          <p className="mt-4 text-sm text-titanium-400 max-w-md mx-auto leading-relaxed">
+            To activate SOS protection, you must add an emergency contact in your account settings. This person will be automatically notified when you trigger a live session.
+          </p>
+          <div className="mt-8 flex flex-col items-center gap-4">
+            <Button asChild className="bg-action text-action-foreground h-12 px-8 font-bold uppercase tracking-widest text-[10px]">
+              <Link href="/app/account">Add Emergency Contact</Link>
+            </Button>
+            <p className="font-mono text-[9px] uppercase tracking-widest text-titanium-600">Verification Required before deployment</p>
+          </div>
+        </Card>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {ENCOUNTER_TYPES.map((t) => (
+            <button key={t.id} onClick={() => onTrigger(t.id)}
+              className="group flex items-center justify-between rounded-lg border border-titanium-700 bg-titanium-900 p-6 text-left transition-all hover:border-action hover:bg-titanium-800">
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-widest text-titanium-500 group-hover:text-action">{t.id.replace("_", "-")}</div>
+                <div className="mt-1 font-display text-xl font-bold">{t.label}</div>
+              </div>
+              <span className="font-mono text-action opacity-0 transition-opacity group-hover:opacity-100">→</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && (
         <div className="rounded-sm border border-destructive/40 bg-destructive/10 p-4 font-mono text-xs text-destructive">{error}</div>

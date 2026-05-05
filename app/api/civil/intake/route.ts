@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { matterType, urgency, subject, description, preferredContact, metadata } = body;
+    const { matterType, urgency, subject, description, preferredContact, metadata, assignedAttorneyId } = body;
 
     if (!subject || !description) {
       return NextResponse.json({ error: "Subject and description are required" }, { status: 400 });
@@ -35,6 +35,7 @@ export async function POST(req: Request) {
         preferred_contact: preferredContact || "phone",
         status: "pending",
         metadata: metadata || {},
+        assigned_attorney_id: assignedAttorneyId || null,
       },
     });
 

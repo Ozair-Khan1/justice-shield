@@ -17,6 +17,7 @@ import {
   RefreshCw
 } from "lucide-react";
 import Link from "next/link";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,11 +30,20 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface CaseUser {
   full_name: string | null;
   email: string;
   phone: string | null;
+  city: string | null;
+  country: string | null;
 }
 
 interface SOSSession {
@@ -76,10 +86,13 @@ export default function AttorneyDashboard() {
   const [selectedIntake, setSelectedIntake] = useState<CivilIntake | null>(null);
   const [accepting, setAccepting] = useState(false);
   const [caseTab, setCaseTab] = useState("pending");
+  const [cityFilter, setCityFilter] = useState("all");
+  const [countryFilter, setCountryFilter] = useState("all");
   const [refreshing, setRefreshing] = useState<string | null>(null);
 
   const fetchDashboard = async (silent = false) => {
     if (!silent) setLoading(true);
+    const start = Date.now();
     try {
       const res = await fetch("/api/attorney/dashboard");
       const data = await res.json();
@@ -89,6 +102,12 @@ export default function AttorneyDashboard() {
       setPendingCases(data.pendingCases || []);
       setAssignedCases(data.assignedCases || []);
       setStats(data.stats);
+
+      const elapsed = Date.now() - start;
+      const minDelay = 1000;
+      if (!silent && elapsed < minDelay) {
+        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load dashboard");
     } finally {
@@ -100,6 +119,22 @@ export default function AttorneyDashboard() {
   useEffect(() => {
     fetchDashboard();
   }, []);
+
+  const allRelevantUsers = [
+    ...sosSessions.map(s => s.user),
+    ...assignedSessions.map(s => s.user),
+    ...pendingCases.map(i => i.user),
+    ...assignedCases.map(i => i.user)
+  ];
+
+  const uniqueCities = Array.from(new Set(allRelevantUsers.map(u => u.city).filter(Boolean))).sort() as string[];
+  const uniqueCountries = Array.from(new Set(allRelevantUsers.map(u => u.country).filter(Boolean))).sort() as string[];
+
+  const filterByLocation = (u: CaseUser) => {
+    const matchesCity = cityFilter === "all" || u.city === cityFilter;
+    const matchesCountry = countryFilter === "all" || u.country === countryFilter;
+    return matchesCity && matchesCountry;
+  };
 
   const handleRefresh = (id: string) => {
     setRefreshing(id);
@@ -196,14 +231,7 @@ export default function AttorneyDashboard() {
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="size-8 animate-spin text-action" />
-          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-titanium-500 animate-pulse">Establishing Secure Uplink...</span>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Establishing Secure Uplink..." />;
   }
 
   if (error) {
@@ -304,7 +332,9 @@ export default function AttorneyDashboard() {
                       </div>
                       <div className="space-y-1">
                         <h3 className="font-display text-2xl font-bold text-titanium-50">{s.user.full_name}</h3>
-                        <p className="text-sm text-titanium-400">{s.location_address || "Location Tracking Active"}</p>
+                        <p className="text-sm text-titanium-400">
+                          {s.location_address || "Location Tracking Active"} · <span className="font-mono text-[10px] text-action">{s.user.city || "N/A"}, {s.user.country || "N/A"}</span>
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -340,7 +370,7 @@ export default function AttorneyDashboard() {
             </button>
           </div>
           <div className="grid gap-4">
-            {sosSessions.map((s) => (
+            {sosSessions.filter(s => filterByLocation(s.user)).map((s) => (
               <Card key={s.id} className="group relative overflow-hidden border-red-500/30 bg-red-500/5 transition-all hover:border-red-500/50">
                 <CardContent className="p-6">
                   <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -363,6 +393,8 @@ export default function AttorneyDashboard() {
                             <MapPin className="size-3.5 text-action" />
                             <span className="max-w-md truncate">{s.location_address || "Detecting GPS..."}</span>
                           </div>
+                          <span className="text-titanium-800">•</span>
+                          <span className="font-mono text-[10px] text-action/70">{s.user.city || "No City"}, {s.user.country || "No Country"}</span>
                         </div>
                       </div>
                     </div>
@@ -409,13 +441,40 @@ export default function AttorneyDashboard() {
           </TabsList>
         </div>
 
+        <div className="flex flex-wrap items-center gap-3">
+          <Select value={countryFilter} onValueChange={setCountryFilter}>
+            <SelectTrigger className="w-[160px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest">
+              <SelectValue placeholder="Country Filter" />
+            </SelectTrigger>
+            <SelectContent className="border-titanium-800 bg-titanium-950 text-titanium-200">
+              <SelectItem value="all">All Countries</SelectItem>
+              {uniqueCountries.map(c => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={cityFilter} onValueChange={setCityFilter}>
+            <SelectTrigger className="w-[160px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest">
+              <SelectValue placeholder="City Filter" />
+            </SelectTrigger>
+            <SelectContent className="border-titanium-800 bg-titanium-950 text-titanium-200">
+              <SelectItem value="all">All Cities</SelectItem>
+              {uniqueCities.map(c => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+        </div>
+
         <TabsContent value="pending" className="grid gap-4 focus-visible:ring-0">
-          {pendingCases.length === 0 ? (
+          {pendingCases.filter(i => filterByLocation(i.user)).length === 0 ? (
             <div className="rounded-lg border border-dashed border-titanium-800 p-12 text-center text-titanium-600 font-mono text-[10px] uppercase tracking-widest">
-              No pending civil intakes in your specialty
+              No pending civil intakes matching location filters
             </div>
           ) : (
-            pendingCases.map((i) => (
+            pendingCases.filter(i => filterByLocation(i.user)).map((i) => (
               <CaseCard key={i.id} i={i} onReview={() => setSelectedIntake(i)} />
             ))
           )}
@@ -427,13 +486,13 @@ export default function AttorneyDashboard() {
         </TabsContent>
 
         <TabsContent value="my-active" className="grid gap-4 focus-visible:ring-0">
-          {assignedCases.length === 0 && assignedSessions.length === 0 ? (
+          {assignedCases.filter(i => filterByLocation(i.user)).length === 0 && assignedSessions.filter(s => filterByLocation(s.user)).length === 0 ? (
             <div className="rounded-lg border border-dashed border-titanium-800 p-12 text-center text-titanium-600 font-mono text-[10px] uppercase tracking-widest">
-              You have no active cases or SOS sessions assigned
+              You have no active cases or SOS sessions matching location filters
             </div>
           ) : (
             <>
-              {assignedSessions.map((s) => (
+              {assignedSessions.filter(s => filterByLocation(s.user)).map((s) => (
                 <Card key={s.id} className="group border-red-500/30 bg-red-500/5 hover:border-red-500 transition-all overflow-hidden">
                   <CardContent className="p-6">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -455,6 +514,8 @@ export default function AttorneyDashboard() {
                             <MapPin className="size-3" />
                             <span className="max-w-[150px] truncate">{s.location_address || "GPS Active"}</span>
                           </div>
+                          <span className="text-titanium-800">•</span>
+                          <span className="text-action/70">{s.user.city || "N/A"}, {s.user.country || "N/A"}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -473,7 +534,7 @@ export default function AttorneyDashboard() {
                   </CardContent>
                 </Card>
               ))}
-              {assignedCases.map((i) => (
+              {assignedCases.filter(i => filterByLocation(i.user)).map((i) => (
                 <CaseCard key={i.id} i={i} onReview={() => setSelectedIntake(i)} />
               ))}
             </>
@@ -531,6 +592,12 @@ export default function AttorneyDashboard() {
                     <div className="mt-1 flex items-center gap-2 text-sm text-titanium-200">
                       <Mail className="size-4 shrink-0 text-action" />
                       <span className="truncate font-medium">{selectedIntake.user.email}</span>
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2 min-w-0">
+                    <span className="block text-xs text-titanium-500 font-mono uppercase tracking-tighter">Registered Location</span>
+                    <div className="mt-1 flex items-center gap-2 text-sm text-titanium-200">
+                      <span className="truncate font-medium">{selectedIntake.user.city || "N/A"}, {selectedIntake.user.country || "N/A"}</span>
                     </div>
                   </div>
                 </div>
@@ -601,7 +668,7 @@ export default function AttorneyDashboard() {
           </DialogContent>
         )}
       </Dialog>
-    </motion.div>
+    </motion.div >
   );
 }
 
@@ -632,6 +699,8 @@ function CaseCard({ i, onReview }: { i: CivilIntake; onReview: () => void }) {
                 <Scale className="size-3" />
                 <span>{new Date(i.created_at).toLocaleDateString()}</span>
               </div>
+              <span className="text-titanium-800">•</span>
+              <span className="text-action/70">{i.user.city || "N/A"}, {i.user.country || "N/A"}</span>
             </div>
           </div>
           <Button

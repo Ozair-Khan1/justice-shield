@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
@@ -27,6 +27,13 @@ export default function DisclaimerPage() {
             <h2 className="font-display text-2xl font-bold text-titanium-50">Service area</h2>
             <p className="mt-3">
               Justice Shield is presently operating in the <strong className="text-titanium-50">State of Georgia</strong>, with plans to expand nationwide. Our legal services currently provide coverage for the <strong className="text-titanium-50">State of Georgia only</strong>. Membership and dispatched attorney response is unavailable outside Georgia at this time.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="font-display text-2xl font-bold text-titanium-50">Excluded Law</h2>
+            <p className="mt-3">
+              Provider firms within the Justice Shield network <strong className="text-titanium-50">do not assist</strong> with International Law, Military Law, or Tribal Law.
             </p>
           </section>
 

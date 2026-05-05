@@ -28,6 +28,8 @@ export async function GET(req: Request) {
         membership_tier: true,
         emergency_contact_name: true,
         emergency_contact_phone: true,
+        city: true,
+        country: true,
         emergency_alerts: {
           select: {
             id: true,
@@ -82,7 +84,7 @@ export async function PUT(req: Request) {
     const user = await verifyJwt(token);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { full_name, phone, emergency_contact_name, emergency_contact_phone } = await req.json();
+    const { full_name, phone, emergency_contact_name, emergency_contact_phone, city, country } = await req.json();
 
     const updatedUser = await prisma.user.update({
       where: { id: user.id as string },
@@ -91,6 +93,8 @@ export async function PUT(req: Request) {
         phone,
         emergency_contact_name,
         emergency_contact_phone,
+        city,
+        country,
       },
     });
 

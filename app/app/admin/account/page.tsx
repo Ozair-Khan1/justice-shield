@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
-import PhoneInput from 'react-phone-number-input';
+import PhoneInput, { parsePhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 
 export default function AdminAccountPage() {
@@ -12,6 +12,8 @@ export default function AdminAccountPage() {
     const [phone, setPhone] = useState("");
     const [emergencyName, setEmergencyName] = useState("");
     const [emergencyPhone, setEmergencyPhone] = useState("");
+    const [city, setCity] = useState("");
+    const [country, setCountry] = useState("");
     const [password, setPassword] = useState("");
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -31,9 +33,29 @@ export default function AdminAccountPage() {
         setPhone(normalize(user.phone));
         setEmergencyName(user.emergency_contact_name ?? "");
         setEmergencyPhone(normalize(user.emergency_contact_phone ?? ""));
+        setCity(user.city ?? "");
+        setCountry(user.country ?? "");
     }, [user]);
 
     if (!user) return <div className="font-mono text-xs text-titanium-500">Loading...</div>;
+
+    const handlePhoneChange = (v: string | undefined) => {
+        const newPhone = v ?? '';
+        setPhone(newPhone);
+
+        if (newPhone) {
+            try {
+                const phoneNumber = parsePhoneNumber(newPhone);
+                if (phoneNumber && phoneNumber.country && !country) {
+                    const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+                    const detectedCountry = regionNames.of(phoneNumber.country);
+                    if (detectedCountry) setCountry(detectedCountry);
+                }
+            } catch (e) {
+                // Ignore parsing errors
+            }
+        }
+    };
 
     const onSave = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -71,6 +93,8 @@ export default function AdminAccountPage() {
                     password: password,
                     emergency_contact_name: emergencyName,
                     emergency_contact_phone: emergencyPhone,
+                    city,
+                    country,
                 }),
             });
             const data = await res.json();
@@ -103,12 +127,14 @@ export default function AdminAccountPage() {
                         <PhoneInput
                             placeholder="Enter phone number"
                             value={phone}
-                            onChange={(v) => setPhone(v ?? "")}
+                            onChange={handlePhoneChange}
                             defaultCountry="US"
                             international={false}
                             className="phone-input-custom mt-2"
                         />
                     </Field>
+                    <Field label="City" value={city} onChange={setCity} />
+                    <Field label="Country" value={country} onChange={setCountry} />
                 </div>
             </section>
 

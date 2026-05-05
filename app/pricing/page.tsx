@@ -32,7 +32,7 @@ const TIERS = [
     features: [
       "Everything in Standard",
       "Civil intake (all categories)",
-      "Document review (3/mo)",
+      "Document review up to 35 pages",
       "Demand letter drafting",
       "Member Protection Warranty",
     ],

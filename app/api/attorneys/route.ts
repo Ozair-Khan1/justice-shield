@@ -5,6 +5,8 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const specialty = searchParams.get("specialty");
+    const city = searchParams.get("city");
+    const country = searchParams.get("country");
 
     const attorneys = await prisma.user.findMany({
       where: {
@@ -12,6 +14,18 @@ export async function GET(req: Request) {
         ...(specialty ? {
           specialties: {
             contains: specialty,
+            mode: "insensitive"
+          }
+        } : {}),
+        ...(city ? {
+          city: {
+            contains: city,
+            mode: "insensitive"
+          }
+        } : {}),
+        ...(country ? {
+          country: {
+            contains: country,
             mode: "insensitive"
           }
         } : {})
@@ -25,6 +39,8 @@ export async function GET(req: Request) {
         firm_name: true,
         specialties: true,
         years_experience: true,
+        city: true,
+        country: true,
       },
     });
 

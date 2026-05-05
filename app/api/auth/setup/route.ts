@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { verifyOtp } from "@/lib/otp";
+import { sendVendorProfileSetupCompleteEmail, sendMarketingProfileSetupCompleteEmail } from "@/lib/mail";
 
 export async function POST(req: Request) {
   try {
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
     // 3. Update password and clear vendor_pending status if applicable
     const password_hash = await bcrypt.hash(password, 12);
 
-    await prisma.user.update({
+    const updatedUser = await prisma.user.update({
       where: { email },
       data: {
         password_hash,
@@ -45,6 +46,15 @@ export async function POST(req: Request) {
         } : {}),
       },
     });
+
+    // Send setup completion email if they were a vendor
+    if (vendorApplication) {
+      if (vendorApplication.vendor_type === "ATTORNEY") {
+        sendVendorProfileSetupCompleteEmail(updatedUser.email, updatedUser.full_name || "Counsel").catch(console.error);
+      } else if (vendorApplication.vendor_type === "MARKETING_SPECIALIST") {
+        sendMarketingProfileSetupCompleteEmail(updatedUser.email, updatedUser.full_name || "Partner").catch(console.error);
+      }
+    }
 
     return NextResponse.json({ message: "Account setup successful" });
   } catch (error) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import PhoneInput from 'react-phone-number-input';
+import PhoneInput, { parsePhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 
 
@@ -13,6 +13,8 @@ interface Profile {
   emergency_contact_name?: string | null;
   emergency_contact_phone?: string | null;
   membership_tier: string;
+  city?: string | null;
+  country?: string | null;
 }
 
 export default function AccountPage() {
@@ -34,6 +36,8 @@ export default function AccountPage() {
         emergency_contact_name: user.emergency_contact_name ?? "",
         emergency_contact_phone: normalize(user.emergency_contact_phone),
         membership_tier: user.membership_tier ?? "basic",
+        city: user.city ?? "",
+        country: user.country ?? "",
       }
     );
   }, [user]);
@@ -41,6 +45,34 @@ export default function AccountPage() {
   if (!profile || !user) return <div className="font-mono text-xs text-titanium-500">Loading...</div>;
 
   const update = (k: keyof Profile, v: string) => setProfile({ ...profile, [k]: v });
+
+  const handlePhoneChange = (v: string | undefined) => {
+    const newPhone = v ?? '';
+    let updates: Partial<Profile> = { phone: newPhone };
+
+    if (newPhone) {
+      try {
+        const phoneNumber = parsePhoneNumber(newPhone);
+        if (phoneNumber && phoneNumber.country) {
+          try {
+            const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+            const detectedCountry = regionNames.of(phoneNumber.country);
+
+            if (detectedCountry && !profile.country) {
+              updates.country = detectedCountry;
+            }
+          } catch (intlError) {
+            // Fallback to code if Intl fails
+            if (!profile.country) updates.country = phoneNumber.country;
+          }
+        }
+      } catch (e) {
+        // Ignore parsing errors for partial numbers
+      }
+    }
+
+    setProfile(prev => ({ ...prev!, ...updates }));
+  };
 
   const onSave = async () => {
     if (!profile) return;
@@ -84,6 +116,8 @@ export default function AccountPage() {
           phone: profile.phone,
           emergency_contact_name: profile.emergency_contact_name,
           emergency_contact_phone: profile.emergency_contact_phone,
+          city: profile.city,
+          country: profile.country,
         })
       }).then(res => res.json());
 
@@ -121,12 +155,16 @@ export default function AccountPage() {
           <PhoneInput
             placeholder="Enter phone number"
             value={profile.phone ?? ''}
-            onChange={(v) => update("phone", v ?? '')}
+            onChange={handlePhoneChange}
             defaultCountry="US"
             international={false}
             className="phone-input-custom mt-2"
           />
         </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="City" value={profile.city ?? ""} onChange={(v) => update("city", v)} />
+          <Field label="Country" value={profile.country ?? ""} onChange={(v) => update("country", v)} />
+        </div>
 
         <div className="border-t border-titanium-800 pt-6">
           <div className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-action">Emergency Contact</div>

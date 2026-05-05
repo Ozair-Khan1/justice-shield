@@ -27,6 +27,8 @@ export async function GET(req: Request) {
         years_experience: true,
         membership_tier: true,
         created_at: true,
+        city: true,
+        country: true,
         _count: {
           select: {
             encounter_sessions: true,

@@ -75,13 +75,7 @@ export async function GET(req: Request) {
     const civilIntakes = await prisma.civilIntake.findMany({
       orderBy: { created_at: "desc" },
       take: 10,
-      select: {
-        id: true,
-        matter_type: true,
-        subject: true,
-        status: true,
-        created_at: true,
-        assigned_attorney_id: true,
+      include: {
         assigned_attorney: {
           select: {
             full_name: true,
@@ -91,6 +85,7 @@ export async function GET(req: Request) {
           select: {
             full_name: true,
             email: true,
+            phone: true,
           }
         }
       }
