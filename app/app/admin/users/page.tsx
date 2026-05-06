@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { Pagination } from "@/components/Pagination";
 
 interface UserRecord {
   id: string;
@@ -21,6 +23,8 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
 
   useEffect(() => {
     fetch("/api/admin/users")
@@ -32,13 +36,22 @@ export default function AdminUsersPage() {
       .catch(() => setLoading(false));
   }, []);
 
-  const filtered = users.filter(
-    (u) =>
-      u.email.toLowerCase().includes(search.toLowerCase()) ||
-      (u.full_name ?? "").toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  const filtered = users.filter((u: any) =>
+    u.email.toLowerCase().includes(search.toLowerCase()) ||
+    (u.full_name ?? "").toLowerCase().includes(search.toLowerCase())
   );
 
-  if (loading) return <div className="font-mono text-xs text-titanium-500">Loading users...</div>;
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginatedUsers = filtered.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  if (loading) return <LoadingScreen message="Loading Users..." />;
 
   return (
     <div className="space-y-8">
@@ -56,6 +69,14 @@ export default function AdminUsersPage() {
         className="w-full max-w-md rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-red-500"
       />
 
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+        totalItems={filtered.length}
+        itemsPerPage={ITEMS_PER_PAGE}
+      />
+
       <div className="overflow-x-auto rounded-sm border border-titanium-800">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-titanium-800 bg-titanium-900/60">
@@ -71,7 +92,7 @@ export default function AdminUsersPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-titanium-800/60">
-            {filtered.map((u) => (
+            {paginatedUsers.map((u) => (
               <tr key={u.id} className="transition-colors hover:bg-titanium-900/40">
                 <td className="px-4 py-3 text-titanium-200">{u.full_name || "—"}</td>
                 <td className="px-4 py-3 font-mono text-xs text-titanium-400">{u.email}</td>
@@ -94,7 +115,7 @@ export default function AdminUsersPage() {
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {paginatedUsers.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-4 py-6 text-center text-titanium-500">
                   {search ? "No matching users" : "No users yet"}

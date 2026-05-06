@@ -58,6 +58,7 @@ export async function GET(req: Request) {
         started_at: true,
         location_address: true,
         assigned_attorney_id: true,
+        emergency_contact_phone: true,
         assigned_attorney: {
           select: {
             full_name: true,
@@ -67,6 +68,10 @@ export async function GET(req: Request) {
           select: {
             full_name: true,
             email: true,
+            phone: true,
+            city: true,
+            country: true,
+            emergency_contact_name: true,
           }
         }
       }
@@ -86,6 +91,10 @@ export async function GET(req: Request) {
             full_name: true,
             email: true,
             phone: true,
+            city: true,
+            country: true,
+            emergency_contact_name: true,
+            emergency_contact_phone: true,
           }
         }
       }
@@ -104,6 +113,7 @@ export async function GET(req: Request) {
           select: {
             full_name: true,
             email: true,
+            phone: true,
           }
         }
       }

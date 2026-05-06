@@ -22,6 +22,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { Pagination } from "@/components/Pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 interface Session {
   id: string;
@@ -45,6 +55,8 @@ interface Intake {
   assigned_attorney: {
     full_name: string | null;
   } | null;
+  opposing_party: string | null;
+  opposing_party_location: string | null;
 }
 
 export default function HistoryPage() {
@@ -55,6 +67,11 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [urgencyFilter, setUrgencyFilter] = useState("all");
+  const ITEMS_PER_PAGE = 10;
 
   const fetchHistory = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -78,15 +95,42 @@ export default function HistoryPage() {
     if (user) fetchHistory();
   }, [user]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [tab, search, statusFilter, urgencyFilter]);
+
+  const filteredSessions = sessions.filter(s => {
+    const matchesStatus = statusFilter === "all" || s.status === statusFilter;
+    const matchesSearch = s.encounter_type.toLowerCase().includes(search.toLowerCase()) ||
+      s.encounter_type.toLowerCase().replace(/_/g, " ").includes(search.toLowerCase()) ||
+      (s.attorney_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (s.location_address || "").toLowerCase().includes(search.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
+
+  const filteredIntakes = intakes.filter(i => {
+    const matchesStatus = statusFilter === "all" || i.status === statusFilter;
+    const matchesUrgency = urgencyFilter === "all" || i.urgency.toLowerCase() === urgencyFilter.toLowerCase();
+    const matchesSearch = i.subject.toLowerCase().includes(search.toLowerCase()) ||
+      i.matter_type.toLowerCase().includes(search.toLowerCase()) ||
+      i.matter_type.toLowerCase().replace(/_/g, " ").includes(search.toLowerCase()) ||
+      (i.opposing_party || "").toLowerCase().includes(search.toLowerCase()) ||
+      (i.assigned_attorney?.full_name || "").toLowerCase().includes(search.toLowerCase());
+    return matchesStatus && matchesUrgency && matchesSearch;
+  });
+
+  const totalPages = Math.ceil((tab === "sos" ? filteredSessions : filteredIntakes).length / ITEMS_PER_PAGE);
+  const paginatedSessions = filteredSessions.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+  const paginatedIntakes = filteredIntakes.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   if (loading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="size-8 animate-spin text-action" />
-          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-titanium-500 animate-pulse">Decrypting Vault Records...</span>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Decrypting Vault Records..." />;
   }
 
   return (
@@ -122,17 +166,89 @@ export default function HistoryPage() {
         </button>
       </header>
 
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[160px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent className="border-titanium-800 bg-titanium-950 text-titanium-200">
+              <SelectItem value="all">All Statuses</SelectItem>
+              {tab === "sos" ? (
+                <>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                </>
+              ) : (
+                <>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="assigned">Assigned</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                </>
+              )}
+            </SelectContent>
+          </Select>
+
+          {tab === "civil" && (
+            <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
+              <SelectTrigger className="w-full sm:w-[160px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest">
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent className="border-titanium-800 bg-titanium-950 text-titanium-200">
+                <SelectItem value="all">All Priorities</SelectItem>
+                <SelectItem value="critical">Critical</SelectItem>
+                <SelectItem value="urgent">Urgent</SelectItem>
+                <SelectItem value="standard">Standard</SelectItem>
+                <SelectItem value="routine">Routine</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+
+          <div className="relative w-full sm:w-[250px]">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-titanium-500" />
+            <Input
+              placeholder="Search history..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full border-titanium-800 bg-titanium-900/50 pl-10 focus:border-action h-9 text-xs"
+            />
+          </div>
+
+          {(statusFilter !== "all" || urgencyFilter !== "all" || search !== "") && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setStatusFilter("all");
+                setUrgencyFilter("all");
+                setSearch("");
+              }}
+              className="h-9 px-4 font-mono text-[9px] uppercase tracking-widest text-titanium-600 hover:text-titanium-400"
+            >
+              Reset
+            </Button>
+          )}
+        </div>
+      </div>
+
       <Tabs value={tab} onValueChange={setTab} className="space-y-6 md:space-y-8">
         <div className="overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
           <TabsList className="inline-flex w-full sm:w-auto bg-titanium-900/50 border border-titanium-800 p-1">
             <TabsTrigger value="sos" className="flex-1 sm:flex-none data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-4 sm:px-8 py-3 transition-all whitespace-nowrap">
-              Police Encounters
+              SOS
             </TabsTrigger>
             <TabsTrigger value="civil" className="flex-1 sm:flex-none data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-4 sm:px-8 py-3 transition-all whitespace-nowrap">
               Civil Intakes
             </TabsTrigger>
           </TabsList>
         </div>
+
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={(tab === "sos" ? filteredSessions : filteredIntakes).length}
+          itemsPerPage={ITEMS_PER_PAGE}
+        />
 
         <TabsContent value="sos" className="focus-visible:ring-0">
           <AnimatePresence mode="wait">
@@ -153,8 +269,12 @@ export default function HistoryPage() {
                     <p className="mt-3 text-sm text-titanium-500">Your interaction history with law enforcement is clear.</p>
                   </CardContent>
                 </Card>
+              ) : filteredSessions.length === 0 ? (
+                <div className="p-12 text-center text-titanium-600 font-mono text-[10px] uppercase tracking-widest border border-dashed border-titanium-800 rounded-lg">
+                  No matching SOS records found
+                </div>
               ) : (
-                sessions.map((s) => (
+                paginatedSessions.map((s) => (
                   <Card key={s.id} className="border-titanium-800 bg-titanium-900/30 hover:border-titanium-700 transition-all group">
                     <CardContent className="p-4 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-start sm:items-center gap-4 sm:gap-6">
@@ -217,8 +337,12 @@ export default function HistoryPage() {
                     <p className="mt-3 text-sm text-titanium-500">You have no active or historical civil intakes.</p>
                   </CardContent>
                 </Card>
+              ) : filteredIntakes.length === 0 ? (
+                <div className="p-12 text-center text-titanium-600 font-mono text-[10px] uppercase tracking-widest border border-dashed border-titanium-800 rounded-lg">
+                  No matching intake records found
+                </div>
               ) : (
-                intakes.map((i) => (
+                paginatedIntakes.map((i) => (
                   <Card key={i.id} className="border-titanium-800 bg-titanium-900/30 hover:border-titanium-700 transition-all group">
                     <CardContent className="p-4 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-start sm:items-center gap-4 sm:gap-6">
@@ -248,6 +372,12 @@ export default function HistoryPage() {
                               <div className="flex items-center gap-1.5">
                                 <UserIcon className="size-3 text-action" />
                                 <span className="text-action truncate">Counselor {i.assigned_attorney.full_name}</span>
+                              </div>
+                            )}
+                            {i.opposing_party && (
+                              <div className="flex items-center gap-1.5">
+                                <Scale className="size-3 text-red-400" />
+                                <span className="text-titanium-400 truncate">Opposing: {i.opposing_party} {i.opposing_party_location ? `(${i.opposing_party_location})` : ""}</span>
                               </div>
                             )}
                           </div>

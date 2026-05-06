@@ -15,15 +15,24 @@ export async function GET(req: Request) {
     const [intakes, sessions] = await Promise.all([
       prisma.civilIntake.findMany({
         include: {
-          user: { select: { full_name: true, email: true, phone: true, city: true, country: true } },
+          user: { select: { full_name: true, email: true, phone: true, city: true, country: true, emergency_contact_name: true, emergency_contact_phone: true } },
           assigned_attorney: { select: { full_name: true } }
         },
         orderBy: { created_at: "desc" },
       }),
       prisma.encounterSession.findMany({
-        include: {
-          user: { select: { full_name: true, email: true, city: true, country: true } },
-          assigned_attorney: { select: { full_name: true } }
+        select: {
+          id: true,
+          encounter_type: true,
+          status: true,
+          location_lat: true,
+          location_lng: true,
+          location_address: true,
+          emergency_contact_phone: true,
+          started_at: true,
+          created_at: true,
+          user: { select: { full_name: true, email: true, phone: true, city: true, country: true, emergency_contact_name: true } },
+          assigned_attorney: { select: { full_name: true } },
         },
         orderBy: { created_at: "desc" },
       })

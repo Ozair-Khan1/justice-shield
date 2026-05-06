@@ -11,6 +11,8 @@ export const metadata: Metadata = {
 const CATEGORIES = [
   { tag: "Housing", title: "Landlord & Tenant", desc: "Security deposits, eviction defense, habitability, lease disputes." },
   { tag: "Employment", title: "Employment & Wages", desc: "Unpaid wages, wrongful termination, discrimination, severance review." },
+  { tag: "Injury", title: "Personal Injury", desc: "Accidents, slips and falls, and injury claims against parties or entities." },
+  { tag: "Finance", title: "Bankruptcy", desc: "Chapter 7 and 13 guidance, debt restructuring, and financial protection." },
   { tag: "Contracts", title: "Contracts & Agreements", desc: "Review, drafting, breach claims, demand letters, settlements." },
   { tag: "Civil", title: "Small Claims", desc: "Pre-filing strategy, demand letters, court prep up to $10,000." },
   { tag: "Family", title: "Family Matters", desc: "Custody questions, divorce intake, child support, restraining orders." },

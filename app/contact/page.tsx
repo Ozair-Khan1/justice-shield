@@ -3,10 +3,12 @@
 import { useState, type FormEvent } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { useLoading } from "@/components/LoadingProvider";
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { startLoading, stopLoading } = useLoading();
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -15,6 +17,7 @@ export default function ContactPage() {
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
+    startLoading("Transmitting Message...");
     setError(null);
 
     try {
@@ -48,6 +51,7 @@ export default function ContactPage() {
       setError(message);
     } finally {
       setLoading(false);
+      stopLoading();
     }
   };
 

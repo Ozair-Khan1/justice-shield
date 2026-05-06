@@ -1,20 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Shield, Users, FileText, AlertTriangle, Briefcase, Clock, MapPin, User as UserIcon, RefreshCw, Loader2, ChevronRight, X } from "lucide-react";
+import { Shield, Users, FileText, AlertTriangle, Briefcase, Clock, MapPin, User as UserIcon, RefreshCw, Loader2, ChevronRight, X, Scale, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { useLoading } from "@/components/LoadingProvider";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Mail, Phone } from "lucide-react";
 
 interface Stats {
@@ -51,12 +52,17 @@ interface SOSSession {
   started_at: string;
   location_address: string | null;
   assigned_attorney_id: string | null;
+  emergency_contact_phone: string | null;
   assigned_attorney: {
     full_name: string | null;
   } | null;
   user: {
     full_name: string | null;
     email: string;
+    phone: string | null;
+    city: string | null;
+    country: string | null;
+    emergency_contact_name: string | null;
   };
 }
 
@@ -77,6 +83,10 @@ interface CivilIntake {
     full_name: string | null;
     email: string;
     phone: string | null;
+    city: string | null;
+    country: string | null;
+    emergency_contact_name: string | null;
+    emergency_contact_phone: string | null;
   };
   metadata?: Record<string, any> | null;
 }
@@ -101,6 +111,7 @@ interface EmergencyAlert {
   user: {
     full_name: string | null;
     email: string;
+    phone: string | null;
   };
 }
 
@@ -135,6 +146,7 @@ export default function AdminDashboard() {
   const [selectedAttorney, setSelectedAttorney] = useState("");
   const [processing, setProcessing] = useState(false);
   const [selectedIntake, setSelectedIntake] = useState<CivilIntake | null>(null);
+  const { startLoading, stopLoading } = useLoading();
 
   const fetchData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -171,6 +183,7 @@ export default function AdminDashboard() {
   const handleAssign = async (caseId: string, type: "civil" | "sos") => {
     if (!selectedAttorney) return;
     setProcessing(true);
+    startLoading("Assigning Tactical Counsel...");
     try {
       const res = await fetch("/api/admin/cases/assign", {
         method: "POST",
@@ -191,6 +204,7 @@ export default function AdminDashboard() {
       alert(err.message || "Assignment failed");
     } finally {
       setProcessing(false);
+      stopLoading();
     }
   };
 
@@ -323,7 +337,17 @@ export default function AdminDashboard() {
                     <div className="flex items-center gap-2 text-sm text-titanium-200">
                       <UserIcon className="size-3.5 text-titanium-500" />
                       {s.user.full_name || s.user.email}
+                      {s.user.phone && <span className="text-titanium-600 ml-1">({s.user.phone})</span>}
                     </div>
+
+                    {(s.user.emergency_contact_name) && (
+                      <div className="flex items-center gap-2 text-[10px] bg-red-500/5 border border-red-500/10 px-2 py-1 rounded-sm w-fit">
+                        <span className="font-mono font-bold uppercase text-red-500/70">Emergency Contact:</span>
+                        <span className="text-titanium-300">{s.user.emergency_contact_name || "Contact"}</span>
+                        <span className="text-titanium-600">•</span>
+                        <span className="font-mono text-red-400">{s.emergency_contact_phone || "No Phone"}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2 text-[11px] text-titanium-400">
                       <MapPin className="size-3" />
                       {s.location_address || "No location info"}
@@ -341,18 +365,41 @@ export default function AdminDashboard() {
                       </div>
                     ) : assigningId === s.id ? (
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-titanium-800 p-2 rounded-sm bg-titanium-950/50">
-                        <select
-                          value={selectedAttorney}
-                          onChange={(e) => setSelectedAttorney(e.target.value)}
-                          className="flex-1 min-w-0 bg-transparent text-[10px] sm:text-[11px] p-2 outline-none text-titanium-200 font-mono uppercase border border-titanium-800 sm:border-none rounded-sm sm:rounded-none"
-                        >
-                          <option value="" className="bg-titanium-950">Select Counsel...</option>
-                          {attorneys.map(a => (
-                            <option key={a.id} value={a.id} className="bg-titanium-950">
-                              {a.full_name} | {a.specialties}
-                            </option>
-                          ))}
-                        </select>
+                        <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
+                          <SelectTrigger className="flex-1 min-w-0 bg-transparent text-[10px] sm:text-[11px] h-10 border-titanium-800 sm:border-none rounded-sm sm:rounded-none font-mono uppercase text-titanium-200">
+                            <SelectValue placeholder="Select Counsel..." />
+                          </SelectTrigger>
+                          <SelectContent className="bg-titanium-950 border-titanium-800">
+                            {(() => {
+                              const clientCity = s.user.city;
+                              const clientCountry = s.user.country;
+
+                              return [...attorneys].sort((a, b) => {
+                                const aCityMatch = clientCity && a.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
+                                const aCountryMatch = clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
+                                const bCityMatch = clientCity && b.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
+                                const bCountryMatch = clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
+                                return (bCityMatch + bCountryMatch) - (aCityMatch + aCountryMatch);
+                              }).map(a => {
+                                const isLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
+                                  (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase());
+                                return (
+                                  <SelectItem key={a.id} value={a.id} className="font-mono text-[10px] uppercase">
+                                    <div className="flex flex-col gap-0.5 text-left">
+                                      <div className="flex items-center gap-2">
+                                        {isLocal && <span className="text-action text-[8px]">📍</span>}
+                                        <span className="font-bold text-titanium-50">{a.full_name}</span>
+                                      </div>
+                                      <div className="text-[8px] text-titanium-500 truncate max-w-[200px]">
+                                        {a.specialties || a.email} {a.city ? `(${a.city})` : ""}
+                                      </div>
+                                    </div>
+                                  </SelectItem>
+                                );
+                              });
+                            })()}
+                          </SelectContent>
+                        </Select>
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleAssign(s.id, "sos")}
@@ -429,18 +476,41 @@ export default function AdminDashboard() {
                       </div>
                     ) : assigningId === i.id ? (
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-titanium-800 p-2 rounded-sm bg-titanium-950/50">
-                        <select
-                          value={selectedAttorney}
-                          onChange={(e) => setSelectedAttorney(e.target.value)}
-                          className="flex-1 min-w-0 bg-transparent text-[10px] sm:text-[11px] p-2 outline-none text-titanium-200 font-mono uppercase border border-titanium-800 sm:border-none rounded-sm sm:rounded-none"
-                        >
-                          <option value="" className="bg-titanium-950">Select Counsel...</option>
-                          {attorneys.map(a => (
-                            <option key={a.id} value={a.id} className="bg-titanium-950">
-                              {a.full_name} | {a.specialties}
-                            </option>
-                          ))}
-                        </select>
+                        <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
+                          <SelectTrigger className="flex-1 min-w-0 bg-transparent text-[10px] sm:text-[11px] h-10 border-titanium-800 sm:border-none rounded-sm sm:rounded-none font-mono uppercase text-titanium-200">
+                            <SelectValue placeholder="Select Counsel..." />
+                          </SelectTrigger>
+                          <SelectContent className="bg-titanium-950 border-titanium-800">
+                            {(() => {
+                              const clientCity = i.user.city;
+                              const clientCountry = i.user.country;
+
+                              return [...attorneys].sort((a, b) => {
+                                const aCityMatch = clientCity && a.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
+                                const aCountryMatch = clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
+                                const bCityMatch = clientCity && b.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
+                                const bCountryMatch = clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
+                                return (bCityMatch + bCountryMatch) - (aCityMatch + aCountryMatch);
+                              }).map(a => {
+                                const isLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
+                                  (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase());
+                                return (
+                                  <SelectItem key={a.id} value={a.id} className="font-mono text-[10px] uppercase">
+                                    <div className="flex flex-col gap-0.5 text-left">
+                                      <div className="flex items-center gap-2">
+                                        {isLocal && <span className="text-action text-[8px]">📍</span>}
+                                        <span className="font-bold text-titanium-50">{a.full_name}</span>
+                                      </div>
+                                      <div className="text-[8px] text-titanium-500 truncate max-w-[200px]">
+                                        {a.specialties || a.email} {a.city ? `(${a.city})` : ""}
+                                      </div>
+                                    </div>
+                                  </SelectItem>
+                                );
+                              });
+                            })()}
+                          </SelectContent>
+                        </Select>
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleAssign(i.id, "civil")}
@@ -518,6 +588,7 @@ export default function AdminDashboard() {
                     <div className="flex items-center gap-2 text-sm text-titanium-400">
                       <UserIcon className="size-3.5 text-titanium-500" />
                       {a.user.full_name || a.user.email}
+                      {a.user.phone && <span className="text-titanium-600 ml-1">({a.user.phone})</span>}
                     </div>
                   </div>
                   <div className="space-y-1 sm:text-right">
@@ -530,11 +601,12 @@ export default function AdminDashboard() {
               {emergencyAlerts.length === 0 && <p className="text-center py-8 text-titanium-600 font-mono text-[10px] uppercase tracking-widest">No emergency alerts active</p>}
             </div>
           </motion.section>
-        )}
-      </AnimatePresence>
+        )
+        }
+      </AnimatePresence >
 
       {/* Recent Users Table */}
-      <section className="space-y-4">
+      < section className="space-y-4" >
         <div className="flex items-center gap-3 border-b border-titanium-800 pb-2">
           <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-titanium-400">
             Recent Users
@@ -583,10 +655,10 @@ export default function AdminDashboard() {
             </tbody>
           </table>
         </div>
-      </section>
+      </section >
 
       {/* Recent Vendor Applications */}
-      <section className="space-y-4">
+      < section className="space-y-4" >
         <div className="flex items-center gap-3 border-b border-titanium-800 pb-2">
           <h2 className="font-mono text-[11px] font-bold uppercase tracking-widest text-titanium-400">
             Recent Vendor Applications
@@ -637,95 +709,144 @@ export default function AdminDashboard() {
             </tbody>
           </table>
         </div>
-      </section>
-      <Dialog open={!!selectedIntake} onOpenChange={(open) => !open && setSelectedIntake(null)}>
+      </section >
+      <AnimatePresence>
         {selectedIntake && (
-          <DialogContent className="max-w-2xl bg-titanium-900 border-titanium-700 p-0 overflow-hidden">
-            <DialogHeader className="bg-titanium-950/50 p-6 border-b border-titanium-800">
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-3">
-                  <Badge variant={selectedIntake.urgency?.toLowerCase() === "critical" || selectedIntake.urgency?.toLowerCase() === "urgent" ? "destructive" : "outline"} className="font-mono text-[9px] uppercase tracking-widest">
-                    {selectedIntake.urgency || "Standard"} Priority
-                  </Badge>
-                  <span className="font-mono text-[10px] text-titanium-500 uppercase tracking-widest">{selectedIntake.matter_type.replace("_", " ")}</span>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border border-titanium-800 bg-titanium-950 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] scrollbar-hide"
+            >
+              {/* Header Banner */}
+              <div className="relative h-24 md:h-32 bg-gradient-to-r from-action/20 via-titanium-900 to-titanium-950 border-b border-titanium-800">
+                <div className="absolute -bottom-10 left-4 md:left-8 rounded-full border-4 border-titanium-950 bg-titanium-900 p-3 md:p-4 text-action shadow-2xl">
+                  <Scale className="size-8 md:size-12" />
                 </div>
-                <DialogTitle className="font-display text-2xl font-bold text-titanium-50 mt-2">{selectedIntake.subject}</DialogTitle>
-              </div>
-            </DialogHeader>
-
-            <div className="max-h-[60vh] overflow-y-auto p-6 space-y-8">
-              <div className="space-y-3">
-                <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Client Information</h3>
-                <div className="rounded-lg border border-titanium-800 bg-titanium-950/30 p-4 grid gap-4 sm:grid-cols-2">
-                  <div className="min-w-0">
-                    <span className="block text-xs text-titanium-500 font-mono uppercase tracking-tighter">Name</span>
-                    <div className="mt-1 flex items-center gap-2 text-sm text-titanium-200">
-                      <UserIcon className="size-4 shrink-0 text-action" />
-                      <span className="truncate font-medium">{selectedIntake.user.full_name || "Not provided"}</span>
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <span className="block text-xs text-titanium-500 font-mono uppercase tracking-tighter">Phone</span>
-                    <div className="mt-1 flex items-center gap-2 text-sm text-titanium-200">
-                      <Phone className="size-4 shrink-0 text-action" />
-                      <span className="truncate font-medium">{selectedIntake.user.phone || "Not provided"}</span>
-                    </div>
-                  </div>
-                  <div className="sm:col-span-2 min-w-0">
-                    <span className="block text-xs text-titanium-500 font-mono uppercase tracking-tighter">Email</span>
-                    <div className="mt-1 flex items-center gap-2 text-sm text-titanium-200">
-                      <Mail className="size-4 shrink-0 text-action" />
-                      <span className="truncate font-medium">{selectedIntake.user.email}</span>
-                    </div>
+                <div className="absolute top-4 right-4 flex gap-2">
+                  <div className={`rounded-full border border-action/20 bg-action/5 px-2 md:px-3 py-0.5 md:py-1 font-mono text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-action backdrop-blur-sm`}>
+                    {selectedIntake.urgency || "STANDARD"} PRIORITY
                   </div>
                 </div>
+                <button
+                  onClick={() => setSelectedIntake(null)}
+                  className="absolute top-4 left-4 rounded-full p-2 text-titanium-400 hover:bg-titanium-800 hover:text-titanium-50 transition-colors md:hidden"
+                >
+                  <X className="size-5" />
+                </button>
               </div>
 
-              <div className="space-y-3">
-                <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Case Description</h3>
-                <div className="w-full overflow-hidden rounded-lg border border-titanium-800 bg-titanium-950/30 p-4">
-                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-titanium-300">
-                    {selectedIntake.description}
-                  </p>
+              <div className="p-4 md:p-8 pt-12 md:pt-14 space-y-6 md:space-y-8">
+                <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                  <div className="space-y-1">
+                    <h2 className="font-display text-2xl md:text-3xl font-bold text-titanium-50 tracking-tight">
+                      {selectedIntake.subject}
+                    </h2>
+                    <p className="font-mono text-[10px] md:text-xs uppercase tracking-[0.2em] text-action/80">
+                      {selectedIntake.matter_type.replace("_", " ")}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className={`font-mono text-[9px] uppercase tracking-widest h-6 px-3 ${selectedIntake.status === "pending" ? "text-amber-500 border-amber-500/20 bg-amber-500/5" : "text-blue-500 border-blue-500/20 bg-blue-500/5"
+                      }`}>
+                      {selectedIntake.status}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
 
-              {selectedIntake.metadata && Object.keys(selectedIntake.metadata).length > 0 && (
-                <div className="space-y-3">
-                  <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Structured Data</h3>
-                  <div className="grid gap-2 rounded-lg border border-titanium-800 bg-titanium-950/30 p-4">
-                    {Object.entries(selectedIntake.metadata).map(([key, value]) => (
-                      <div key={key} className="flex justify-between text-sm items-center py-1 border-b border-titanium-800 last:border-0">
-                        <span className="text-titanium-500 capitalize text-xs">{key.replace(/_/g, " ")}:</span>
-                        <span className="font-medium text-titanium-200">{String(value)}</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 border-y border-titanium-800/50 py-6 md:py-8">
+                  {/* Client Section */}
+                  <div className="space-y-4 md:space-y-5">
+                    <div className="flex items-center gap-2">
+                      <div className="size-1 bg-action rounded-full" />
+                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Member Credentials</h4>
+                    </div>
+                    <div className="space-y-3 md:space-y-4">
+                      <div className="flex items-center gap-3 text-xs md:text-sm text-titanium-300">
+                        <div className="size-7 md:size-8 rounded-sm bg-titanium-900 flex items-center justify-center border border-titanium-800">
+                          <UserIcon className="size-3.5 md:size-4 text-action/70" />
+                        </div>
+                        <span className="truncate font-medium">{selectedIntake.user.full_name || "Not provided"}</span>
                       </div>
-                    ))}
+                      <div className="flex items-center gap-3 text-xs md:text-sm text-action font-mono">
+                        <div className="size-7 md:size-8 rounded-sm bg-titanium-900 flex items-center justify-center border border-titanium-800">
+                          <Phone className="size-3.5 md:size-4" />
+                        </div>
+                        <span>{selectedIntake.user.phone || "Not provided"}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs md:text-sm text-titanium-300">
+                        <div className="size-7 md:size-8 rounded-sm bg-titanium-900 flex items-center justify-center border border-titanium-800">
+                          <Mail className="size-3.5 md:size-4 text-action/70" />
+                        </div>
+                        <span className="truncate">{selectedIntake.user.email}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Logistics Section */}
+                  <div className="space-y-4 md:space-y-5">
+                    <div className="flex items-center gap-2">
+                      <div className="size-1 bg-action rounded-full" />
+                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Engagement Interface</h4>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between rounded-sm border border-titanium-800 bg-titanium-900/30 p-3">
+                        <span className="font-mono text-[9px] uppercase text-titanium-500">Contact Method</span>
+                        <span className="font-mono text-[10px] font-bold text-action uppercase">{selectedIntake.preferred_contact}</span>
+                      </div>
+                      <div className="flex items-center justify-between rounded-sm border border-titanium-800 bg-titanium-900/30 p-3">
+                        <span className="font-mono text-[9px] uppercase text-titanium-500">Member Status</span>
+                        <span className="font-mono text-[10px] font-bold text-titanium-300 uppercase">Registered</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
 
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-titanium-800">
-                <div className="text-xs text-titanium-500 font-mono">
-                  Preferred: <span className="text-titanium-300 uppercase">{selectedIntake.preferred_contact}</span>
+                {/* Documentation Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="size-1 bg-action rounded-full" />
+                    <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Matter Briefing</h4>
+                  </div>
+                  <div className="rounded-lg bg-titanium-900/50 border border-titanium-800 p-4 md:p-6">
+                    <p className="text-[13px] md:text-sm leading-relaxed text-titanium-300 font-light whitespace-pre-wrap">
+                      {selectedIntake.description}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-xs text-titanium-500 font-mono">
-                  Submitted: <span className="text-titanium-300">{new Date(selectedIntake.created_at).toLocaleString()}</span>
-                </div>
+
+                {selectedIntake.metadata && Object.keys(selectedIntake.metadata).length > 0 && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-action/60">
+                      <ShieldCheck className="size-4" />
+                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest">Tactical Intake Data</h4>
+                    </div>
+                    <div className="grid gap-2 rounded-lg border border-titanium-800 bg-titanium-950/30 p-4">
+                      {Object.entries(selectedIntake.metadata).map(([key, value]) => (
+                        <div key={key} className="flex justify-between text-sm items-center py-2 border-b border-titanium-800 last:border-0">
+                          <span className="text-titanium-500 capitalize text-[10px] font-mono">{key.replace(/_/g, " ")}:</span>
+                          <span className="font-medium text-titanium-200 text-xs">{String(value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
 
-            <DialogFooter className="bg-titanium-950/50 p-6 border-t border-titanium-800">
-              <Button
-                variant="outline"
-                onClick={() => setSelectedIntake(null)}
-                className="border-titanium-700 bg-transparent text-titanium-300 hover:bg-titanium-800 h-11 px-6"
-              >
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
+              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row justify-end gap-3 backdrop-blur-md">
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedIntake(null)}
+                  className="border-titanium-700 bg-transparent text-titanium-300 hover:bg-titanium-800 h-11 px-8 font-mono text-[10px] uppercase tracking-widest"
+                >
+                  Close Briefing
+                </Button>
+              </div>
+            </motion.div>
+          </div>
         )}
-      </Dialog>
+      </AnimatePresence>
     </motion.div >
   );
 }

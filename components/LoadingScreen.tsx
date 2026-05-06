@@ -5,7 +5,7 @@ import { ShieldMark } from "./ShieldMark";
 
 export function LoadingScreen({ message = "Establishing Secure Uplink..." }: { message?: string }) {
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center px-6">
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center px-6 h-screen w-screen bg-titanium-950">
       {/* Background Glow */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 size-[500px] rounded-full" />
@@ -16,7 +16,7 @@ export function LoadingScreen({ message = "Establishing Secure Uplink..." }: { m
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: 0.2 }}
           className="relative"
         >
           <ShieldMark className="size-20 md:size-24 text-action" />
@@ -43,7 +43,7 @@ export function LoadingScreen({ message = "Establishing Secure Uplink..." }: { m
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
+            transition={{ delay: 0.2 }}
             className="flex flex-col items-center gap-4"
           >
             <span className="font-mono text-[10px] uppercase tracking-[0.4em] text-titanium-500">
@@ -57,7 +57,7 @@ export function LoadingScreen({ message = "Establishing Secure Uplink..." }: { m
                   left: ["-100%", "100%"]
                 }}
                 transition={{
-                  duration: 2,
+                  duration: 1,
                   repeat: Infinity,
                   ease: "linear"
                 }}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 interface SessionRow { id: string; encounter_type: string; status: string; started_at: string }
 interface IntakeRow { id: string; matter_type: string; subject: string; status: string; created_at: string }
@@ -68,7 +69,9 @@ export default function AppDashboard() {
           <Link href="/app/history" className="font-mono text-[10px] uppercase tracking-widest text-titanium-400 hover:text-titanium-50">View all →</Link>
         </div>
         {loading ? (
-          <div className="mt-6 font-mono text-xs text-titanium-500">Loading...</div>
+          <div className="py-12 flex justify-center">
+            <LoadingScreen message="Establishing Secure Uplink..." />
+          </div>
         ) : sessions.length === 0 && intakes.length === 0 ? (
           <div className="mt-6 rounded-lg border border-dashed border-titanium-700 bg-titanium-900/40 p-12 text-center">
             <div className="font-mono text-[10px] uppercase tracking-widest text-titanium-500">No incidents recorded</div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import PhoneInput, { parsePhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
+import { useLoading } from "@/components/LoadingProvider";
 
 
 
@@ -21,6 +22,7 @@ export default function AccountPage() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [saving, setSaving] = useState(false);
+  const { startLoading, stopLoading } = useLoading();
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   useEffect(() => {
@@ -77,6 +79,7 @@ export default function AccountPage() {
   const onSave = async () => {
     if (!profile) return;
     setSaving(true);
+    startLoading("Syncing Profile Data...");
     setError(null);
 
     try {
@@ -130,6 +133,7 @@ export default function AccountPage() {
       setError(err.message);
     } finally {
       setSaving(false);
+      stopLoading();
     }
   };
 

@@ -46,16 +46,6 @@ const ATTORNIES = [
     country: 'Pakistan'
   },
   {
-    email: "consumer.advocate@example.com",
-    full_name: "David Thompson",
-    firm_name: "Consumer Protection Partners",
-    specialties: "consumer",
-    years_experience: 7,
-    phone: "1234567890",
-    city: 'hyderabad',
-    country: 'Pakistan'
-  },
-  {
     email: "general.counsel@example.com",
     full_name: "Amanda White",
     firm_name: "White & Blue Legal",
@@ -83,6 +73,15 @@ const ATTORNIES = [
     city: 'hyderabad',
     country: 'Pakistan'
   },
+  {
+    email: "test@gmail.com",
+    full_name: "Trent Bolt",
+    specialties: "accident",
+    year_experience: 6,
+    phone: "1234567890",
+    city: 'hyderabad',
+    country: 'Pakistan'
+  }
 ];
 
 async function main() {

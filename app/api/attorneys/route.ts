@@ -41,10 +41,20 @@ export async function GET(req: Request) {
         years_experience: true,
         city: true,
         country: true,
+        assigned_intakes: {
+          select: { status: true }
+        }
       },
     });
 
-    return NextResponse.json({ attorneys });
+    const attorneysWithCount = attorneys.map(a => ({
+      ...a,
+      total_cases: a.assigned_intakes.length,
+      resolved_cases: a.assigned_intakes.filter(i => i.status === "resolved").length,
+      assigned_intakes: undefined
+    }));
+
+    return NextResponse.json({ attorneys: attorneysWithCount });
   } catch (err) {
     console.error("Attorneys API error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

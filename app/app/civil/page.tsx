@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Loader2, CheckCircle2, User as UserIcon, Scale, ShieldCheck, ChevronRight, MapPin } from "lucide-react";
 import Link from "next/link";
+import { useLoading } from "@/components/LoadingProvider";
 
 const MATTER_TYPES = [
   { id: "landlord_tenant", label: "Landlord / Tenant" },
@@ -44,18 +45,62 @@ export default function CivilIntakePage() {
   const [urgency, setUrgency] = useState("standard");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
+  const [opposingParty, setOpposingParty] = useState("");
+  const [opposingPartyLocation, setOpposingPartyLocation] = useState("");
   const [preferredContact, setPreferredContact] = useState("phone");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [metadata, setMetadata] = useState<Record<string, string>>({});
   const [locationError, setLocationError] = useState<boolean>(false);
+  const [draftId, setDraftId] = useState<string | null>(null);
 
   const [availableAttorneys, setAvailableAttorneys] = useState<Attorney[]>([]);
   const [loadingAttorneys, setLoadingAttorneys] = useState(false);
+  const { startLoading, stopLoading } = useLoading();
+
+  const searchParams = useSearchParams();
+  const draftIdParam = searchParams.get("draft");
 
   useEffect(() => {
     refreshUser()
   }, [])
+
+  useEffect(() => {
+    if (draftIdParam && !draftId) {
+      const fetchDraft = async () => {
+        try {
+          const res = await fetch(`/api/civil/intake/${draftIdParam}`);
+          const data = await res.json();
+          if (data.intake) {
+            const { intake } = data;
+            setMatterType(intake.matter_type);
+            setUrgency(intake.urgency);
+            setSubject(intake.subject);
+            setDescription(intake.description);
+            setOpposingParty(intake.opposing_party || "");
+            setOpposingPartyLocation(intake.opposing_party_location || "");
+            setPreferredContact(intake.preferred_contact);
+            setMetadata(intake.metadata as any || {});
+            setDraftId(intake.id);
+
+            if (searchParams.get("step") === "2") {
+              setStep(2);
+              // Also trigger attorney fetch
+              setLoadingAttorneys(true);
+              const url = intake.matter_type === "other" ? "/api/attorneys" : `/api/attorneys?specialty=${intake.matter_type}`;
+              const attRes = await fetch(url);
+              const attData = await attRes.json();
+              setAvailableAttorneys(attData.attorneys || []);
+              setLoadingAttorneys(false);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to load draft:", err);
+        }
+      };
+      fetchDraft();
+    }
+  }, [draftIdParam, draftId]);
   const handleMetadataChange = (key: string, value: string) => {
     setMetadata(prev => ({ ...prev, [key]: value }));
   };
@@ -74,6 +119,7 @@ export default function CivilIntakePage() {
 
       setError(null);
       setSubmitting(true);
+      startLoading("Analyzing Intake Data...");
 
       // Fetch attorneys based on matter type (if other, fetch all)
       setLoadingAttorneys(true);
@@ -98,22 +144,47 @@ export default function CivilIntakePage() {
       setAvailableAttorneys(attorneys);
       setLoadingAttorneys(false);
 
+      // Save as draft
+      const res = await fetch("/api/civil/intake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: draftId,
+          matterType,
+          urgency,
+          subject,
+          description,
+          preferredContact,
+          metadata,
+          opposingParty,
+          opposingPartyLocation,
+          status: "draft"
+        }),
+      });
+      const data = await res.json();
+      if (data.intake?.id) {
+        setDraftId(data.intake.id);
+      }
+
       setStep(2);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
       setError(err.message);
     } finally {
       setSubmitting(false);
+      stopLoading();
     }
   };
 
   const handleAssignAttorney = async (attorneyId: string | null) => {
     setSubmitting(true);
+    startLoading("Deploying Legal Specialist...");
     try {
       const res = await fetch("/api/civil/intake", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          id: draftId,
           matterType,
           urgency,
           subject,
@@ -121,6 +192,9 @@ export default function CivilIntakePage() {
           preferredContact,
           metadata,
           assignedAttorneyId: attorneyId,
+          opposingParty,
+          opposingPartyLocation,
+          status: "pending"
         }),
       });
 
@@ -132,6 +206,7 @@ export default function CivilIntakePage() {
       setError(err.message);
     } finally {
       setSubmitting(false);
+      stopLoading();
     }
   };
 
@@ -206,7 +281,7 @@ export default function CivilIntakePage() {
               ))
             ) : (
               <div className="p-8 text-center border border-dashed border-titanium-800 rounded-lg bg-titanium-950/20">
-                <p className="text-sm text-titanium-500">No direct matches found for this specialty. let an admin handle it.</p>
+                <p className="text-sm text-titanium-500">No attorneys found for this specialty in your City/Country. Let an admin handle it.</p>
               </div>
             )}
 
@@ -225,7 +300,7 @@ export default function CivilIntakePage() {
               className="w-full h-16 border-titanium-800 bg-titanium-950/50 hover:bg-titanium-900 hover:border-titanium-700 text-titanium-400 font-mono text-[10px] uppercase tracking-widest"
             >
               <ShieldCheck className="size-4 mr-2 text-action" />
-              Let Admin Dispatch (Fastest)
+              Let Admin Dispatch
             </Button>
           </div>
         </div>
@@ -245,30 +320,6 @@ export default function CivilIntakePage() {
             Submit non-urgent civil matters here. A vetted attorney will reach out within 4 hours (urgent) or 24 hours (standard).
           </p>
         </div>
-
-        <AnimatePresence>
-          {locationError && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center justify-between rounded-sm border border-action/20 bg-action/5 px-4 py-3"
-            >
-              <div className="flex items-center gap-3">
-                <div className="size-2 rounded-full bg-action animate-pulse" />
-                <p className="font-mono text-[10px] uppercase tracking-widest text-titanium-400">
-                  Location matching disabled. Set your city/country to match with local counsel.
-                </p>
-              </div>
-              <Button
-                asChild
-                variant="link"
-                className="h-auto p-0 font-mono text-[10px] uppercase tracking-widest text-action hover:text-action/80"
-              >
-                <Link href="/app/account">Go to Settings</Link>
-              </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </header>
       <form onSubmit={onSubmit} className="grid gap-8 rounded-lg border border-titanium-800 bg-titanium-900/40 p-6 sm:p-8 mx-auto">
         <div>
@@ -375,6 +426,29 @@ export default function CivilIntakePage() {
           />
         </div>
 
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div>
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Opposing Party</span>
+            <input
+              placeholder="Full Name or Entity"
+              className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm outline-none focus:border-action"
+              type="text"
+              value={opposingParty}
+              onChange={(e) => setOpposingParty(e.target.value)}
+            />
+          </div>
+          <div>
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Opposing Party Location (City / State)</span>
+            <input
+              placeholder="e.g. Los Angeles, CA"
+              className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm outline-none focus:border-action"
+              type="text"
+              value={opposingPartyLocation}
+              onChange={(e) => setOpposingPartyLocation(e.target.value)}
+            />
+          </div>
+        </div>
+
         <div>
           <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Describe the situation</span>
           <textarea
@@ -413,6 +487,30 @@ export default function CivilIntakePage() {
             {error}
           </div>
         )}
+
+        <AnimatePresence>
+          {locationError && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center justify-between rounded-sm border border-action/20 bg-action/5 px-4 py-3"
+            >
+              <div className="flex items-center gap-3">
+                <div className="size-2 rounded-full bg-action animate-pulse" />
+                <p className="font-mono text-[10px] uppercase tracking-widest text-titanium-400">
+                  Please set your city/country to match with local counsel.
+                </p>
+              </div>
+              <Button
+                asChild
+                variant="link"
+                className="h-auto p-0 font-mono text-[10px] uppercase tracking-widest text-action hover:text-action/80"
+              >
+                <Link href="/app/account">Go to Settings</Link>
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <button
           type="submit"

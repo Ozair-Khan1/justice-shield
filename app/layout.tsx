@@ -35,6 +35,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { LoadingProvider } from "@/components/LoadingProvider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -52,7 +54,9 @@ export default function RootLayout({
         <meta name="theme-color" content="#0a0a0a" />
       </head>
       <body className="bg-titanium-950 text-titanium-50">
-        <AuthProvider>{children}</AuthProvider>
+        <LoadingProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </LoadingProvider>
       </body>
     </html>
   );

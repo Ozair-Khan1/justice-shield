@@ -37,10 +37,6 @@ export default function SOSPage() {
 
   const onTrigger = async (type: string) => {
     if (!user) return;
-    if (!user.emergency_contact_phone) {
-      setError("Emergency contact required to trigger SOS.");
-      return;
-    }
     setEncounterType(type);
     setStage("armed");
     setError(null);
@@ -78,14 +74,8 @@ export default function SOSPage() {
       if (data.error) throw new Error(data.error);
 
       setResolvedAddress(data.address);
-
-      if (data.recommendedAttorneys && data.recommendedAttorneys.length > 0) {
-        setRecommendedAttorneys(data.recommendedAttorneys);
-        setStage("match");
-      } else {
-        // No recommended attorneys, establish protection via admin dispatch immediately
-        await onAssign(null);
-      }
+      setRecommendedAttorneys(data.recommendedAttorneys || []);
+      setStage("match");
     } catch (err: any) {
       setError(err.message || "Failed to initiate emergency protocol");
       setStage("select");
@@ -93,17 +83,22 @@ export default function SOSPage() {
     }
   };
 
-  const onAssign = async (attorneyId: string | null) => {
+  const onAssign = async (
+    attorneyId: string | null,
+    typeOverride?: string,
+    coordsOverride?: { lat: number | null, lng: number | null },
+    addressOverride?: string | null
+  ) => {
     setAssigning(true);
     try {
       const res = await fetch("/api/sos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          encounter_type: encounterType,
-          location_lat: locationCoords.lat,
-          location_lng: locationCoords.lng,
-          location_address: resolvedAddress,
+          encounter_type: typeOverride || encounterType,
+          location_lat: coordsOverride ? coordsOverride.lat : locationCoords.lat,
+          location_lng: coordsOverride ? coordsOverride.lng : locationCoords.lng,
+          location_address: addressOverride !== undefined ? addressOverride : resolvedAddress,
           assigned_attorney_id: attorneyId,
           confirm: true,
         }),
@@ -152,10 +147,21 @@ export default function SOSPage() {
           <div className="mx-auto size-16 bg-action/10 rounded-full flex items-center justify-center border border-action/20">
             <Shield className="size-8 text-action" />
           </div>
-          <h1 className="font-display text-4xl font-bold tracking-tight">Specialist <span className="text-action">Found.</span></h1>
-          <p className="text-titanium-400 max-w-md mx-auto">
-            We've identified attorneys on standby specializing in <span className="text-titanium-200 uppercase font-mono text-xs">{encounterType?.replace("_", " ")}</span>. Select one to bridge them in now.
-          </p>
+          {recommendedAttorneys.length > 0 ? (
+            <>
+              <h1 className="font-display text-4xl font-bold tracking-tight">Specialist <span className="text-action">Found.</span></h1>
+              <p className="text-titanium-400 max-w-md mx-auto">
+                We've identified attorneys on standby specializing in <span className="text-titanium-200 uppercase font-mono text-xs">{encounterType?.replace("_", " ")}</span>. Select one to bridge them in now.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="font-display text-4xl font-bold tracking-tight">No Specialist Found.</h1>
+              <p className="text-titanium-400 max-w-md mx-auto">
+                We couldn't find any attorneys specializing in <span className="text-titanium-200 uppercase font-mono text-xs">{encounterType?.replace("_", " ")}</span> Contact admin for assistance.
+              </p>
+            </>
+          )}
         </div>
 
         <div className="grid gap-4">
@@ -218,37 +224,18 @@ export default function SOSPage() {
         </p>
       </header>
 
-      {!user?.emergency_contact_phone ? (
-        <Card className="border-action/30 bg-action/5 p-8 text-center relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-action/20" />
-          <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-action/10 border border-action/20 mb-6">
-            <AlertTriangle className="size-8 text-action" />
-          </div>
-          <h2 className="font-display text-2xl font-bold text-titanium-50">Emergency Contact Required</h2>
-          <p className="mt-4 text-sm text-titanium-400 max-w-md mx-auto leading-relaxed">
-            To activate SOS protection, you must add an emergency contact in your account settings. This person will be automatically notified when you trigger a live session.
-          </p>
-          <div className="mt-8 flex flex-col items-center gap-4">
-            <Button asChild className="bg-action text-action-foreground h-12 px-8 font-bold uppercase tracking-widest text-[10px]">
-              <Link href="/app/account">Add Emergency Contact</Link>
-            </Button>
-            <p className="font-mono text-[9px] uppercase tracking-widest text-titanium-600">Verification Required before deployment</p>
-          </div>
-        </Card>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {ENCOUNTER_TYPES.map((t) => (
-            <button key={t.id} onClick={() => onTrigger(t.id)}
-              className="group flex items-center justify-between rounded-lg border border-titanium-700 bg-titanium-900 p-6 text-left transition-all hover:border-action hover:bg-titanium-800">
-              <div>
-                <div className="font-mono text-[10px] uppercase tracking-widest text-titanium-500 group-hover:text-action">{t.id.replace("_", "-")}</div>
-                <div className="mt-1 font-display text-xl font-bold">{t.label}</div>
-              </div>
-              <span className="font-mono text-action opacity-0 transition-opacity group-hover:opacity-100">→</span>
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="grid gap-3 sm:grid-cols-2">
+        {ENCOUNTER_TYPES.map((t) => (
+          <button key={t.id} onClick={() => onTrigger(t.id)}
+            className="group flex items-center justify-between rounded-lg border border-titanium-700 bg-titanium-900 p-6 text-left transition-all hover:border-action hover:bg-titanium-800">
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-titanium-500 group-hover:text-action">{t.id.replace("_", "-")}</div>
+              <div className="mt-1 font-display text-xl font-bold">{t.label}</div>
+            </div>
+            <span className="font-mono text-action opacity-0 transition-opacity group-hover:opacity-100">→</span>
+          </button>
+        ))}
+      </div>
 
       {error && (
         <div className="rounded-sm border border-destructive/40 bg-destructive/10 p-4 font-mono text-xs text-destructive">{error}</div>

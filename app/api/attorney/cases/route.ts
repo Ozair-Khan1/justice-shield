@@ -19,40 +19,19 @@ export async function GET(req: Request) {
     // Fetch the attorney's specialties
     const user = await prisma.user.findUnique({
       where: { id: payload.id as string },
-      select: { role: true, full_name: true, specialties: true },
+      select: { role: true, full_name: true, specialties: true, country: true },
     });
 
     if (!user || (user.role !== "ATTORNEY" && user.role !== "ADMIN")) {
       return NextResponse.json({ error: "Access denied. Attorney role required." }, { status: 403 });
     }
 
-    // Fetch all active SOS sessions (Available to all attorneys)
+    // Fetch SOS sessions assigned to THIS attorney
     const sosSessions = await prisma.encounterSession.findMany({
-      orderBy: { started_at: "desc" },
-      include: {
-        user: {
-          select: {
-            full_name: true,
-            email: true,
-            phone: true,
-          }
-        }
-      }
-    });
-
-    // Parse attorney specialties
-    const attorneySpecialties = user.specialties
-      ? user.specialties.split(",").map(s => s.trim().toLowerCase())
-      : [];
-
-    // Fetch pending civil intakes (Available Queue)
-    // Filtered by attorney specialties + "other" type
-    const pendingCases = await prisma.civilIntake.findMany({
       where: {
-        status: "pending",
-        matter_type: { in: attorneySpecialties }
+        assigned_attorney_id: payload.id as string
       },
-      orderBy: { created_at: "desc" },
+      orderBy: { started_at: "desc" },
       include: {
         user: {
           select: {
@@ -81,7 +60,11 @@ export async function GET(req: Request) {
       }
     });
 
-    return NextResponse.json({ sosSessions, pendingCases, assignedCases });
+    return NextResponse.json({
+      sosSessions,
+      pendingCases: [], // Purged discovery queue
+      assignedCases
+    });
   } catch (error) {
     console.error("Attorney API error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

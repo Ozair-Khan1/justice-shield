@@ -36,28 +36,29 @@ export async function POST(req: Request) {
         attorney_name = attorney?.full_name;
       }
 
-      // Create the session
-      const session = await prisma.encounterSession.create({
-        data: {
-          user_id: payload.id as string,
-          encounter_type,
-          status: assigned_attorney_id ? "assigned" : "active",
-          location_lat: (location_lat !== null && location_lat !== undefined) ? Number(location_lat) : null,
-          location_lng: (location_lng !== null && location_lng !== undefined) ? Number(location_lng) : null,
-          location_address: location_address || null,
-          assigned_attorney_id: assigned_attorney_id || null,
-          attorney_name: attorney_name || null,
-        },
-      });
-
       // Fetch user for emergency contact details
       const user = await prisma.user.findUnique({
         where: { id: payload.id as string },
         select: { full_name: true, emergency_contact_name: true, emergency_contact_phone: true },
       });
 
+      // Create the session
+      const session = await prisma.encounterSession.create({
+        data: {
+          user: { connect: { id: payload.id as string } },
+          encounter_type,
+          status: assigned_attorney_id ? "assigned" : "active",
+          location_lat: (location_lat !== null && location_lat !== undefined) ? Number(location_lat) : null,
+          location_lng: (location_lng !== null && location_lng !== undefined) ? Number(location_lng) : null,
+          location_address: location_address || null,
+          assigned_attorney: assigned_attorney_id ? { connect: { id: assigned_attorney_id } } : undefined,
+          attorney_name: attorney_name || null,
+          emergency_contact_phone: user?.emergency_contact_phone,
+        },
+      });
+
       // Create an alert record if contact info exists
-      if (user?.emergency_contact_name || user?.emergency_contact_phone) {
+      if (user?.emergency_contact_phone) {
         await prisma.emergencyAlert.create({
           data: {
             session_id: session.id,
@@ -136,6 +137,7 @@ export async function POST(req: Request) {
     const allMatches = await prisma.user.findMany({
       where: {
         role: "ATTORNEY",
+        password_hash: { not: `LOCKED${process.env.LOCKED_PASS}` },
         OR: keywords.map((kw: string) => ({
           specialties: { contains: kw, mode: "insensitive" }
         }))

@@ -13,9 +13,12 @@ import {
   Scale,
   Mail,
   Phone,
-  X
+  X,
+  ShieldCheck,
+  MapPin
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { Pagination } from "@/components/Pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,6 +37,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 interface Attorney {
   id: string;
@@ -61,10 +65,14 @@ interface Intake {
     phone: string | null;
     city: string | null;
     country: string | null;
+    emergency_contact_name: string | null;
+    emergency_contact_phone: string | null;
   };
   assigned_attorney: {
     full_name: string | null;
   } | null;
+  opposing_party?: string | null;
+  opposing_party_location?: string | null;
   metadata?: Record<string, any> | null;
 }
 
@@ -85,6 +93,8 @@ export default function AdminCasesPage() {
   const [selectedAttorney, setSelectedAttorney] = useState("");
   const [processing, setProcessing] = useState(false);
   const [selectedIntake, setSelectedIntake] = useState<Intake | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
 
   const fetchData = async () => {
     setLoading(true);
@@ -113,6 +123,10 @@ export default function AdminCasesPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, priorityFilter, typeFilter, cityFilter, countryFilter, search]);
 
   const handleAssign = async (caseId: string, type: "civil" | "sos") => {
     if (!selectedAttorney) return;
@@ -169,6 +183,12 @@ export default function AdminCasesPage() {
     return matchesFilter && matchesPriority && matchesType && matchesCity && matchesCountry && matchesSearch;
   });
 
+  const totalPages = Math.ceil(filteredCases.length / ITEMS_PER_PAGE);
+  const paginatedCases = filteredCases.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   const getSortedAttorneys = (matterType: string) => {
     return [...attorneys].sort((a, b) => {
       const aMatches = a.specialties?.toLowerCase().includes(matterType.toLowerCase()) ? 1 : 0;
@@ -177,11 +197,9 @@ export default function AdminCasesPage() {
     });
   };
 
-  if (loading && combinedCases.length === 0) {
+  if (loading) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-action" />
-      </div>
+      <LoadingScreen message="Scanning incoming legal matters..." />
     );
   }
 
@@ -206,7 +224,7 @@ export default function AdminCasesPage() {
 
       {/* Toolbar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Select value={typeFilter} onValueChange={(val) => {
             setTypeFilter(val);
             if (val === "sos") {
@@ -214,7 +232,7 @@ export default function AdminCasesPage() {
               setPriorityFilter("all");
             }
           }}>
-            <SelectTrigger className="w-[160px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest">
+            <SelectTrigger className="w-full sm:w-auto sm:min-w-[160px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest">
               <SelectValue placeholder="Matter Type" />
             </SelectTrigger>
             <SelectContent className="border-titanium-800 bg-titanium-950 text-titanium-200">
@@ -225,7 +243,7 @@ export default function AdminCasesPage() {
           </Select>
 
           <Select value={filter} onValueChange={setFilter}>
-            <SelectTrigger className="w-[160px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest">
+            <SelectTrigger className="w-full sm:w-auto sm:min-w-[160px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest">
               <SelectValue placeholder="Status Filter" />
             </SelectTrigger>
             <SelectContent className="border-titanium-800 bg-titanium-950 text-titanium-200">
@@ -239,7 +257,7 @@ export default function AdminCasesPage() {
 
           {typeFilter !== "sos" && (
             <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="w-[160px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest">
+              <SelectTrigger className="w-full sm:w-auto sm:min-w-[160px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest">
                 <SelectValue placeholder="Priority Filter" />
               </SelectTrigger>
               <SelectContent className="border-titanium-800 bg-titanium-950 text-titanium-200">
@@ -252,7 +270,7 @@ export default function AdminCasesPage() {
           )}
 
           <Select value={countryFilter} onValueChange={setCountryFilter}>
-            <SelectTrigger className="w-[160px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest">
+            <SelectTrigger className="w-full sm:w-auto sm:min-w-[160px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest">
               <SelectValue placeholder="Country Filter" />
             </SelectTrigger>
             <SelectContent className="border-titanium-800 bg-titanium-950 text-titanium-200">
@@ -264,7 +282,7 @@ export default function AdminCasesPage() {
           </Select>
 
           <Select value={cityFilter} onValueChange={setCityFilter}>
-            <SelectTrigger className="w-[160px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest">
+            <SelectTrigger className="w-full sm:w-auto sm:min-w-[160px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest">
               <SelectValue placeholder="City Filter" />
             </SelectTrigger>
             <SelectContent className="border-titanium-800 bg-titanium-950 text-titanium-200">
@@ -274,26 +292,32 @@ export default function AdminCasesPage() {
               ))}
             </SelectContent>
           </Select>
-        </div>
-
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-titanium-500" />
-          <Input
-            placeholder="Search by subject or user..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full border-titanium-800 bg-titanium-900/50 pl-10 focus:border-action h-10"
-          />
+          <div className="relative w-full sm:flex-1 sm:max-w-[250px] sm:min-w-[150px]">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-titanium-500" />
+            <Input
+              placeholder="Search by subject or user..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full border-titanium-800 bg-titanium-900/50 pl-10 focus:border-action h-9"
+            />
+          </div>
         </div>
       </div>
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+        totalItems={filteredCases.length}
+        itemsPerPage={ITEMS_PER_PAGE}
+      />
 
       <div className="grid gap-6">
-        {filteredCases.length === 0 ? (
+        {paginatedCases.length === 0 ? (
           <div className="rounded-lg border border-dashed border-titanium-800 p-12 text-center text-titanium-600 font-mono text-[10px] uppercase tracking-widest">
             No matters found matching criteria
           </div>
         ) : (
-          filteredCases.map((c) => (
+          paginatedCases.map((c) => (
             <Card key={c.id} className={`border-titanium-800 bg-titanium-900/30 hover:border-titanium-700 transition-all overflow-hidden group ${c.type === 'sos' ? 'ring-1 ring-red-500/20' : ''}`}>
               <CardContent className="p-6">
                 <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -320,6 +344,7 @@ export default function AdminCasesPage() {
                         <div className="flex items-center gap-2">
                           <UserIcon className="size-3.5 text-action" />
                           <span>{c.user.full_name || c.user.email}</span>
+                          {c.user.phone && <span className="text-titanium-600 ml-1">({c.user.phone})</span>}
                         </div>
                         <div className="flex items-center gap-2">
                           <Scale className="size-3.5 text-titanium-500" />
@@ -327,11 +352,23 @@ export default function AdminCasesPage() {
                         </div>
                         <span className="text-titanium-700">|</span>
                         <div className="flex items-center gap-2">
+                          <MapPin className="size-3.5 text-titanium-500" />
                           <span className="font-mono text-[10px] uppercase tracking-widest text-titanium-500">
-                            {c.user.city || "No City"}, {c.user.country || "No Country"}
+                            {c.type === 'sos' && (c as any).location_address ? (c as any).location_address : `${c.user.city || "No City"}, ${c.user.country || "No Country"}`}
                           </span>
                         </div>
                       </div>
+
+                      {c.type === 'sos' && (c.user.emergency_contact_name || (c as any).emergency_contact_phone || c.user.emergency_contact_phone) && (
+                        <div className="mt-3 flex flex-wrap items-center gap-3 p-2 rounded-sm bg-red-500/5 border border-red-500/10">
+                          <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-red-500/70">Emergency Contact:</span>
+                          <div className="flex items-center gap-2 text-[10px] text-titanium-300">
+                            <span className="font-bold">{c.user.emergency_contact_name || "N/A"}</span>
+                            <span className="text-titanium-600">•</span>
+                            <span className="font-mono text-red-400">{(c as any).emergency_contact_phone || c.user.emergency_contact_phone || "No Phone"}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {c.metadata && Object.keys(c.metadata).length > 0 && (
@@ -356,45 +393,58 @@ export default function AdminCasesPage() {
                         <CheckCircle2 className="size-5 text-emerald-500" />
                       </div>
                     ) : assigningId === c.id ? (
-                      <div className="flex items-center gap-2 border border-titanium-800 p-1 rounded-sm">
-                        <select
-                          value={selectedAttorney}
-                          onChange={(e) => setSelectedAttorney(e.target.value)}
-                          className="bg-transparent text-[11px] p-1 outline-none text-titanium-200 font-mono uppercase"
-                        >
-                          <option value="" className="bg-titanium-950">Select Counsel...</option>
-                          {(() => {
-                            const currentCase = combinedCases.find(cc => cc.id === c.id);
-                            const clientCity = currentCase?.user?.city;
-                            const clientCountry = currentCase?.user?.country;
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-titanium-800 p-2 rounded-sm bg-titanium-950/50">
+                        <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
+                          <SelectTrigger className="flex-1 min-w-0 bg-transparent text-[10px] sm:text-[11px] h-10 border-titanium-800 sm:border-none rounded-sm sm:rounded-none font-mono uppercase text-titanium-200">
+                            <SelectValue placeholder="Select Counsel..." />
+                          </SelectTrigger>
+                          <SelectContent className="bg-titanium-950 border-titanium-800">
+                            {(() => {
+                              const currentCase = combinedCases.find(cc => cc.id === c.id);
+                              const clientCity = currentCase?.user?.city;
+                              const clientCountry = currentCase?.user?.country;
 
-                            return [...attorneys].sort((a, b) => {
-                              const aCityMatch = clientCity && a.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
-                              const aCountryMatch = clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
-                              const bCityMatch = clientCity && b.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
-                              const bCountryMatch = clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
-                              return (bCityMatch + bCountryMatch) - (aCityMatch + aCountryMatch);
-                            }).map(a => {
-                              const isLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
-                                (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase());
-                              return (
-                                <option key={a.id} value={a.id} className="bg-titanium-950">
-                                  {isLocal ? "📍 " : ""}{a.full_name} - {a.specialties || a.email} {a.city ? `(${a.city})` : ""}
-                                </option>
-                              );
-                            });
-                          })()}
-                        </select>
-                        <button
-                          onClick={() => handleAssign(c.id, c.type)}
-                          disabled={!selectedAttorney || processing}
-                          className="bg-red-500 text-white text-[11px] px-3 py-1 rounded-sm font-bold uppercase"
-                        >
-                          {processing ? <Loader2 className="size-3 animate-spin" /> : "Set"}
-                        </button>
-                        <button onClick={() => setAssigningId(null)} className="text-titanium-500 hover:text-titanium-300 px-1">
-                          <X className="size-3" />
-                        </button>
+                              return [...attorneys].sort((a, b) => {
+                                const aCityMatch = clientCity && a.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
+                                const aCountryMatch = clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
+                                const bCityMatch = clientCity && b.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
+                                const bCountryMatch = clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
+                                return (bCityMatch + bCountryMatch) - (aCityMatch + aCountryMatch);
+                              }).map(a => {
+                                const isLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
+                                  (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase());
+                                return (
+                                  <SelectItem key={a.id} value={a.id} className="font-mono text-[10px] uppercase">
+                                    <div className="flex flex-col gap-0.5">
+                                      <div className="flex items-center gap-2">
+                                        {isLocal && <span className="text-action text-[8px]">📍</span>}
+                                        <span className="font-bold text-titanium-50">{a.full_name}</span>
+                                      </div>
+                                      <div className="text-[8px] text-titanium-500 truncate max-w-[200px]">
+                                        {a.specialties || a.email} {a.city ? `(${a.city})` : ""}
+                                      </div>
+                                    </div>
+                                  </SelectItem>
+                                );
+                              });
+                            })()}
+                          </SelectContent>
+                        </Select>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAssign(c.id, c.type)}
+                            disabled={!selectedAttorney || processing}
+                            className="flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white text-[11px] px-4 py-2 rounded-sm font-bold uppercase transition-colors"
+                          >
+                            {processing ? <Loader2 className="size-3 animate-spin" /> : "Set"}
+                          </button>
+                          <button
+                            onClick={() => setAssigningId(null)}
+                            className="p-2 text-titanium-500 hover:text-titanium-300 border border-titanium-800 sm:border-none rounded-sm"
+                          >
+                            <X className="size-4" />
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <button
@@ -419,103 +469,167 @@ export default function AdminCasesPage() {
           ))
         )}
       </div>
-      <Dialog open={!!selectedIntake} onOpenChange={(open) => !open && setSelectedIntake(null)}>
+      <AnimatePresence>
         {selectedIntake && (
-          <DialogContent className="max-w-2xl bg-titanium-900 border-titanium-700 p-0 overflow-hidden">
-            <DialogHeader className="bg-titanium-950/50 p-6 border-b border-titanium-800">
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-3">
-                  <Badge variant={selectedIntake.urgency.toLowerCase() === "critical" || selectedIntake.urgency.toLowerCase() === "urgent" ? "destructive" : "outline"} className="font-mono text-[9px] uppercase tracking-widest">
-                    {selectedIntake.urgency} Priority
-                  </Badge>
-                  <span className="font-mono text-[10px] text-titanium-500 uppercase tracking-widest">{selectedIntake.matter_type.replace("_", " ")}</span>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border border-titanium-800 bg-titanium-950 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] scrollbar-hide"
+            >
+              {/* Header Banner */}
+              <div className="relative h-24 md:h-32 bg-gradient-to-r from-action/20 via-titanium-900 to-titanium-950 border-b border-titanium-800">
+                <div className="absolute -bottom-10 left-4 md:left-8 rounded-full border-4 border-titanium-950 bg-titanium-900 p-3 md:p-4 text-action shadow-2xl">
+                  <Scale className="size-8 md:size-12" />
                 </div>
-                <DialogTitle className="font-display text-2xl font-bold text-titanium-50 mt-2">{selectedIntake.subject}</DialogTitle>
-              </div>
-            </DialogHeader>
-
-            <div className="max-h-[60vh] overflow-y-auto p-6 space-y-8">
-              <div className="space-y-3">
-                <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Client Information</h3>
-                <div className="rounded-lg border border-titanium-800 bg-titanium-950/30 p-4 grid gap-4 sm:grid-cols-2">
-                  <div className="min-w-0">
-                    <span className="block text-xs text-titanium-500 font-mono uppercase tracking-tighter">Name</span>
-                    <div className="mt-1 flex items-center gap-2 text-sm text-titanium-200">
-                      <UserIcon className="size-4 shrink-0 text-action" />
-                      <span className="truncate font-medium">{selectedIntake.user.full_name || "Not provided"}</span>
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <span className="block text-xs text-titanium-500 font-mono uppercase tracking-tighter">Phone</span>
-                    <div className="mt-1 flex items-center gap-2 text-sm text-titanium-200">
-                      <Phone className="size-4 shrink-0 text-action" />
-                      <span className="truncate font-medium">{selectedIntake.user.phone || "Not provided"}</span>
-                    </div>
-                  </div>
-                  <div className="sm:col-span-2 min-w-0">
-                    <span className="block text-xs text-titanium-500 font-mono uppercase tracking-tighter">Email</span>
-                    <div className="mt-1 flex items-center gap-2 text-sm text-titanium-200">
-                      <Mail className="size-4 shrink-0 text-action" />
-                      <span className="truncate font-medium">{selectedIntake.user.email}</span>
-                    </div>
-                  </div>
-                  <div className="sm:col-span-2 min-w-0">
-                    <span className="block text-xs text-titanium-500 font-mono uppercase tracking-tighter">Location</span>
-                    <div className="mt-1 flex items-center gap-2 text-sm text-titanium-200">
-                      <span className="truncate font-medium">
-                        {selectedIntake.user.city || "N/A"}, {selectedIntake.user.country || "N/A"}
-                      </span>
-                    </div>
+                <div className="absolute top-4 right-4 flex gap-2">
+                  <div className={`rounded-full border border-action/20 bg-action/5 px-2 md:px-3 py-0.5 md:py-1 font-mono text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-action backdrop-blur-sm`}>
+                    {selectedIntake.urgency} PRIORITY
                   </div>
                 </div>
+                <button
+                  onClick={() => setSelectedIntake(null)}
+                  className="absolute top-4 left-4 rounded-full p-2 text-titanium-400 hover:bg-titanium-800 hover:text-titanium-50 transition-colors md:hidden"
+                >
+                  <X className="size-5" />
+                </button>
               </div>
 
-              <div className="space-y-3">
-                <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Case Description</h3>
-                <div className="w-full overflow-hidden rounded-lg border border-titanium-800 bg-titanium-950/30 p-4">
-                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-titanium-300">
-                    {selectedIntake.description}
-                  </p>
+              <div className="p-4 md:p-8 pt-12 md:pt-14 space-y-6 md:space-y-8">
+                <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                  <div className="space-y-1">
+                    <h2 className="font-display text-2xl md:text-3xl font-bold text-titanium-50 tracking-tight">
+                      {selectedIntake.subject}
+                    </h2>
+                    <p className="font-mono text-[10px] md:text-xs uppercase tracking-[0.2em] text-action/80">
+                      {selectedIntake.matter_type.replace("_", " ")}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className={`font-mono text-[9px] uppercase tracking-widest h-6 px-3 ${selectedIntake.status === "pending" ? "text-amber-500 border-amber-500/20 bg-amber-500/5" : "text-blue-500 border-blue-500/20 bg-blue-500/5"
+                      }`}>
+                      {selectedIntake.status}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
 
-              {selectedIntake.metadata && Object.keys(selectedIntake.metadata).length > 0 && (
-                <div className="space-y-3">
-                  <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Structured Data</h3>
-                  <div className="grid gap-2 rounded-lg border border-titanium-800 bg-titanium-950/30 p-4">
-                    {Object.entries(selectedIntake.metadata).map(([key, value]) => (
-                      <div key={key} className="flex justify-between text-sm items-center py-1 border-b border-titanium-800 last:border-0">
-                        <span className="text-titanium-500 capitalize text-xs">{key.replace(/_/g, " ")}:</span>
-                        <span className="font-medium text-titanium-200">{String(value)}</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 border-y border-titanium-800/50 py-6 md:py-8">
+                  {/* Client Section */}
+                  <div className="space-y-4 md:space-y-5">
+                    <div className="flex items-center gap-2">
+                      <div className="size-1 bg-action rounded-full" />
+                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Member Credentials</h4>
+                    </div>
+                    <div className="space-y-3 md:space-y-4">
+                      <div className="flex items-center gap-3 text-xs md:text-sm text-titanium-300">
+                        <div className="size-7 md:size-8 rounded-sm bg-titanium-900 flex items-center justify-center border border-titanium-800">
+                          <UserIcon className="size-3.5 md:size-4 text-action/70" />
+                        </div>
+                        <span className="truncate font-medium">{selectedIntake.user.full_name || "Not provided"}</span>
                       </div>
-                    ))}
+                      <div className="flex items-center gap-3 text-xs md:text-sm text-action font-mono">
+                        <div className="size-7 md:size-8 rounded-sm bg-titanium-900 flex items-center justify-center border border-titanium-800">
+                          <Phone className="size-3.5 md:size-4" />
+                        </div>
+                        <span>{selectedIntake.user.phone || "Not provided"}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs md:text-sm text-titanium-300">
+                        <div className="size-7 md:size-8 rounded-sm bg-titanium-900 flex items-center justify-center border border-titanium-800">
+                          <Mail className="size-3.5 md:size-4 text-action/70" />
+                        </div>
+                        <span className="truncate">{selectedIntake.user.email}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Logistics Section */}
+                  <div className="space-y-4 md:space-y-5">
+                    <div className="flex items-center gap-2">
+                      <div className="size-1 bg-action rounded-full" />
+                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Engagement Interface</h4>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between rounded-sm border border-titanium-800 bg-titanium-900/30 p-3">
+                        <span className="font-mono text-[9px] uppercase text-titanium-500">Contact Method</span>
+                        <span className="font-mono text-[10px] font-bold text-action uppercase">{selectedIntake.preferred_contact}</span>
+                      </div>
+                      <div className="flex items-center justify-between rounded-sm border border-titanium-800 bg-titanium-900/30 p-3">
+                        <span className="font-mono text-[9px] uppercase text-titanium-500">Registered City</span>
+                        <span className="font-mono text-[10px] font-bold text-titanium-300 uppercase">{selectedIntake.user.city || "N/A"}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
 
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-titanium-800">
-                <div className="text-xs text-titanium-500 font-mono">
-                  Preferred: <span className="text-titanium-300 uppercase">{selectedIntake.preferred_contact}</span>
+                {/* Opposing Party Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="size-1 bg-red-500 rounded-full" />
+                    <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Opposing Party</h4>
+                  </div>
+                  <div className="rounded-lg border border-red-500/10 bg-red-500/5 p-4 grid gap-4 sm:grid-cols-2">
+                    <div className="min-w-0">
+                      <span className="block text-xs text-red-500/60 font-mono uppercase tracking-tighter">Name / Entity</span>
+                      <div className="mt-1 flex items-center gap-2 text-sm text-titanium-100">
+                        <Scale className="size-4 shrink-0 text-red-400" />
+                        <span className="truncate font-bold">{selectedIntake.opposing_party || "Not provided"}</span>
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-xs text-red-500/60 font-mono uppercase tracking-tighter">Location</span>
+                      <div className="mt-1 flex items-center gap-2 text-sm text-titanium-100">
+                        <MapPin className="size-4 shrink-0 text-red-400" />
+                        <span className="truncate font-medium">{selectedIntake.opposing_party_location || "Not provided"}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xs text-titanium-500 font-mono">
-                  Submitted: <span className="text-titanium-300">{new Date(selectedIntake.created_at).toLocaleString()}</span>
+
+                {/* Documentation Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="size-1 bg-action rounded-full" />
+                    <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Matter Briefing</h4>
+                  </div>
+                  <div className="rounded-lg bg-titanium-900/50 border border-titanium-800 p-4 md:p-6">
+                    <p className="text-[13px] md:text-sm leading-relaxed text-titanium-300 font-light whitespace-pre-wrap">
+                      {selectedIntake.description}
+                    </p>
+                  </div>
                 </div>
+
+                {selectedIntake.metadata && Object.keys(selectedIntake.metadata).length > 0 && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-action/60">
+                      <ShieldCheck className="size-4" />
+                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest">Tactical Intake Data</h4>
+                    </div>
+                    <div className="grid gap-2 rounded-lg border border-titanium-800 bg-titanium-950/30 p-4">
+                      {Object.entries(selectedIntake.metadata).map(([key, value]) => (
+                        <div key={key} className="flex justify-between text-sm items-center py-2 border-b border-titanium-800 last:border-0">
+                          <span className="text-titanium-500 capitalize text-[10px] font-mono">{key.replace(/_/g, " ")}:</span>
+                          <span className="font-medium text-titanium-200 text-xs">{String(value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
 
-            <DialogFooter className="bg-titanium-950/50 p-6 border-t border-titanium-800">
-              <Button
-                variant="outline"
-                onClick={() => setSelectedIntake(null)}
-                className="border-titanium-700 bg-transparent text-titanium-300 hover:bg-titanium-800 h-11 px-6"
-              >
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        )
-        }
-      </Dialog >
+              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row justify-end gap-3 backdrop-blur-md">
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedIntake(null)}
+                  className="border-titanium-700 bg-transparent text-titanium-300 hover:bg-titanium-800 h-11 px-8 font-mono text-[10px] uppercase tracking-widest"
+                >
+                  Close Briefing
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div >
   );
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth";
+import { useLoading } from "@/components/LoadingProvider";
 import { ShieldMark } from "@/components/ShieldMark";
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
@@ -13,6 +14,7 @@ type AuthMode = "signin" | "signup" | "forgot";
 export default function AuthPage() {
   const router = useRouter();
   const { user, loading, refreshUser } = useAuth();
+  const { startLoading, stopLoading } = useLoading();
   const [mode, setMode] = useState<AuthMode>("signin");
   const [step, setStep] = useState<"details" | "verification">("details");
   const [email, setEmail] = useState("");
@@ -70,7 +72,7 @@ export default function AuthPage() {
 
   const onSendOtp = async () => {
     setError(null);
-    setSubmitting(true);
+    startLoading("Transmitting Verification Code...");
     try {
       const res = await fetch("/api/auth/otp/send", {
         method: "POST",
@@ -85,7 +87,7 @@ export default function AuthPage() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to send OTP");
     } finally {
-      setSubmitting(false);
+      stopLoading();
     }
   };
 
@@ -109,7 +111,7 @@ export default function AuthPage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSubmitting(true);
+    startLoading(mode === "signin" ? "Verifying Credentials..." : "Establishing Protection...");
 
     try {
       switch (mode) {
@@ -227,7 +229,7 @@ export default function AuthPage() {
       const message = err instanceof Error ? err.message : "Authentication failed";
       setError(message);
     } finally {
-      setSubmitting(false);
+      stopLoading();
     }
   };
 

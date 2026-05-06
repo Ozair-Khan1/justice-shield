@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     // Verify user is an attorney or admin
     const user = await prisma.user.findUnique({
       where: { id: payload.id as string },
-      select: { role: true, specialties: true },
+      select: { role: true, specialties: true, country: true },
     });
 
     if (!user || (user.role !== "ATTORNEY" && user.role !== "ADMIN")) {
@@ -24,45 +24,6 @@ export async function GET(req: Request) {
       ? user.specialties.split(",").map(s => s.trim().toLowerCase())
       : [];
 
-    // Fetch limited active SOS sessions
-    const sosSessions = await prisma.encounterSession.findMany({
-      where: { status: "active" },
-      orderBy: { started_at: "desc" },
-      take: 10,
-      include: {
-        user: {
-          select: {
-            full_name: true,
-            email: true,
-            phone: true,
-            city: true,
-            country: true,
-          }
-        }
-      }
-    });
-
-    // Fetch limited pending civil intakes matching specialties
-    const pendingCases = await prisma.civilIntake.findMany({
-      where: {
-        status: "pending",
-        matter_type: { in: attorneySpecialties }
-      },
-      orderBy: { created_at: "desc" },
-      take: 10,
-      include: {
-        user: {
-          select: {
-            full_name: true,
-            email: true,
-            phone: true,
-            city: true,
-            country: true,
-          }
-        }
-      }
-    });
-
     // Fetch limited cases assigned to THIS attorney that are still active
     const assignedCases = await prisma.civilIntake.findMany({
       where: {
@@ -70,7 +31,7 @@ export async function GET(req: Request) {
         status: "assigned"
       },
       orderBy: { updated_at: "desc" },
-      take: 10,
+      take: 20,
       include: {
         user: {
           select: {
@@ -79,6 +40,7 @@ export async function GET(req: Request) {
             phone: true,
             city: true,
             country: true,
+            emergency_contact_phone: true,
           }
         }
       }
@@ -99,20 +61,14 @@ export async function GET(req: Request) {
             phone: true,
             city: true,
             country: true,
+            emergency_contact_phone: true,
           }
         }
       }
     });
 
     // Get counts for the stats cards
-    const [totalSosCount, totalPendingCount, totalCivilAssignedCount, totalSosAssignedCount] = await Promise.all([
-      prisma.encounterSession.count({ where: { status: "active" } }),
-      prisma.civilIntake.count({
-        where: {
-          status: "pending",
-          matter_type: { in: attorneySpecialties }
-        }
-      }),
+    const [totalCivilAssignedCount, totalSosAssignedCount] = await Promise.all([
       prisma.civilIntake.count({
         where: {
           assigned_attorney_id: payload.id as string,
@@ -128,13 +84,13 @@ export async function GET(req: Request) {
     ]);
 
     return NextResponse.json({
-      sosSessions,
-      pendingCases,
+      sosSessions: [], // Purged for security
+      pendingCases: [], // Purged for security
       assignedCases,
       assignedSessions,
       stats: {
-        totalSosCount,
-        totalPendingCount,
+        totalSosCount: 0,
+        totalPendingCount: 0,
         totalAssignedCount: totalCivilAssignedCount + totalSosAssignedCount
       }
     });

@@ -4,6 +4,7 @@ import { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ShieldMark } from "@/components/ShieldMark";
 import Link from "next/link";
+import { useLoading } from "@/components/LoadingProvider";
 
 function SetupContent() {
   const searchParams = useSearchParams();
@@ -17,6 +18,7 @@ function SetupContent() {
   const [typeConfirmPassword, setTypeConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { startLoading, stopLoading } = useLoading();
 
   const onSetup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +40,7 @@ function SetupContent() {
       return;
     }
     setLoading(true);
+    startLoading("Finalizing Account Protection...");
     setError(null);
     try {
       const res = await fetch("/api/auth/setup", {
@@ -53,6 +56,7 @@ function SetupContent() {
       setError(err.message);
     } finally {
       setLoading(false);
+      stopLoading();
     }
   };
 

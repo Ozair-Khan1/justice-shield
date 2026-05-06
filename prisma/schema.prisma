@@ -59,6 +59,7 @@ model EncounterSession {
   notes            String?
   attorney_name    String?
   recording_url    String?
+  emergency_contact_phone String?
   started_at       DateTime         @default(now())
   ended_at         DateTime?
   created_at       DateTime         @default(now())
@@ -83,6 +84,8 @@ model CivilIntake {
   description       String
   preferred_contact String   @default("phone")
   status            String   @default("pending") // "pending", "reviewing", "active", "resolved", "rejected"
+  opposing_party          String?
+  opposing_party_location String?
   
   assigned_attorney_id String?
   assigned_attorney    User?    @relation("AttorneyIntakes", fields: [assigned_attorney_id], references: [id])

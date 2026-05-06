@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Search, Scale, Briefcase, Mail, Phone, Info } from "lucide-react";
+import { useLoading } from "@/components/LoadingProvider";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { Pagination } from "@/components/Pagination";
 
 interface AttorneyRecord {
   id: string;
@@ -25,7 +28,8 @@ export default function AdminAttorneysPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [specialtySearch, setSpecialtySearch] = useState("");
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
   useEffect(() => {
     fetch("/api/admin/attorneys")
       .then((res) => res.json())
@@ -33,17 +37,32 @@ export default function AdminAttorneysPage() {
         setAttorneys(data.attorneys ?? []);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setLoading(false);
+      });
   }, []);
 
-  const filtered = attorneys.filter(
-    (a) =>
-      (a.email.toLowerCase().includes(search.toLowerCase()) ||
-        (a.full_name ?? "").toLowerCase().includes(search.toLowerCase())) &&
-      (a.specialties ?? "").toLowerCase().includes(specialtySearch.toLowerCase())
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, specialtySearch]);
+
+  const filtered = attorneys.filter((a) => {
+    const searchLower = search.toLowerCase();
+    const specialtyLower = specialtySearch.toLowerCase();
+    const matchesSearch =
+      a.email.toLowerCase().includes(searchLower) ||
+      (a.full_name ?? "").toLowerCase().includes(searchLower);
+    const matchesSpecialty = (a.specialties ?? "").toLowerCase().includes(specialtyLower);
+    return matchesSearch && matchesSpecialty;
+  });
+
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paginatedAttorneys = filtered.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
   );
 
-  if (loading) return <div className="font-mono text-xs text-titanium-500">Loading attorneys...</div>;
+  if (loading) return <LoadingScreen message="Fetching our network of legal defenders..." />;
 
   return (
     <div className="space-y-8">
@@ -76,6 +95,14 @@ export default function AdminAttorneysPage() {
         </div>
       </div>
 
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+        totalItems={attorneys.length}
+        itemsPerPage={ITEMS_PER_PAGE}
+      />
+
       <div className="overflow-x-auto rounded-sm border border-titanium-800">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-titanium-800 bg-titanium-900/60">
@@ -90,7 +117,7 @@ export default function AdminAttorneysPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-titanium-800/60">
-            {filtered.map((a) => (
+            {paginatedAttorneys.map((a) => (
               <tr key={a.id} className="transition-colors hover:bg-titanium-900/40">
                 <td className="px-4 py-4">
                   <div className="font-bold text-titanium-100">{a.full_name || "—"}</div>
@@ -139,7 +166,7 @@ export default function AdminAttorneysPage() {
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {paginatedAttorneys.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-12 text-center">
                   <div className="flex flex-col items-center gap-2 opacity-50">

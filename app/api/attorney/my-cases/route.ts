@@ -26,44 +26,26 @@ export async function GET(req: Request) {
     }
 
     // Fetch accepted cases for this attorney
-    const [civilIntakes, sosSessions] = await Promise.all([
-      prisma.civilIntake.findMany({
-        where: {
-          assigned_attorney_id: user.id,
-          status: "assigned",
-        },
-        orderBy: { created_at: "desc" },
-        include: {
-          user: {
-            select: {
-              full_name: true,
-              email: true,
-              phone: true,
-            }
+    const civilIntakes = await prisma.civilIntake.findMany({
+      where: {
+        assigned_attorney_id: user.id,
+        status: "assigned",
+      },
+      orderBy: { created_at: "desc" },
+      include: {
+        user: {
+          select: {
+            full_name: true,
+            email: true,
+            phone: true,
           }
         }
-      }),
-      prisma.encounterSession.findMany({
-        where: {
-          assigned_attorney_id: user.id,
-          status: "assigned",
-        },
-        orderBy: { started_at: "desc" },
-        include: {
-          user: {
-            select: {
-              full_name: true,
-              email: true,
-              phone: true,
-            }
-          }
-        }
-      })
-    ]);
+      }
+    });
 
     return NextResponse.json({ 
       cases: civilIntakes,
-      sessions: sosSessions
+      sessions: [] // SOS sessions removed from this view
     });
   } catch (error) {
     console.error("Fetch attorney cases error:", error);
