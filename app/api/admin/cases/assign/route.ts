@@ -24,7 +24,7 @@ export async function POST(req: Request) {
         where: { id: intakeId },
         data: {
           assigned_attorney_id: attorneyId,
-          status: "assigned",
+          status: "pending",
         },
       });
     } else {

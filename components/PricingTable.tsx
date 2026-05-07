@@ -65,8 +65,7 @@ const TIERS = [
     blurb: "AI-Powered Elite legal protection.",
     features: [
       "Everything in Pro",
-      "AI powered Technology",
-      "Complex Litigation",
+      "AI powered Technology *Complex Litigation",
       "Unlimited recorded sessions",
       "Document review up to 95 pages",
     ],

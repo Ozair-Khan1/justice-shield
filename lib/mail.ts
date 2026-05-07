@@ -174,7 +174,7 @@ export async function sendMarketingWelcomeEmail(email: string, name: string, tok
   return transporter.sendMail(mailOptions);
 }
 
-export async function sendRejectionEmail(email: string, name: string) {
+export async function sendRejectionEmail(email: string, name: string, rejectionReason?: string) {
   const mailOptions = {
     from: `"Justice Shield" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
     to: email,
@@ -185,6 +185,11 @@ export async function sendRejectionEmail(email: string, name: string) {
       <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
         Hello ${name}, we regret to inform you that your application to join the Justice Shield network has been rejected at this time.
       </p>
+      ${rejectionReason ? `
+      <div style="background-color: ${THEME.card}; border: 1px solid ${THEME.border}; padding: 24px; border-radius: 4px; margin: 32px 0;">
+        <h3 style="color: ${THEME.accent}; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin-top: 0;">Reason for Rejection</h3>
+        <p style="color: ${THEME.muted}; font-size: 14px; margin-bottom: 0;">${rejectionReason}</p>
+      </div>` : ''}
       <p style="color: ${THEME.muted}; font-size: 14px; line-height: 1.6; text-align: center; margin-top: 24px;">
         Thank you for your interest in our platform.
       </p>

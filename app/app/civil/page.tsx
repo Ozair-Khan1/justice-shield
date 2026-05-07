@@ -12,8 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Loader2, CheckCircle2, User as UserIcon, Scale, ShieldCheck, ChevronRight, MapPin } from "lucide-react";
 import Link from "next/link";
-import { useLoading } from "@/components/LoadingProvider";
-
+import { LoadingScreen } from "@/components/LoadingScreen";
 const MATTER_TYPES = [
   { id: "landlord_tenant", label: "Landlord / Tenant" },
   { id: "employment", label: "Employment & Wages" },
@@ -35,6 +34,8 @@ interface Attorney {
   years_experience: number | null;
   city: string | null;
   country: string | null;
+  total_cases?: number;
+  resolved_cases?: number;
 }
 
 export default function CivilIntakePage() {
@@ -56,7 +57,7 @@ export default function CivilIntakePage() {
 
   const [availableAttorneys, setAvailableAttorneys] = useState<Attorney[]>([]);
   const [loadingAttorneys, setLoadingAttorneys] = useState(false);
-  const { startLoading, stopLoading } = useLoading();
+  const [loading, setLoading] = useState(false);
 
   const searchParams = useSearchParams();
   const draftIdParam = searchParams.get("draft");
@@ -87,7 +88,15 @@ export default function CivilIntakePage() {
               setStep(2);
               // Also trigger attorney fetch
               setLoadingAttorneys(true);
-              const url = intake.matter_type === "other" ? "/api/attorneys" : `/api/attorneys?specialty=${intake.matter_type}`;
+              // Use intake.user if available (now returned by API), fallback to auth user
+              const locationCity = intake.user?.city || user?.city;
+              const locationCountry = intake.user?.country || user?.country;
+              const locationParams = [];
+              if (locationCity) locationParams.push(`city=${encodeURIComponent(locationCity)}`);
+              if (locationCountry) locationParams.push(`country=${encodeURIComponent(locationCountry)}`);
+              const specialtyParam = intake.matter_type !== "other" ? `specialty=${intake.matter_type}` : "";
+              const queryString = [specialtyParam, ...locationParams].filter(Boolean).join("&");
+              const url = `/api/attorneys${queryString ? `?${queryString}` : ""}`;
               const attRes = await fetch(url);
               const attData = await attRes.json();
               setAvailableAttorneys(attData.attorneys || []);
@@ -100,7 +109,7 @@ export default function CivilIntakePage() {
       };
       fetchDraft();
     }
-  }, [draftIdParam, draftId]);
+  }, [draftIdParam, draftId, user]);
   const handleMetadataChange = (key: string, value: string) => {
     setMetadata(prev => ({ ...prev, [key]: value }));
   };
@@ -109,8 +118,16 @@ export default function CivilIntakePage() {
     e.preventDefault();
 
     try {
-      if (!subject) throw new Error("Please enter a subject");
-      if (!description) throw new Error("Description is required");
+      if (!subject) {
+        throw new Error("Please enter a subject")
+      } else if (subject.trim().length < 4) {
+        throw new Error("Subject must be at least 4 characters long");
+      }
+      if (!description) {
+        throw new Error("Description is required")
+      } else if (description.trim().length < 10) {
+        throw new Error("Description must be at least 10 characters long");
+      }
       if (!user) throw new Error("You must be logged in.");
       if (!user?.city || !user?.country) {
         setLocationError(true);
@@ -119,27 +136,19 @@ export default function CivilIntakePage() {
 
       setError(null);
       setSubmitting(true);
-      startLoading("Analyzing Intake Data...");
-
-      // Fetch attorneys based on matter type (if other, fetch all)
+      setLoading(true);
+      // Fetch attorneys based on matter type + user location (both required)
       setLoadingAttorneys(true);
-      const url = matterType === "other" ? "/api/attorneys" : `/api/attorneys?specialty=${matterType}`;
+      const locationParams = [];
+      if (user?.city) locationParams.push(`city=${encodeURIComponent(user.city)}`);
+      if (user?.country) locationParams.push(`country=${encodeURIComponent(user.country)}`);
+      const specialtyParam = matterType !== "other" ? `specialty=${matterType}` : "";
+      const queryString = [specialtyParam, ...locationParams].filter(Boolean).join("&");
+      const url = `/api/attorneys${queryString ? `?${queryString}` : ""}`;
       const attRes = await fetch(url);
       const attData = await attRes.json();
 
-      let attorneys = attData.attorneys || [];
-
-      // Sort by location match if user has location set
-      if (user?.city || user?.country) {
-        attorneys = [...attorneys].sort((a, b) => {
-          const aCityMatch = user.city && a.city?.toLowerCase() === user.city.toLowerCase() ? 2 : 0;
-          const aCountryMatch = user.country && a.country?.toLowerCase() === user.country.toLowerCase() ? 1 : 0;
-          const bCityMatch = user.city && b.city?.toLowerCase() === user.city.toLowerCase() ? 2 : 0;
-          const bCountryMatch = user.country && b.country?.toLowerCase() === user.country.toLowerCase() ? 1 : 0;
-
-          return (bCityMatch + bCountryMatch) - (aCityMatch + aCountryMatch);
-        });
-      }
+      const attorneys = attData.attorneys || [];
 
       setAvailableAttorneys(attorneys);
       setLoadingAttorneys(false);
@@ -172,13 +181,13 @@ export default function CivilIntakePage() {
       setError(err.message);
     } finally {
       setSubmitting(false);
-      stopLoading();
+      setLoading(false);
     }
   };
 
   const handleAssignAttorney = async (attorneyId: string | null) => {
     setSubmitting(true);
-    startLoading("Deploying Legal Specialist...");
+    setLoading(true);
     try {
       const res = await fetch("/api/civil/intake", {
         method: "POST",
@@ -206,9 +215,15 @@ export default function CivilIntakePage() {
       setError(err.message);
     } finally {
       setSubmitting(false);
-      stopLoading();
+      setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <LoadingScreen />
+    )
+  }
 
   if (step === 2) {
     return (
@@ -255,12 +270,20 @@ export default function CivilIntakePage() {
                         <div>
                           <h3 className="font-display text-lg font-bold text-titanium-50 group-hover:text-action transition-colors">{attorney.full_name}</h3>
                           <p className="text-sm text-titanium-400">{attorney.firm_name || "Independent Network Counsel"}</p>
-                          <div className="mt-2 flex items-center gap-3">
-                            <span className="font-mono text-[10px] uppercase tracking-wider text-titanium-600">
+                          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-wider">
+                            <span className="text-titanium-600">
                               {attorney.years_experience || 0} Years Exp.
                             </span>
                             <span className="text-titanium-800">•</span>
-                            <span className="font-mono text-[10px] uppercase tracking-wider text-action/70">
+                            <span className="text-emerald-500/80">
+                              {attorney.resolved_cases || 0} Resolved
+                            </span>
+                            <span className="text-titanium-800">•</span>
+                            <span className="text-titanium-600">
+                              {attorney.total_cases || 0} Total
+                            </span>
+                            <span className="text-titanium-800">•</span>
+                            <span className="text-action/70">
                               {attorney.specialties || "Generalist"}
                             </span>
                           </div>
@@ -416,7 +439,7 @@ export default function CivilIntakePage() {
         </div>
 
         <div>
-          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Subject</span>
+          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Subject <span className="text-red-500">*</span></span>
           <input
             placeholder="e.g. Landlord refuses to return security deposit"
             className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm outline-none focus:border-action"
@@ -450,7 +473,7 @@ export default function CivilIntakePage() {
         </div>
 
         <div>
-          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Describe the situation</span>
+          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Describe the situation <span className="text-red-500">*</span></span>
           <textarea
             rows={6}
             placeholder="Include dates, parties involved, and what outcome you're seeking..."

@@ -21,7 +21,7 @@ export async function PATCH(
     const admin = await prisma.user.findUnique({ where: { id: payload.id as string } });
     if (admin?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    const { status } = await req.json();
+    const { status, rejection_message } = await req.json();
     if (!["approved", "rejected"].includes(status)) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
@@ -56,12 +56,12 @@ export async function PATCH(
           },
         });
       } else {
-        await tx.user.delete({
-          where: { email: application.email },
-        });
-
-        await tx.vendorApplication.delete({
+        await tx.vendorApplication.update({
           where: { id: id },
+          data: {
+            status: "rejected",
+            rejection_message: rejection_message
+          }
         });
       }
     });
@@ -78,7 +78,7 @@ export async function PATCH(
           await sendMarketingWelcomeEmail(application.email, application.full_name, token);
         }
       } else {
-        await sendRejectionEmail(application.email, application.full_name);
+        await sendRejectionEmail(application.email, application.full_name, rejection_message);
       }
     } catch (emailError) {
       console.error("Post-transaction email error:", emailError);

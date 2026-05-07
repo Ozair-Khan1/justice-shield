@@ -14,9 +14,12 @@ export async function GET(req: Request) {
 
     const [intakes, sessions] = await Promise.all([
       prisma.civilIntake.findMany({
+        where: {
+          status: { in: ["assigned", "pending", "rejected", "active"] }
+        },
         include: {
           user: { select: { full_name: true, email: true, phone: true, city: true, country: true, emergency_contact_name: true, emergency_contact_phone: true } },
-          assigned_attorney: { select: { full_name: true } }
+          assigned_attorney: { select: { full_name: true, email: true, phone: true, firm_name: true, role: true, specialties: true } }
         },
         orderBy: { created_at: "desc" },
       }),

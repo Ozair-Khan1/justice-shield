@@ -20,19 +20,27 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
-    const attorneySpecialties = user.specialties
-      ? user.specialties.split(",").map(s => s.trim().toLowerCase())
-      : [];
-
     // Fetch limited cases assigned to THIS attorney that are still active
     const assignedCases = await prisma.civilIntake.findMany({
       where: {
         assigned_attorney_id: payload.id as string,
-        status: "assigned"
+        status: "active"
       },
       orderBy: { updated_at: "desc" },
-      take: 20,
-      include: {
+      take: 10,
+      select: {
+        id: true,
+        matter_type: true,
+        urgency: true,
+        subject: true,
+        description: true,
+        opposing_party: true,
+        opposing_party_location: true,
+        preferred_contact: true,
+        status: true,
+        created_at: true,
+        updated_at: true,
+        metadata: true,
         user: {
           select: {
             full_name: true,
@@ -50,10 +58,17 @@ export async function GET(req: Request) {
     const assignedSessions = await prisma.encounterSession.findMany({
       where: {
         assigned_attorney_id: payload.id as string,
-        status: "assigned"
+        status: { in: ["assigned", "pending"] }
       },
       orderBy: { started_at: "desc" },
-      include: {
+      select: {
+        id: true,
+        encounter_type: true,
+        status: true,
+        started_at: true,
+        location_address: true,
+        notes: true,
+        metadata: true,
         user: {
           select: {
             full_name: true,
@@ -78,19 +93,53 @@ export async function GET(req: Request) {
       prisma.encounterSession.count({
         where: {
           assigned_attorney_id: payload.id as string,
-          status: "assigned"
+          status: { in: ["assigned", "pending"] }
         }
       }),
     ]);
 
+    // Fetch pending cases assigned to THIS attorney
+    const pendingCases = await prisma.civilIntake.findMany({
+      where: {
+        assigned_attorney_id: payload.id as string,
+        status: "pending"
+      },
+      orderBy: { created_at: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        matter_type: true,
+        urgency: true,
+        subject: true,
+        description: true,
+        opposing_party: true,
+        opposing_party_location: true,
+        preferred_contact: true,
+        status: true,
+        created_at: true,
+        updated_at: true,
+        metadata: true,
+        user: {
+          select: {
+            full_name: true,
+            email: true,
+            phone: true,
+            city: true,
+            country: true,
+            emergency_contact_phone: true,
+          }
+        }
+      }
+    });
+
     return NextResponse.json({
       sosSessions: [], // Purged for security
-      pendingCases: [], // Purged for security
+      pendingCases,
       assignedCases,
       assignedSessions,
       stats: {
         totalSosCount: 0,
-        totalPendingCount: 0,
+        totalPendingCount: pendingCases.length,
         totalAssignedCount: totalCivilAssignedCount + totalSosAssignedCount
       }
     });

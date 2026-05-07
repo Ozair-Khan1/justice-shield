@@ -47,7 +47,7 @@ export async function POST(req: Request) {
         data: {
           user: { connect: { id: payload.id as string } },
           encounter_type,
-          status: assigned_attorney_id ? "assigned" : "active",
+          status: "pending",
           location_lat: (location_lat !== null && location_lat !== undefined) ? Number(location_lat) : null,
           location_lng: (location_lng !== null && location_lng !== undefined) ? Number(location_lng) : null,
           location_address: location_address || null,
@@ -132,36 +132,61 @@ export async function POST(req: Request) {
     const matchCity = resolvedCity || triggeringUser?.city;
     const matchCountry = resolvedCountry || triggeringUser?.country;
 
-    // Fetch recommended attorneys based on encounter type
+    // Fetch attorneys that match BOTH specialty AND location (city or country required)
     const keywords = encounter_type.split("_");
+
+    const locationConditions = [
+      ...(matchCity ? [{ city: { equals: matchCity, mode: "insensitive" as const } }] : []),
+      ...(matchCountry ? [{ country: { equals: matchCountry, mode: "insensitive" as const } }] : []),
+    ];
+
     const allMatches = await prisma.user.findMany({
       where: {
         role: "ATTORNEY",
         password_hash: { not: `LOCKED${process.env.LOCKED_PASS}` },
-        OR: keywords.map((kw: string) => ({
-          specialties: { contains: kw, mode: "insensitive" }
-        }))
+        AND: [
+          // Must match at least one specialty keyword
+          {
+            OR: keywords.map((kw: string) => ({
+              specialties: { contains: kw, mode: "insensitive" }
+            }))
+          },
+          // Must match city OR country — specialty-only match not enough
+          ...(locationConditions.length > 0 ? [{ OR: locationConditions }] : [{ id: "__no_results__" }])
+        ]
       },
       select: {
         id: true,
         full_name: true,
+        email: true,
+        phone: true,
         firm_name: true,
         specialties: true,
         years_experience: true,
         city: true,
         country: true,
+        assigned_intakes: {
+          select: { status: true }
+        },
+        assigned_encounters: {
+          select: { status: true }
+        }
       },
       take: 20,
     });
 
-    // Prioritize: City match > Country match > Specialty match only
-    const recommendedAttorneys = [...allMatches].sort((a, b) => {
-      const aCityMatch = matchCity && a.city?.toLowerCase() === matchCity.toLowerCase() ? 2 : 0;
-      const aCountryMatch = matchCountry && a.country?.toLowerCase() === matchCountry.toLowerCase() ? 1 : 0;
-      const bCityMatch = matchCity && b.city?.toLowerCase() === matchCity.toLowerCase() ? 2 : 0;
-      const bCountryMatch = matchCountry && b.country?.toLowerCase() === matchCountry.toLowerCase() ? 1 : 0;
-
-      return (bCityMatch + bCountryMatch) - (aCityMatch + aCountryMatch);
+    // Within qualifying attorneys, sort city match above country-only match
+    const recommendedAttorneys = allMatches.map(a => ({
+      ...a,
+      total_cases: a.assigned_intakes.length + a.assigned_encounters.length,
+      resolved_cases: a.assigned_intakes.filter(i => i.status === "resolved").length + 
+                      a.assigned_encounters.filter(e => e.status === "resolved").length,
+      assigned_intakes: undefined,
+      assigned_encounters: undefined
+    })).sort((a, b) => {
+      const aCityMatch = matchCity && a.city?.toLowerCase() === matchCity.toLowerCase() ? 1 : 0;
+      const bCityMatch = matchCity && b.city?.toLowerCase() === matchCity.toLowerCase() ? 1 : 0;
+      return bCityMatch - aCityMatch;
     }).slice(0, 3);
 
     return NextResponse.json({ address, recommendedAttorneys });

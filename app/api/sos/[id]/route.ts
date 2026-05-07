@@ -64,9 +64,8 @@ export async function PATCH(
       data.assigned_attorney_id = assigned_attorney_id;
       data.attorney_name = attorney?.full_name;
 
-      // If an attorney is assigned, status automatically becomes "assigned" unless it's already "resolved"
       if (!status || status === "active") {
-        data.status = "assigned";
+        data.status = "pending";
       }
     }
     if (notes) data.notes = notes;

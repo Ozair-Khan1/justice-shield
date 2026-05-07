@@ -19,6 +19,11 @@ export async function GET(
         id,
         user_id: payload.id as string
       },
+      include: {
+        user: {
+          select: { city: true, country: true }
+        }
+      }
     });
 
     if (!intake) {

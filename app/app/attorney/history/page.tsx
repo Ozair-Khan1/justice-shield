@@ -79,7 +79,7 @@ export default function AttorneyHistoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [tab, setTab] = useState("sos");
   const [statusFilter, setStatusFilter] = useState("all");
-  const ITEMS_PER_PAGE = 2;
+  const ITEMS_PER_PAGE = 10;
   const { startLoading, stopLoading } = useLoading();
 
   async function fetchAllHistory() {
@@ -272,9 +272,32 @@ export default function AttorneyHistoryPage() {
                         </div>
                       </div>
                     </div>
-                    <Badge className={`font-mono text-[9px] uppercase tracking-widest py-1 px-4 ${s.status === "active" ? "bg-red-500 animate-pulse" : "bg-titanium-800 text-titanium-300"}`}>
-                      {s.status}
-                    </Badge>
+                    <div className="flex items-center gap-3">
+                      <Badge className={`font-mono text-[9px] uppercase tracking-widest py-1 px-4 ${s.status === "active" ? "bg-red-500 animate-pulse" : "bg-titanium-800 text-titanium-300"}`}>
+                        {s.status}
+                      </Badge>
+                      <button
+                        onClick={() => {
+                          setSelectedIntake({
+                            id: s.id,
+                            matter_type: s.encounter_type,
+                            urgency: "urgent",
+                            subject: `Emergency SOS: ${s.encounter_type.replace("_", " ")}`,
+                            description: (s as any).notes || "No tactical notes provided.",
+                            preferred_contact: "phone",
+                            status: s.status,
+                            created_at: s.started_at,
+                            user: s.user,
+                            opposing_party: null,
+                            opposing_party_location: null,
+                            metadata: (s as any).metadata
+                          });
+                        }}
+                        className="flex items-center gap-2 rounded-sm border border-titanium-700 bg-titanium-800 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-300 transition-colors hover:border-action hover:text-action"
+                      >
+                        Details <ChevronRight className="size-3" />
+                      </button>
+                    </div>
                   </CardContent>
                 </Card>
               ))
@@ -446,6 +469,21 @@ export default function AttorneyHistoryPage() {
                     </p>
                   </div>
                 </div>
+
+                {selectedIntake.opposing_party && (
+                  <div className="rounded-lg bg-red-500/5 border border-red-500/10 p-4 md:p-6 space-y-3">
+                    <div className="flex items-center gap-2 text-red-500/80">
+                      <Scale className="size-4" />
+                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest">Opposing Party Conflict Check</h4>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-sm font-bold text-titanium-50">{selectedIntake.opposing_party}</div>
+                      {selectedIntake.opposing_party_location && (
+                        <div className="font-mono text-[10px] uppercase text-titanium-500">{selectedIntake.opposing_party_location}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {selectedIntake.metadata && Object.keys(selectedIntake.metadata).length > 0 && (
                   <div className="space-y-4">

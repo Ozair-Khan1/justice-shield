@@ -424,6 +424,27 @@ export default function AdminDashboard() {
                         Assign Attorney <ChevronRight className="size-3" />
                       </button>
                     )}
+                    <button
+                      onClick={() => {
+                        setSelectedIntake({
+                          id: s.id,
+                          matter_type: s.encounter_type,
+                          urgency: "urgent",
+                          subject: `Emergency SOS: ${s.encounter_type.replace("_", " ")}`,
+                          description: (s as any).notes || "No tactical notes provided.",
+                          preferred_contact: "phone",
+                          status: s.status,
+                          created_at: s.started_at,
+                          user: s.user,
+                          opposing_party: null,
+                          opposing_party_location: null,
+                          metadata: (s as any).metadata
+                        } as any);
+                      }}
+                      className="w-full md:w-auto font-mono text-[9px] uppercase tracking-widest text-titanium-500 hover:text-action border border-titanium-800/50 px-3 py-1.5 rounded-sm transition-colors text-center"
+                    >
+                      Review Details
+                    </button>
                   </div>
                 </div>
               ))}

@@ -14,7 +14,7 @@ export async function PATCH(
     const payload = await verifyJwt(token);
     if (!payload || !payload.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { status } = await req.json();
+    const { status, assigned_attorney_id, rejection_message } = await req.json();
 
     // Verify ownership or admin
     const intake = await prisma.civilIntake.findUnique({
@@ -30,9 +30,22 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const data: any = { status };
+    if (assigned_attorney_id !== undefined) {
+      if (assigned_attorney_id === null) {
+        data.assigned_attorney = { disconnect: true };
+      } else {
+        data.assigned_attorney = { connect: { id: assigned_attorney_id } };
+      }
+    }
+
+    if (rejection_message !== undefined) {
+      data.rejection_message = rejection_message;
+    }
+
     const updated = await prisma.civilIntake.update({
       where: { id },
-      data: { status },
+      data,
     });
 
     return NextResponse.json({ success: true, intake: updated });

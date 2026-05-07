@@ -26,6 +26,13 @@ import { useLoading } from "@/components/LoadingProvider";
 import { Pagination } from "@/components/Pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface Application {
   id: string;
@@ -42,6 +49,7 @@ interface Application {
   years_experience: number;
   message: string | null;
   status: string;
+  metadata?: Record<string, any> | null;
   created_at: string;
 }
 
@@ -53,6 +61,8 @@ export default function AdminVendorsPage() {
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+  const [rejectingApp, setRejectingApp] = useState<Application | null>(null);
+  const [rejectionMessage, setRejectionMessage] = useState("");
   const ITEMS_PER_PAGE = 10;
   const { startLoading, stopLoading } = useLoading();
 
@@ -77,21 +87,26 @@ export default function AdminVendorsPage() {
     setCurrentPage(1);
   }, [activeTab]);
 
-  const handleStatusUpdate = async (id: string, status: "approved" | "rejected") => {
+  const handleStatusUpdate = async (id: string, status: "approved" | "rejected", rejection_message?: string) => {
     setActioningId(id);
     startLoading(status === "approved" ? "Activating Vendor Credentials..." : "Rejecting Application...");
     try {
       const res = await fetch(`/api/admin/vendors/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, rejection_message }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
       setApplications(apps => apps.map(app =>
-        app.id === id ? { ...app, status } : app
+        app.id === id ? { ...app, status, metadata: status === 'rejected' && rejection_message ? { ...(app.metadata || {}), rejection_message } : app.metadata } : app
       ));
+
+      if (status === "rejected") {
+        setRejectingApp(null);
+        setRejectionMessage("");
+      }
     } catch (err: any) {
       alert(err.message || "Action failed");
     } finally {
@@ -211,7 +226,13 @@ export default function AdminVendorsPage() {
                   <ApplicationCard
                     key={app.id}
                     app={app}
-                    onAction={(status) => handleStatusUpdate(app.id, status)}
+                    onAction={(status) => {
+                      if (status === "rejected") {
+                        setRejectingApp(app);
+                      } else {
+                        handleStatusUpdate(app.id, status);
+                      }
+                    }}
                     isActioning={actioningId === app.id}
                     onReview={() => setSelectedApp(app)}
                   />
@@ -275,7 +296,7 @@ export default function AdminVendorsPage() {
 
       <AnimatePresence>
         {selectedApp && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -293,7 +314,7 @@ export default function AdminVendorsPage() {
                 </div>
                 <button
                   onClick={() => setSelectedApp(null)}
-                  className="absolute top-4 left-4 rounded-full p-2 text-titanium-400 hover:bg-titanium-800 hover:text-titanium-50 transition-colors"
+                  className="absolute top-4 left-4 rounded-full p-2 text-titanium-400 hover:bg-titanium-800 hover:text-titanium-50 transition-colors md:hidden"
                 >
                   <X className="size-5" />
                 </button>
@@ -317,15 +338,15 @@ export default function AdminVendorsPage() {
                     </div>
                     <div className="space-y-3">
                       <div className="flex items-center gap-3 text-sm text-titanium-300">
-                        <Mail className="size-4 text-action/70" />
+                        <Mail className="size-4 text-action/70 flex-shrink-0" />
                         <span className="truncate">{selectedApp.email}</span>
                       </div>
                       <div className="flex items-center gap-3 text-sm text-action font-mono">
-                        <Phone className="size-4" />
+                        <Phone className="size-4 flex-shrink-0" />
                         <span>{selectedApp.phone || "Not provided"}</span>
                       </div>
                       <div className="flex items-center gap-3 text-sm text-titanium-300">
-                        <MapPin className="size-4 text-action/70" />
+                        <MapPin className="size-4 text-action/70 flex-shrink-0" />
                         <span>{selectedApp.city || "Not provided"} , {selectedApp.country || "Not provided"}</span>
                       </div>
                     </div>
@@ -351,36 +372,53 @@ export default function AdminVendorsPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-4 w-full min-w-0">
                   <div className="flex items-center gap-2">
                     <div className="size-1 bg-action rounded-full" />
                     <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Statement of Expertise</h4>
                   </div>
                   <div className="rounded-lg bg-titanium-900/50 border border-titanium-800 p-6">
-                    <p className="text-sm leading-relaxed text-titanium-300 font-light whitespace-pre-wrap">
+                    <p className="text-sm leading-relaxed text-titanium-300 font-light whitespace-pre-wrap break-words">
                       {selectedApp.specialties}
                     </p>
                   </div>
                 </div>
 
                 {selectedApp.message && (
-                  <div className="space-y-4">
+                  <div className="space-y-4 w-full min-w-0">
                     <div className="flex items-center gap-2 text-action/60">
                       <AlertCircle className="size-4" />
                       <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest">Additional Message</h4>
                     </div>
-                    <div className="rounded-lg border border-titanium-800 bg-titanium-950/30 p-4 italic text-sm text-titanium-500 leading-relaxed">
+                    <div className="rounded-lg border border-titanium-800 bg-titanium-950/30 p-4 italic text-sm text-titanium-500 leading-relaxed break-words whitespace-pre-wrap">
                       "{selectedApp.message}"
+                    </div>
+                  </div>
+                )}
+
+                {(selectedApp as any).metadata && Object.keys((selectedApp as any).metadata).length > 0 && (
+                  <div className="space-y-4 w-full min-w-0">
+                    <div className="flex items-center gap-2 text-action/60">
+                      <ShieldCheck className="size-4" />
+                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest">Tactical Intake Data</h4>
+                    </div>
+                    <div className="grid gap-2 rounded-lg border border-titanium-800 bg-titanium-950/30 p-4">
+                      {Object.entries((selectedApp as any).metadata).map(([key, value]) => (
+                        <div key={key} className="flex justify-between items-start sm:items-center gap-4 py-2 border-b border-titanium-800 last:border-0">
+                          <span className="text-titanium-500 capitalize text-[10px] font-mono flex-shrink-0 mt-0.5 sm:mt-0">{key.replace(/_/g, " ")}:</span>
+                          <span className="font-medium text-titanium-200 text-xs text-right break-words">{String(value)}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-6 flex flex-col sm:flex-row justify-end gap-3 backdrop-blur-md">
+              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col md:flex-row justify-end gap-3 backdrop-blur-md">
                 <Button
                   variant="outline"
                   onClick={() => setSelectedApp(null)}
-                  className="border-titanium-700 bg-transparent text-titanium-300 hover:bg-titanium-800 h-11 px-8 font-mono text-[10px] uppercase tracking-widest"
+                  className="border-titanium-700 bg-transparent text-titanium-300 hover:bg-titanium-800 h-11 px-8 font-mono text-[10px] uppercase tracking-widest w-full md:w-auto"
                 >
                   Dismiss
                 </Button>
@@ -390,7 +428,7 @@ export default function AdminVendorsPage() {
                       handleStatusUpdate(selectedApp.id, "approved");
                       setSelectedApp(null);
                     }}
-                    className="bg-emerald-500 hover:bg-emerald-600 text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest"
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest w-full md:w-auto"
                   >
                     Approve Network Access
                   </Button>
@@ -400,6 +438,54 @@ export default function AdminVendorsPage() {
           </div>
         )}
       </AnimatePresence>
+
+      <Dialog open={!!rejectingApp} onOpenChange={(open) => {
+        if (!open && !actioningId) {
+          setRejectingApp(null);
+          setRejectionMessage("");
+        }
+      }}>
+        <DialogContent className="border-titanium-800 bg-titanium-950 text-titanium-50 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl text-titanium-50">Reject Application</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm text-titanium-400">
+              Please provide a reason for rejecting this application. This information will be included in the rejection email sent to the applicant.
+            </p>
+            <div className="space-y-2">
+              <label className="text-xs font-mono uppercase tracking-widest text-titanium-500">Rejection Reason</label>
+              <textarea
+                value={rejectionMessage}
+                onChange={(e) => setRejectionMessage(e.target.value)}
+                placeholder="e.g. Unverifiable credentials, incomplete profile, outside service area..."
+                className="w-full min-h-[100px] rounded-md border border-titanium-800 bg-titanium-900/50 p-3 text-sm text-titanium-200 placeholder:text-titanium-600 focus:border-action focus:outline-none"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-3 sm:gap-0 sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRejectingApp(null);
+                setRejectionMessage("");
+              }}
+              disabled={!!actioningId}
+              className="border-titanium-700 bg-titanium-900 font-mono text-[10px] uppercase tracking-widest text-titanium-300 w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => rejectingApp && handleStatusUpdate(rejectingApp.id, "rejected", rejectionMessage)}
+              disabled={!!actioningId || !rejectionMessage.trim()}
+              className="bg-red-500 hover:bg-red-600 text-white font-mono text-[10px] uppercase tracking-widest w-full sm:w-auto"
+            >
+              {actioningId ? <Loader2 className="mr-2 size-3 animate-spin" /> : null}
+              Confirm Rejection
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

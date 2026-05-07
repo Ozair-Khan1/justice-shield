@@ -8,29 +8,40 @@ export async function GET(req: Request) {
     const city = searchParams.get("city");
     const country = searchParams.get("country");
 
+    // Build location conditions
+    const locationConditions: any[] = [
+      ...(city ? [{ city: { contains: city, mode: "insensitive" as const } }] : []),
+      ...(country ? [{ country: { contains: country, mode: "insensitive" as const } }] : []),
+    ];
+
+    // If specialty is provided, location (city or country) is REQUIRED.
+    // Attorney-only specialty match without a location overlap is not returned.
+    const where: any = {
+      role: "ATTORNEY",
+    };
+
+    if (specialty && locationConditions.length > 0) {
+      // Must match specialty AND (city OR country)
+      where.AND = [
+        { specialties: { contains: specialty, mode: "insensitive" } },
+        { OR: locationConditions },
+      ];
+    } else if (specialty && locationConditions.length === 0) {
+      // Specialty provided but no location — return nothing (location required)
+      return NextResponse.json({ attorneys: [] });
+    } else if (!specialty && locationConditions.length > 0) {
+      // Location only (no specialty filter) — return all attorneys in that location
+      where.OR = locationConditions;
+    }
+    // If neither specialty nor location: return all attorneys (admin/general use)
+
     const attorneys = await prisma.user.findMany({
-      where: {
-        role: "ATTORNEY",
-        ...(specialty ? {
-          specialties: {
-            contains: specialty,
-            mode: "insensitive"
-          }
-        } : {}),
-        ...(city ? {
-          city: {
-            contains: city,
-            mode: "insensitive"
-          }
-        } : {}),
-        ...(country ? {
-          country: {
-            contains: country,
-            mode: "insensitive"
-          }
-        } : {})
-      },
-      orderBy: { full_name: "asc" },
+      where,
+      orderBy: [
+        // City matches first, then country matches
+        { city: "asc" },
+        { full_name: "asc" },
+      ],
       select: {
         id: true,
         full_name: true,
@@ -43,15 +54,20 @@ export async function GET(req: Request) {
         country: true,
         assigned_intakes: {
           select: { status: true }
+        },
+        assigned_encounters: {
+          select: { status: true }
         }
       },
     });
 
     const attorneysWithCount = attorneys.map(a => ({
       ...a,
-      total_cases: a.assigned_intakes.length,
-      resolved_cases: a.assigned_intakes.filter(i => i.status === "resolved").length,
-      assigned_intakes: undefined
+      total_cases: a.assigned_intakes.length + a.assigned_encounters.length,
+      resolved_cases: a.assigned_intakes.filter(i => i.status === "resolved").length + 
+                      a.assigned_encounters.filter(e => e.status === "resolved").length,
+      assigned_intakes: undefined,
+      assigned_encounters: undefined
     }));
 
     return NextResponse.json({ attorneys: attorneysWithCount });

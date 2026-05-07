@@ -70,10 +70,11 @@ export default function HomePage() {
             <h2 className="mt-4 max-w-3xl font-display text-4xl font-bold tracking-tight md:text-5xl">
               Three taps. Counsel on the line.
             </h2>
-            <div className="mt-16 grid gap-8 md:grid-cols-3">
+            <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
               <Step n="01" title="Activate Shield" body="One tap on the SOS panel triggers GPS log, audio recording, and an alert to your emergency contact." />
               <Step n="02" title="Attorney Patches In" body="A vetted attorney in your jurisdiction is bridged into a live, encrypted video session within seconds." />
               <Step n="03" title="Privileged Record" body="The session is sealed under attorney–client privilege and stored in your encrypted vault." />
+              <Step n="04" title="AI-Powered Analysis" body="Real-time AI monitors your encounters, identifying critical moments and structuring evidence automatically." />
             </div>
           </div>
         </section>
@@ -85,7 +86,7 @@ export default function HomePage() {
             <h2 className="mt-4 max-w-3xl font-display text-4xl font-bold tracking-tight md:text-5xl">
               Built for the moment things escalate.
             </h2>
-            <div className="mt-16 grid gap-px bg-titanium-800 md:grid-cols-2">
+            <div className="mt-16 grid gap-px bg-titanium-800 md:grid-cols-3">
               <Coverage
                 kind="critical"
                 tag="Tier 1 — Emergency"
@@ -99,6 +100,13 @@ export default function HomePage() {
                 title="Civil Legal Matters"
                 items={["Landlord / tenant disputes", "Employment & wage claims", "Contracts & agreements", "Small claims", "Bankruptcy", "Personal injury", "Family matters"]}
                 cta="Intake → callback within 4 hours"
+              />
+              <Coverage
+                kind="standard"
+                tag="Tier 3 — Intelligence"
+                title="AI-Powered Analysis"
+                items={["Real-time encounter monitoring", "Automated evidence structuring", "Critical moment identification", "Legal vulnerability reporting", "Constitutional audit logs", "Probable cause assessment"]}
+                cta="Deploy Intelligence Protocol"
               />
             </div>
           </div>

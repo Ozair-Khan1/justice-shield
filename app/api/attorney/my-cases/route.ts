@@ -29,7 +29,7 @@ export async function GET(req: Request) {
     const civilIntakes = await prisma.civilIntake.findMany({
       where: {
         assigned_attorney_id: user.id,
-        status: "assigned",
+        status: { in: ["active", "pending"] },
       },
       orderBy: { created_at: "desc" },
       include: {
@@ -43,7 +43,7 @@ export async function GET(req: Request) {
       }
     });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       cases: civilIntakes,
       sessions: [] // SOS sessions removed from this view
     });

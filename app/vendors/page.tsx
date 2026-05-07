@@ -7,6 +7,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 const vendorSchema = z.object({
   vendor_type: z.enum(["attorney", "marketing_specialist"]),
@@ -23,7 +24,7 @@ const vendorSchema = z.object({
   specialties: z.string().trim().min(1, "Please specify your specialties").max(500),
   bar_number: z.string().trim().max(60).optional().or(z.literal("")),
   years_experience: z.string().trim().optional().or(z.literal("")),
-  message: z.string().trim().max(1500).optional().or(z.literal("")),
+  message: z.string().trim().min(15, "Please describe your interest and any relevant details").max(1500),
 }).superRefine((data, ctx) => {
   if (data.vendor_type === "attorney") {
     if (!data.bar_number || data.bar_number.trim() === "") {
@@ -59,7 +60,7 @@ export default function VendorsPage() {
       try {
         const { parsePhoneNumber } = require('react-phone-number-input');
         const phoneNumber = parsePhoneNumber(v);
-        if (phoneNumber && phoneNumber.country && !country) {
+        if (phoneNumber && phoneNumber.country || !country || country) {
           const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
           const detected = regionNames.of(phoneNumber.country);
           if (detected) setCountry(detected);
@@ -108,7 +109,10 @@ export default function VendorsPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Submission failed");
+      if (!res.ok) {
+        setSubmitting(false);
+        throw new Error(data.error || "Submission failed")
+      };
 
       setSubmitted(true);
     } catch (err) {
@@ -117,6 +121,13 @@ export default function VendorsPage() {
       setSubmitting(false);
     }
   };
+
+
+  if (submitting) {
+    return (
+      <LoadingScreen />
+    )
+  }
 
   return (
     <div className="flex min-h-dvh flex-col bg-titanium-950 text-titanium-50">
@@ -150,7 +161,7 @@ export default function VendorsPage() {
                   <Label>Apply as</Label>
                   <div className="mt-2 grid grid-cols-2 gap-3">
                     {([["attorney", "Attorney"], ["marketing_specialist", "Marketing Specialist"]] as const).map(([value, label]) => (
-                      <button key={value} type="button" onClick={() => setVendorType(value)}
+                      <button key={value} type="button" onClick={() => { setVendorType(value); setError(null) }}
                         className={`rounded-sm border px-4 py-3 text-left text-sm font-bold uppercase tracking-wide transition-colors ${vendorType === value ? "border-action bg-action/10 text-action" : "border-titanium-700 bg-titanium-900 text-titanium-300 hover:border-titanium-600"}`}>
                         {label}
                       </button>
@@ -180,7 +191,6 @@ export default function VendorsPage() {
                       name="city"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
-                      required
                       placeholder="e.g. New York"
                       className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action"
                     />
@@ -191,7 +201,6 @@ export default function VendorsPage() {
                       name="country"
                       value={country}
                       onChange={(e) => setCountry(e.target.value)}
-                      required
                       placeholder="e.g. USA"
                       className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action"
                     />
@@ -253,7 +262,7 @@ function Field({ name, label, type = "text", required, placeholder }: { name: st
 function TextArea({ name, label, rows = 4, required }: { name: string; label: string; rows?: number; required?: boolean }) {
   return (
     <label className="block">
-      <Label>{label} {label === "Practice areas / specialties" || label === "Marketing specialties (SEO, paid, brand, etc.)" ? <span className="text-red-600">*</span> : ''}</Label>
+      <Label>{label} <span className="text-red-600">*</span></Label>
       <textarea name={name} rows={rows} required={required}
         className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action" />
     </label>

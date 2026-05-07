@@ -69,9 +69,12 @@ interface CivilIntake {
   description: string;
   preferred_contact: string;
   status: string;
+  opposing_party?: string | null;
+  opposing_party_location?: string | null;
   created_at: string;
   user: CaseUser;
   metadata?: Record<string, any> | null;
+  is_sos?: boolean;
 }
 
 interface DashboardStats {
@@ -92,7 +95,12 @@ export default function AttorneyDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedIntake, setSelectedIntake] = useState<CivilIntake | null>(null);
+  const [selectedSos, setSelectedSos] = useState<SOSSession | null>(null);
   const [accepting, setAccepting] = useState(false);
+  const [rejectCaseId, setRejectCaseId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectType, setRejectType] = useState<"case" | "sos">("case");
+  const [isRejecting, setIsRejecting] = useState(false);
   const [caseTab, setCaseTab] = useState("my-active");
   const [cityFilter, setCityFilter] = useState("all");
   const [refreshing, setRefreshing] = useState<string | null>(null);
@@ -169,38 +177,6 @@ export default function AttorneyDashboard() {
     }
   };
 
-  const handleAcceptCase = async () => {
-    if (!selectedIntake) return;
-    setAccepting(true);
-    startLoading("Accepting Engagement...");
-    try {
-      const res = await fetch("/api/attorney/cases/accept", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intakeId: selectedIntake.id }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to accept case");
-
-      setPendingCases(prev => prev.filter(i => i.id !== selectedIntake.id));
-      setAssignedCases(prev => [data.intake, ...prev]);
-
-      setStats(prev => prev ? {
-        ...prev,
-        totalPendingCount: Math.max(0, prev.totalPendingCount - 1),
-        totalAssignedCount: prev.totalAssignedCount + 1
-      } : null);
-
-      setSelectedIntake(null);
-      setCaseTab("my-active");
-    } catch (err: any) {
-      alert(err.message || "An error occurred");
-    } finally {
-      setAccepting(false);
-      stopLoading();
-    }
-  };
-
   const handleResolveCase = async () => {
     if (!selectedIntake) return;
     setAccepting(true);
@@ -222,6 +198,27 @@ export default function AttorneyDashboard() {
       } : null);
 
       setSelectedIntake(null);
+    } catch (err: any) {
+      alert(err.message || "An error occurred");
+    } finally {
+      setAccepting(false);
+      stopLoading();
+    }
+  };
+
+  const handleAcceptSos = async (id: string) => {
+    setAccepting(true);
+    startLoading("Accepting SOS Session...");
+    try {
+      const res = await fetch(`/api/sos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "assigned" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to accept SOS");
+
+      setAssignedSessions(prev => prev.map(s => s.id === id ? { ...s, status: "assigned" } : s));
     } catch (err: any) {
       alert(err.message || "An error occurred");
     } finally {
@@ -254,6 +251,90 @@ export default function AttorneyDashboard() {
       stopLoading();
     }
   };
+
+  const handleAcceptCivilCase = async (id: string) => {
+    setAccepting(true);
+    startLoading("Accepting Case...");
+    try {
+      const res = await fetch(`/api/cases/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "active" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to accept case");
+
+      // Move case from pending to assigned locally
+      const acceptedCase = pendingCases.find(c => c.id === id);
+      if (acceptedCase) {
+        setPendingCases(prev => prev.filter(c => c.id !== id));
+        setAssignedCases(prev => [{ ...acceptedCase, status: "assigned" }, ...prev]);
+        if (selectedIntake?.id === id) {
+          setSelectedIntake({ ...selectedIntake, status: "assigned" });
+        }
+      }
+    } catch (err: any) {
+      alert(err.message || "An error occurred");
+    } finally {
+      setAccepting(false);
+      stopLoading();
+    }
+  };
+
+  const handleRejectCase = (id: string) => {
+    setRejectCaseId(id);
+    setRejectType("case");
+    setRejectReason("");
+  };
+
+  const submitRejectCase = async () => {
+    if (!rejectCaseId || !rejectReason.trim()) return;
+    setIsRejecting(true);
+    startLoading(rejectType === "sos" ? "Rejecting SOS Session..." : "Rejecting Case...");
+    try {
+      if (rejectType === "sos") {
+        const res = await fetch(`/api/sos/${rejectCaseId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "rejected", notes: `Attorney Rejected: ${rejectReason.trim()}` }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to reject SOS session");
+
+        setAssignedSessions(prev => prev.filter(c => c.id !== rejectCaseId));
+        setStats(prev => prev ? {
+          ...prev,
+          totalAssignedCount: Math.max(0, prev.totalAssignedCount - 1)
+        } : null);
+      } else {
+        const res = await fetch(`/api/cases/${rejectCaseId}/status`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "rejected", rejection_message: rejectReason.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to reject case");
+
+        setPendingCases(prev => prev.filter(c => c.id !== rejectCaseId));
+        if (selectedIntake?.id === rejectCaseId) {
+          setSelectedIntake(null);
+        }
+        setStats(prev => prev ? {
+          ...prev,
+          totalPendingCount: Math.max(0, prev.totalPendingCount - 1)
+        } : null);
+      }
+
+      setRejectCaseId(null);
+      setRejectReason("");
+    } catch (err: any) {
+      alert(err.message || "An error occurred");
+    } finally {
+      setIsRejecting(false);
+      stopLoading();
+    }
+  };
+
 
   if (loading) {
     return <LoadingScreen message="Establishing Secure Uplink..." />;
@@ -343,8 +424,8 @@ export default function AttorneyDashboard() {
                     <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between min-w-0">
                       <div className="space-y-4 min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                          <Badge className="bg-emerald-500 text-white font-mono text-[8px] md:text-[9px] uppercase tracking-widest px-2 py-0.5 shrink-0">
-                            In Progress
+                          <Badge className={`${s.status === "pending" ? "bg-amber-500" : "bg-emerald-500"} text-white font-mono text-[8px] md:text-[9px] uppercase tracking-widest px-2 py-0.5 shrink-0`}>
+                            {s.status === "pending" ? "Pending Assignment" : "In Progress"}
                           </Badge>
                           <span className="font-mono text-[9px] md:text-[10px] text-titanium-400 uppercase tracking-widest truncate">{s.encounter_type.replace("_", " ")}</span>
                         </div>
@@ -365,6 +446,29 @@ export default function AttorneyDashboard() {
                       <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2.5 shrink-0">
                         <Button
                           variant="outline"
+                          onClick={() => {
+                            // Map SOSSession to CivilIntake for the modal
+                            setSelectedIntake({
+                              id: s.id,
+                              matter_type: s.encounter_type,
+                              urgency: "urgent",
+                              subject: `Emergency SOS: ${s.encounter_type.replace("_", " ")}`,
+                              description: (s as any).notes || "No tactical notes provided.",
+                              preferred_contact: "phone",
+                              status: s.status,
+                              created_at: s.started_at,
+                              user: s.user,
+                              metadata: (s as any).metadata,
+                              is_sos: true
+                            });
+                          }}
+                          className="w-full md:w-auto border-titanium-700 bg-titanium-900 h-11 md:h-12 px-5 font-mono text-[10px] uppercase tracking-widest transition-colors hover:bg-titanium-800"
+                        >
+                          <FileText className="size-3.5 mr-2" />
+                          Review Details
+                        </Button>
+                        <Button
+                          variant="outline"
                           onClick={() => handleCallMember(s.user, s.id)}
                           className="w-full md:w-auto border-titanium-700 bg-titanium-900 h-11 md:h-12 px-5 font-mono text-[10px] uppercase tracking-widest transition-colors hover:bg-titanium-800"
                         >
@@ -380,14 +484,37 @@ export default function AttorneyDashboard() {
                             </span>
                           )}
                         </Button>
-                        <Button
-                          onClick={() => handleResolveSos(s.id)}
-                          disabled={accepting}
-                          className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-white h-11 md:h-12 px-6 font-bold uppercase tracking-widest text-[10px] shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-                        >
-                          {accepting ? <Loader2 className="size-3 animate-spin mr-2" /> : <CheckCircle2 className="size-3.5 mr-2" />}
-                          <span className="whitespace-nowrap">Resolve Session</span>
-                        </Button>
+                        {s.status === "pending" ? (
+                          <>
+                            <Button
+                              onClick={() => {
+                                setRejectCaseId(s.id);
+                                setRejectType("sos");
+                              }}
+                              variant="outline"
+                              className="w-full md:w-auto border-red-500/50 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white h-11 md:h-12 px-5 font-mono text-[10px] font-bold uppercase tracking-widest transition-all"
+                            >
+                              Reject
+                            </Button>
+                            <Button
+                              onClick={() => handleAcceptSos(s.id)}
+                              disabled={accepting}
+                              className="w-full md:w-auto bg-action text-action-foreground hover:bg-action/90 h-11 md:h-12 px-6 font-mono text-[10px] font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(255,87,34,0.2)]"
+                            >
+                              {accepting ? <Loader2 className="size-3 animate-spin mr-2" /> : <ShieldCheck className="size-3.5 mr-2" />}
+                              <span className="whitespace-nowrap">Accept</span>
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            onClick={() => handleResolveSos(s.id)}
+                            disabled={accepting}
+                            className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-white h-11 md:h-12 px-6 font-bold uppercase tracking-widest text-[10px] shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                          >
+                            {accepting ? <Loader2 className="size-3 animate-spin mr-2" /> : <CheckCircle2 className="size-3.5 mr-2" />}
+                            <span className="whitespace-nowrap">Resolve Session</span>
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -423,8 +550,11 @@ export default function AttorneyDashboard() {
             <p className="mt-1 text-sm text-titanium-500">Showing 10 most recent intakes.</p>
           </div>
           <TabsList className="bg-titanium-900/50 border border-titanium-800">
-            <TabsTrigger value="my-active" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-widest px-6">
+            <TabsTrigger value="my-active" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-widest px-6 transition-all">
               My Cases ({assignedCases.length})
+            </TabsTrigger>
+            <TabsTrigger value="pending-assignments" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-widest px-6 transition-all">
+              Assigned Cases ({pendingCases.length})
             </TabsTrigger>
           </TabsList>
         </div>
@@ -462,6 +592,20 @@ export default function AttorneyDashboard() {
               <Link href="/app/attorney/cases">View All<ChevronRight className="size-3 ml-1" /></Link>
             </Button>
           </div>
+        </TabsContent>
+
+        <TabsContent value="pending-assignments" className="grid gap-4 focus-visible:ring-0">
+          {pendingCases.filter(i => filterByLocation(i.user)).length === 0 ? (
+            <div className="rounded-lg border border-dashed border-titanium-800 p-12 text-center text-titanium-600 font-mono text-[10px] uppercase tracking-widest">
+              You have no assigned cases awaiting acceptance
+            </div>
+          ) : (
+            <>
+              {pendingCases.filter(i => filterByLocation(i.user)).map((i) => (
+                <CaseCard key={i.id} i={i} onReview={() => setSelectedIntake(i)} onAccept={() => handleAcceptCivilCase(i.id)} onReject={() => handleRejectCase(i.id)} />
+              ))}
+            </>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -578,6 +722,21 @@ export default function AttorneyDashboard() {
                   </div>
                 </div>
 
+                {selectedIntake.opposing_party && (
+                  <div className="rounded-lg bg-red-500/5 border border-red-500/10 p-4 md:p-6 space-y-3">
+                    <div className="flex items-center gap-2 text-red-500/80">
+                      <Scale className="size-4" />
+                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest">Opposing Party Conflict Check</h4>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-sm font-bold text-titanium-50">{selectedIntake.opposing_party}</div>
+                      {selectedIntake.opposing_party_location && (
+                        <div className="font-mono text-[10px] uppercase text-titanium-500">{selectedIntake.opposing_party_location}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {selectedIntake.metadata && Object.keys(selectedIntake.metadata).length > 0 && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 text-action/60">
@@ -604,9 +763,16 @@ export default function AttorneyDashboard() {
                 >
                   Close File
                 </Button>
-                {selectedIntake.status === "assigned" && (
+                {(selectedIntake.status === "active" || selectedIntake.status === "assigned") && (
                   <Button
-                    onClick={handleResolveCase}
+                    onClick={() => {
+                      if (selectedIntake.is_sos) {
+                        handleResolveSos(selectedIntake.id);
+                        setSelectedIntake(null);
+                      } else {
+                        handleResolveCase();
+                      }
+                    }}
                     disabled={accepting}
                     className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white h-11 px-8 font-bold uppercase text-[10px] tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.2)]"
                   >
@@ -615,25 +781,96 @@ export default function AttorneyDashboard() {
                   </Button>
                 )}
                 {selectedIntake.status === "pending" && (
-                  <Button
-                    onClick={handleAcceptCase}
-                    disabled={accepting}
-                    className="w-full sm:w-auto bg-action hover:bg-action/90 text-action-foreground h-11 px-8 font-bold uppercase text-[10px] tracking-widest shadow-[0_0_20px_rgba(var(--action-rgb),0.3)]"
-                  >
-                    {accepting ? <Loader2 className="size-3 animate-spin mr-2" /> : <Scale className="size-3 mr-2" />}
-                    Accept Engagement
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Button
+                      onClick={() => {
+                        setRejectCaseId(selectedIntake.id);
+                        if (selectedIntake.is_sos) setRejectType("sos");
+                        else setRejectType("case");
+                      }}
+                      disabled={isRejecting || accepting}
+                      variant="outline"
+                      className="w-full sm:w-auto border-red-500/50 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white h-11 px-6 font-bold uppercase text-[10px] tracking-widest transition-all"
+                    >
+                      <X className="size-3 mr-2" />
+                      Reject
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        if (selectedIntake.is_sos) {
+                          await handleAcceptSos(selectedIntake.id);
+                          setSelectedIntake(null);
+                        } else {
+                          handleAcceptCivilCase(selectedIntake.id);
+                        }
+                      }}
+                      disabled={accepting || isRejecting}
+                      className="w-full sm:w-auto bg-action hover:bg-action/90 text-action-foreground h-11 px-8 font-bold uppercase text-[10px] tracking-widest shadow-[0_0_20px_rgba(var(--action-rgb),0.3)]"
+                    >
+                      {accepting ? <Loader2 className="size-3 animate-spin mr-2" /> : <ShieldCheck className="size-3 mr-2" />}
+                      Accept Engagement
+                    </Button>
+                  </div>
                 )}
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
+      {/* Rejection Modal */}
+      <Dialog open={!!rejectCaseId} onOpenChange={(open) => {
+        if (!open) {
+          setRejectCaseId(null);
+          setRejectReason("");
+        }
+      }}>
+        <DialogContent className="border-titanium-800 bg-titanium-950 text-titanium-50 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl text-titanium-50">Reject Case Assignment</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm text-titanium-400">
+              Please provide a reason for rejecting this case. This information will be logged for administrative review.
+            </p>
+            <div className="space-y-2">
+              <label className="text-xs font-mono uppercase tracking-widest text-titanium-500">Rejection Reason</label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="e.g. Conflict of interest, outside of specialty, current workload..."
+                className="w-full min-h-[100px] rounded-md border border-titanium-800 bg-titanium-900/50 p-3 text-sm text-titanium-200 placeholder:text-titanium-600 focus:border-action focus:outline-none"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-3 sm:gap-0 sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRejectCaseId(null);
+                setRejectReason("");
+              }}
+              disabled={isRejecting}
+              className="border-titanium-700 bg-titanium-900 font-mono text-[10px] uppercase tracking-widest text-titanium-300 w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={submitRejectCase}
+              disabled={isRejecting || !rejectReason.trim()}
+              className="bg-red-500 hover:bg-red-600 text-white font-mono text-[10px] uppercase tracking-widest w-full sm:w-auto"
+            >
+              {isRejecting ? <Loader2 className="mr-2 size-3 animate-spin" /> : null}
+              Confirm Rejection
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div >
   );
 }
 
-function CaseCard({ i, onReview }: { i: CivilIntake; onReview: () => void }) {
+function CaseCard({ i, onReview, onAccept, onReject }: { i: CivilIntake; onReview: () => void; onAccept?: () => void; onReject?: () => void }) {
   return (
     <Card className="group border-titanium-800 bg-titanium-900/30 hover:border-titanium-700 transition-all overflow-hidden">
       <CardContent className="p-6">
@@ -644,7 +881,7 @@ function CaseCard({ i, onReview }: { i: CivilIntake; onReview: () => void }) {
                 {i.urgency} Priority
               </Badge>
               <span className="font-mono text-[10px] text-titanium-500 uppercase tracking-widest">{i.matter_type.replace("_", " ")}</span>
-              <Badge variant="secondary" className={`font-mono text-[8px] uppercase tracking-tighter h-5 ${i.status === "pending" ? "text-amber-500 border-amber-500/20 bg-amber-500/5" : "text-blue-500 border-blue-500/20 bg-blue-500/5"
+              <Badge variant="secondary" className={`font-mono text-[8px] uppercase tracking-tighter h-5 ${i.status === "pending" ? "text-amber-500 border-amber-500/20 bg-amber-500/5" : "bg-emerald-400/10 text-emerald-400 border-emerald-400/20"
                 }`}>
                 {i.status}
               </Badge>
@@ -664,13 +901,38 @@ function CaseCard({ i, onReview }: { i: CivilIntake; onReview: () => void }) {
               <span className="text-action/70">{i.user.city || "N/A"}, {i.user.country || "N/A"}</span>
             </div>
           </div>
-          <Button
-            onClick={onReview}
-            variant="outline"
-            className="border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action hover:text-action h-10 px-6 font-mono text-[10px] font-bold uppercase tracking-widest"
-          >
-            Review Case <ChevronRight className="size-3 ml-2" />
-          </Button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            {onReject && i.status === "pending" && (
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReject();
+                }}
+                variant="outline"
+                className="border-red-500/50 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white h-10 px-5 font-mono text-[10px] font-bold uppercase tracking-widest transition-all"
+              >
+                Reject
+              </Button>
+            )}
+            {onAccept && i.status === "pending" && (
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAccept();
+                }}
+                className="bg-action text-action-foreground hover:bg-action/90 h-10 px-6 font-mono text-[10px] font-bold uppercase tracking-widest transition-all"
+              >
+                <ShieldCheck className="mr-2 size-3" /> Accept
+              </Button>
+            )}
+            <Button
+              onClick={onReview}
+              variant="outline"
+              className="border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action hover:text-action h-10 px-6 font-mono text-[10px] font-bold uppercase tracking-widest"
+            >
+              Review Case <ChevronRight className="size-3 ml-2" />
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

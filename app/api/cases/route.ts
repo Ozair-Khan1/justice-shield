@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     const intakes = await prisma.civilIntake.findMany({
       where: {
         user_id: payload.id as string,
-        status: { in: ["assigned", "pending", "draft"] },
+        status: { in: ["assigned", "pending", "draft", "rejected", "active"] },
       },
       include: {
         assigned_attorney: {
@@ -28,6 +28,8 @@ export async function GET(req: Request) {
             email: true,
             phone: true,
             firm_name: true,
+            role: true,
+            specialties: true,
           },
         },
       },
