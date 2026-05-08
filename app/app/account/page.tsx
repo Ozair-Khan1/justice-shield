@@ -294,7 +294,7 @@ function Field({ label, value, onChange, type = "text", placeholder }: { label: 
   return (
     <label className="block">
       <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">{label} {label === 'Full Name' ? <span className="text-red-500">*</span> : ''}</span>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+      <input type={type} value={value} onChange={(e) => onChange(type === "password" ? e.target.value.trim() : e.target.value)} placeholder={placeholder}
         className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm outline-none focus:border-action" />
     </label>
   );

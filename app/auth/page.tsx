@@ -439,7 +439,7 @@ function Field({
         <input
           type={type === 'password' ? typePassword ? 'text' : 'password' : type}
           value={value}
-          onChange={(e) => onChange(e.target.value.trim())}
+          onChange={(e) => onChange(type === "password" ? e.target.value.trim() : e.target.value)}
           minLength={minLength}
           placeholder={placeholder}
           className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action pr-12"

@@ -261,7 +261,7 @@ function Field({
                     <input
                         type={isPassword ? (showPassword ? "text" : "password") : (type === "email" ? "email" : "text")}
                         value={value}
-                        onChange={(e) => onChange?.(e.target.value)}
+                        onChange={(e) => onChange?.(type === "password" ? e.target.value.trim() : e.target.value)}
                         disabled={disabled}
                         required={required}
                         minLength={minLength}
