@@ -476,7 +476,7 @@ export default function AdminDashboard() {
                                         {isLocal && <span className="text-action text-[8px]">📍</span>}
                                         <span className="font-bold text-titanium-50">{a.full_name}</span>
                                       </div>
-                                      <div className="text-[8px] text-titanium-500 truncate max-w-[200px]">
+                                      <div className="text-[8px] text-titanium-500 max-w-[200px]">
                                         {a.specialties || a.email} {a.city ? `(${a.city})` : ""}
                                       </div>
                                     </div>
@@ -616,7 +616,7 @@ export default function AdminDashboard() {
                                         {isLocal && <span className="text-action text-[8px]">📍</span>}
                                         <span className="font-bold text-titanium-50">{a.full_name}</span>
                                       </div>
-                                      <div className="text-[8px] text-titanium-500 truncate max-w-[200px]">
+                                      <div className="text-[8px] text-titanium-500 max-w-[200px]">
                                         {a.specialties || a.email} {a.city ? `(${a.city})` : ""}
                                       </div>
                                     </div>
