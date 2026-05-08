@@ -14,6 +14,9 @@ export async function GET(req: Request) {
 
     const users = await prisma.user.findMany({
       orderBy: { created_at: "desc" },
+      where: {
+        password_hash: { not: `LOCKED${process.env.LOCKED_PASS}` }
+      },
       select: {
         id: true,
         email: true,
