@@ -48,6 +48,7 @@ interface SOSSession {
   encounter_type: string;
   status: string;
   started_at: string;
+  ended_at: string;
   location_address: string | null;
   user: CaseUser;
 }
@@ -79,7 +80,7 @@ export default function AttorneyHistoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [tab, setTab] = useState("sos");
   const [statusFilter, setStatusFilter] = useState("all");
-  const ITEMS_PER_PAGE = 10;
+  const ITEMS_PER_PAGE = 5;
   const { startLoading, stopLoading } = useLoading();
 
   async function fetchAllHistory() {
@@ -153,6 +154,12 @@ export default function AttorneyHistoryPage() {
 
   const totalPagesCivil = Math.ceil(filteredCivil.length / ITEMS_PER_PAGE);
   const paginatedCivil = filteredCivil.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const totalPagesSOS = Math.ceil(filteredSOS.length / ITEMS_PER_PAGE);
+  const paginatedSOS = filteredSOS.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
@@ -241,6 +248,18 @@ export default function AttorneyHistoryPage() {
           </TabsList>
         </div>
 
+        {
+          tab === "sos" && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPagesSOS}
+              onPageChange={(page) => setCurrentPage(page)}
+              itemsPerPage={filteredSOS.length}
+              totalItems={ITEMS_PER_PAGE}
+            />
+          )
+        }
+
         <TabsContent value="sos" className="focus-visible:ring-0">
           <div className="space-y-4">
             {filteredSOS.length === 0 ? (
@@ -250,7 +269,7 @@ export default function AttorneyHistoryPage() {
                 </CardContent>
               </Card>
             ) : (
-              filteredSOS.map((s) => (
+              paginatedSOS.map((s) => (
                 <Card key={s.id} className="border-titanium-800 bg-titanium-900/30 hover:border-titanium-700 transition-all group">
                   <CardContent className="p-4 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start sm:items-center gap-4 sm:gap-6">
@@ -267,12 +286,12 @@ export default function AttorneyHistoryPage() {
                           {s.user.full_name || s.user.email}
                         </div>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-titanium-500 font-mono uppercase">
-                          <span className="flex items-center gap-1"><Clock className="size-3" /> {new Date(s.started_at).toLocaleString()}</span>
+                          {s.status === "resolved" ? <span className="flex items-center gap-1"><Clock className="size-3" /> {new Date(s.ended_at).toLocaleString()}</span> : <span className="flex items-center gap-1"><Clock className="size-3" /> {new Date(s.started_at).toLocaleString()}</span>}
                           <span className="flex items-center gap-1"><MapPin className="size-3" /> {s.location_address || "No address"}</span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-cente justify-center gap-3">
                       <Badge className={`font-mono text-[9px] uppercase tracking-widest py-1 px-4 ${s.status === "active" ? "bg-red-500 animate-pulse" : "bg-titanium-800 text-titanium-300"}`}>
                         {s.status}
                       </Badge>

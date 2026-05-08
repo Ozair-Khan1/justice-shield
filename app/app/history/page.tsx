@@ -50,13 +50,17 @@ interface Intake {
   matter_type: string;
   urgency: string;
   subject: string;
+  description: string;
+  preferred_contact: string;
   status: string;
   created_at: string;
   assigned_attorney: {
     full_name: string | null;
+    email: string | null;
   } | null;
   opposing_party: string | null;
   opposing_party_location: string | null;
+  metadata?: Record<string, any> | null;
 }
 
 export default function HistoryPage() {
@@ -71,6 +75,7 @@ export default function HistoryPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
+  const [selectedIntake, setSelectedIntake] = useState<Intake | null>(null);
   const ITEMS_PER_PAGE = 10;
 
   const fetchHistory = async (silent = false) => {
@@ -178,12 +183,16 @@ export default function HistoryPage() {
                 <>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
                 </>
               ) : (
                 <>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="assigned">Assigned</SelectItem>
                   <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
                 </>
               )}
             </SelectContent>
@@ -266,7 +275,7 @@ export default function HistoryPage() {
                       <Lock className="size-10 sm:size-12" />
                     </div>
                     <div className="font-mono text-[10px] uppercase tracking-widest text-titanium-600">No emergency sessions on record</div>
-                    <p className="mt-3 text-sm text-titanium-500">Your interaction history with law enforcement is clear.</p>
+                    <p className="mt-3 text-sm text-titanium-500">Your history with law enforcement is clear.</p>
                   </CardContent>
                 </Card>
               ) : filteredSessions.length === 0 ? (
@@ -305,7 +314,9 @@ export default function HistoryPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-4 sm:flex-col sm:items-end mt-2 sm:mt-0 pt-3 sm:pt-0 border-t border-titanium-800/50 sm:border-0">
-                        <Badge className={`font-mono text-[9px] uppercase tracking-[0.2em] py-1 px-4 w-full sm:w-auto text-center justify-center ${s.status === "active" ? "bg-red-500 text-white animate-pulse" : "bg-titanium-800 text-titanium-300"
+                        <Badge className={`font-mono text-[9px] uppercase tracking-[0.2em] py-1 px-4 w-full sm:w-auto text-center justify-center h-9 items-center ${s.status === "pending" ? "bg-amber-500 text-black" :
+                          s.status === "active" ? "bg-action text-action-foreground" :
+                            "bg-titanium-800 text-titanium-300"
                           }`}>
                           {s.status}
                         </Badge>
@@ -354,7 +365,6 @@ export default function HistoryPage() {
                             <Badge variant="outline" className="font-mono text-[9px] uppercase tracking-widest border-titanium-700 text-titanium-400 whitespace-nowrap">
                               CIVIL · {i.matter_type.replace("_", " ")}
                             </Badge>
-                            <span className="font-mono text-[9px] sm:text-[10px] text-titanium-600 truncate">ID: {i.id.slice(0, 8)}</span>
                           </div>
                           <div className="font-display text-lg sm:text-xl font-bold text-titanium-50 group-hover:text-action transition-colors break-words">
                             {i.subject}
@@ -383,8 +393,15 @@ export default function HistoryPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 sm:flex-col sm:items-end mt-2 sm:mt-0 pt-3 sm:pt-0 border-t border-titanium-800/50 sm:border-0">
-                        <Badge className={`font-mono text-[9px] uppercase tracking-[0.2em] py-1 px-4 w-full sm:w-auto text-center justify-center ${i.status === "pending" ? "bg-amber-500 text-black" :
+                      <div className="flex flex-col sm:flex-row items-center gap-4 sm:items-end mt-4 sm:mt-0 pt-4 sm:pt-0 border-t border-titanium-800/50 sm:border-0">
+                        <Button
+                          variant="outline"
+                          onClick={() => setSelectedIntake(i)}
+                          className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action hover:text-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all"
+                        >
+                          View Details
+                        </Button>
+                        <Badge className={`font-mono text-[9px] uppercase tracking-[0.2em] py-1 px-4 w-full sm:w-auto text-center justify-center h-9 items-center ${i.status === "pending" ? "bg-amber-500 text-black" :
                           i.status === "assigned" ? "bg-action text-action-foreground" :
                             "bg-titanium-800 text-titanium-300"
                           }`}>
@@ -405,6 +422,147 @@ export default function HistoryPage() {
           Justice Shield · Distributed Legal Protection System
         </p>
       </footer>
+
+      <AnimatePresence>
+        {selectedIntake && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border border-titanium-800 bg-titanium-950 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] scrollbar-hide"
+            >
+              <div className="relative h-24 md:h-32 bg-gradient-to-r from-action/20 via-titanium-900 to-titanium-950 border-b border-titanium-800">
+                <div className="absolute -bottom-10 left-4 md:left-8 rounded-full border-4 border-titanium-950 bg-titanium-900 p-3 md:p-4 text-action shadow-2xl">
+                  <Scale className="size-8 md:size-12" />
+                </div>
+                <div className="absolute top-4 right-4 flex gap-2">
+                  <div className={`rounded-full border border-action/20 bg-action/5 px-2 md:px-3 py-0.5 md:py-1 font-mono text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-action backdrop-blur-sm`}>
+                    {selectedIntake.urgency} PRIORITY
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 md:p-8 pt-12 md:pt-14 space-y-6 md:space-y-8">
+                <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                  <div className="space-y-1">
+                    <h2 className="font-display text-2xl md:text-3xl font-bold text-titanium-50 tracking-tight">
+                      {selectedIntake.subject}
+                    </h2>
+                    <p className="font-mono text-[10px] md:text-xs uppercase tracking-[0.2em] text-action/80">
+                      {selectedIntake.matter_type.replace("_", " ")}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className={`font-mono text-[9px] uppercase tracking-widest h-6 px-3 ${selectedIntake.status === "pending" ? "text-amber-500 border-amber-500/20 bg-amber-500/5" : "text-blue-500 border-blue-500/20 bg-blue-500/5"
+                      }`}>
+                      {selectedIntake.status}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 border-y border-titanium-800/50 py-6 md:py-8">
+                  <div className="space-y-4 md:space-y-5">
+                    <div className="flex items-center gap-2">
+                      <div className="size-1 bg-action rounded-full" />
+                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Legal Counsel</h4>
+                    </div>
+                    {selectedIntake.assigned_attorney ? (
+                      <div className="space-y-3 md:space-y-4">
+                        <div className="flex items-center gap-3 text-xs md:text-sm text-titanium-300">
+                          <div className="size-7 md:size-8 rounded-sm bg-titanium-900 flex items-center justify-center border border-titanium-800">
+                            <UserIcon className="size-3.5 md:size-4 text-action/70" />
+                          </div>
+                          <span className="truncate font-medium">{selectedIntake.assigned_attorney.full_name}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs md:text-sm text-titanium-300">
+                          <div className="size-7 md:size-8 rounded-sm bg-titanium-900 flex items-center justify-center border border-titanium-800">
+                            <FileText className="size-3.5 md:size-4 text-action/70" />
+                          </div>
+                          <span className="truncate">{selectedIntake.assigned_attorney.email}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-titanium-500 italic">No attorney assigned yet</div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4 md:space-y-5">
+                    <div className="flex items-center gap-2">
+                      <div className="size-1 bg-action rounded-full" />
+                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Intake Details</h4>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between rounded-sm border border-titanium-800 bg-titanium-900/30 p-3">
+                        <span className="font-mono text-[9px] uppercase text-titanium-500">Contact Method</span>
+                        <span className="font-mono text-[10px] font-bold text-action uppercase">{selectedIntake.preferred_contact}</span>
+                      </div>
+                      <div className="flex items-center justify-between rounded-sm border border-titanium-800 bg-titanium-900/30 p-3">
+                        <span className="font-mono text-[9px] uppercase text-titanium-500">Filed On</span>
+                        <span className="font-mono text-[10px] font-bold text-titanium-300 uppercase">{new Date(selectedIntake.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="size-1 bg-action rounded-full" />
+                    <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Matter Description</h4>
+                  </div>
+                  <div className="rounded-lg bg-titanium-900/50 border border-titanium-800 p-4 md:p-6">
+                    <p className="text-[13px] md:text-sm leading-relaxed text-titanium-300 font-light whitespace-pre-wrap">
+                      {selectedIntake.description}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedIntake.opposing_party && (
+                  <div className="rounded-lg bg-red-500/5 border border-red-500/10 p-4 md:p-6 space-y-3">
+                    <div className="flex items-center gap-2 text-red-500/80">
+                      <Scale className="size-4" />
+                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest">Opposing Party Information</h4>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="text-sm font-bold text-titanium-50">{selectedIntake.opposing_party}</div>
+                      {selectedIntake.opposing_party_location && (
+                        <div className="font-mono text-[10px] uppercase text-titanium-500">{selectedIntake.opposing_party_location}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {selectedIntake.metadata && Object.keys(selectedIntake.metadata).length > 0 && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-action/60">
+                      <Shield className="size-4" />
+                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest">Additional Information</h4>
+                    </div>
+                    <div className="grid gap-2 rounded-lg border border-titanium-800 bg-titanium-950/30 p-4">
+                      {Object.entries(selectedIntake.metadata).map(([key, value]) => (
+                        <div key={key} className="flex justify-between text-sm items-center py-2 border-b border-titanium-800 last:border-0">
+                          <span className="text-titanium-500 capitalize text-[10px] font-mono">{key.replace(/_/g, " ")}:</span>
+                          <span className="font-medium text-titanium-200 text-xs">{String(value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex justify-end backdrop-blur-md">
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedIntake(null)}
+                  className="w-full sm:w-auto border-titanium-700 bg-transparent text-titanium-300 hover:bg-titanium-800 h-11 px-8 font-mono text-[10px] uppercase tracking-widest"
+                >
+                  Close Record
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

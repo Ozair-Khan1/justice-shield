@@ -8,6 +8,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { Country, City } from 'country-state-city';
 
 const vendorSchema = z.object({
   vendor_type: z.enum(["attorney", "marketing_specialist"]),
@@ -186,24 +187,38 @@ export default function VendorsPage() {
                     </div>
                   </div>
                   <label className="block">
+                    <Label>Country <span className="text-red-600">*</span></Label>
+                    <select
+                      name="country"
+                      value={Country.getAllCountries().find(c => c.name === country)?.isoCode || ""}
+                      onChange={(e) => {
+                        const countryCode = e.target.value;
+                        const countryName = Country.getCountryByCode(countryCode)?.name || "";
+                        setCountry(countryName);
+                        setCity("");
+                      }}
+                      className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action disabled:opacity-50 cursor-pointer"
+                    >
+                      <option value="">Select Country</option>
+                      {Country.getAllCountries().map((c) => (
+                        <option key={c.isoCode} value={c.isoCode}>{c.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
                     <Label>City <span className="text-red-600">*</span></Label>
-                    <input
+                    <select
                       name="city"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
-                      placeholder="e.g. New York"
-                      className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action"
-                    />
-                  </label>
-                  <label className="block">
-                    <Label>Country <span className="text-red-600">*</span></Label>
-                    <input
-                      name="country"
-                      value={country}
-                      onChange={(e) => setCountry(e.target.value)}
-                      placeholder="e.g. USA"
-                      className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action"
-                    />
+                      disabled={!country}
+                      className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action disabled:opacity-50 cursor-pointer"
+                    >
+                      <option value="">Select City</option>
+                      {country && City.getCitiesOfCountry(Country.getAllCountries().find(c => c.name === country)?.isoCode || "")?.map((c, index) => (
+                        <option key={`${c.name}-${index}`} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
                   </label>
                   <Field name="website" label="Website" type="url" placeholder="https://" />
                   {vendorType === "attorney" && (

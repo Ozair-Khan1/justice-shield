@@ -205,7 +205,7 @@ export default function AttorneyDirectoryPage() {
                     <div className="rounded-full bg-action/10 p-2 text-action">
                       <ShieldCheck className="size-5" />
                     </div>
-                    <div>
+                    <div className="flex flex-wrap gap-2">
                       <h3 className="font-display text-lg font-bold text-titanium-50 group-hover:text-action transition-colors leading-tight">
                         {a.full_name || "Verified Attorney"}
                       </h3>
@@ -235,7 +235,7 @@ export default function AttorneyDirectoryPage() {
                       <Button
                         variant="outline"
                         size="icon"
-                        className="size-8 border-titanium-800 bg-titanium-950/50 hover:border-action/50 hover:text-action transition-all"
+                        className="size-8 border-titanium-800 bg-titanium-950/50 hover:border-action/50 hover:text-action transition-all min-w-[35px]"
                       >
                         <BadgeInfo className="size-4" />
                       </Button>

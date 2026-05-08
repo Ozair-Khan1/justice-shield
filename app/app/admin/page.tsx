@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Shield, Users, FileText, AlertTriangle, Briefcase, Clock, MapPin, User as UserIcon, RefreshCw, Loader2, ChevronRight, X, Scale, ShieldCheck } from "lucide-react";
+import { Shield, Users, FileText, AlertTriangle, Briefcase, Clock, MapPin, User as UserIcon, RefreshCw, Loader2, ChevronRight, X, Scale, ShieldCheck, AlertCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -17,6 +17,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Mail, Phone } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface Stats {
   userCount: number;
@@ -55,6 +62,11 @@ interface SOSSession {
   emergency_contact_phone: string | null;
   assigned_attorney: {
     full_name: string | null;
+    email: string;
+    phone: string | null;
+    specialties: string | null;
+    role: string | null;
+    firm_name: string | null;
   } | null;
   user: {
     full_name: string | null;
@@ -64,6 +76,7 @@ interface SOSSession {
     country: string | null;
     emergency_contact_name: string | null;
   };
+  rejection_message: string | null;
 }
 
 interface CivilIntake {
@@ -75,9 +88,15 @@ interface CivilIntake {
   preferred_contact: string;
   status: string;
   created_at: string;
+  rejection_message: string | null;
   assigned_attorney_id: string | null;
   assigned_attorney: {
     full_name: string | null;
+    email: string;
+    phone: string | null;
+    specialties: string | null;
+    role: string | null;
+    firm_name: string | null;
   } | null;
   user: {
     full_name: string | null;
@@ -107,6 +126,7 @@ interface EmergencyAlert {
   contact_name: string | null;
   contact_phone: string | null;
   message: string | null;
+  link_address: string | null;
   sent_at: string;
   user: {
     full_name: string | null;
@@ -146,6 +166,10 @@ export default function AdminDashboard() {
   const [selectedAttorney, setSelectedAttorney] = useState("");
   const [processing, setProcessing] = useState(false);
   const [selectedIntake, setSelectedIntake] = useState<CivilIntake | null>(null);
+  const [viewingRejection, setViewingRejection] = useState<any | null>(null);
+  const [seenAlertIds, setSeenAlertIds] = useState<Set<string>>(new Set());
+  const [hasInitializedAlerts, setHasInitializedAlerts] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
   const { startLoading, stopLoading } = useLoading();
 
   const fetchData = async (silent = false) => {
@@ -166,6 +190,27 @@ export default function AdminDashboard() {
       setCivilIntakes(data.civilIntakes ?? []);
       setEmergencyAlerts(data.emergencyAlerts ?? []);
       setAttorneys(attorneysData.attorneys ?? []);
+
+      // Handle notifications for new alerts
+      if (data.emergencyAlerts && data.emergencyAlerts.length > 0) {
+        if (!hasInitializedAlerts) {
+          const initialIds = new Set<string>(data.emergencyAlerts.map((a: EmergencyAlert) => a.id));
+          setSeenAlertIds(initialIds);
+          setHasInitializedAlerts(true);
+        } else {
+          data.emergencyAlerts.forEach((alert: EmergencyAlert) => {
+            if (!seenAlertIds.has(alert.id)) {
+              if (Notification.permission === "granted") {
+                new Notification("EMERGENCY ALERT", {
+                  body: `${alert.user.full_name || alert.user.email} triggered an SOS: ${alert.message || "No message"}`,
+                  icon: "/favicon.webp"
+                });
+              }
+              setSeenAlertIds(prev => new Set<string>(prev).add(alert.id));
+            }
+          });
+        }
+      }
 
       const elapsed = Date.now() - start;
       const minDelay = 1000;
@@ -208,8 +253,35 @@ export default function AdminDashboard() {
     }
   };
 
+  const requestPermission = async () => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      if (permission === "granted") {
+        new Notification("Notifications Enabled", {
+          body: "You will now receive alerts for emergency SOS triggers.",
+          icon: "/favicon.webp"
+        });
+      }
+    }
+  };
+
   useEffect(() => {
     fetchData();
+
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotificationPermission(Notification.permission);
+      if (Notification.permission === "default") {
+        Notification.requestPermission().then(setNotificationPermission);
+      }
+    }
+
+    // Poll every 15 seconds
+    const interval = setInterval(() => {
+      fetchData(true);
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const getSortedAttorneys = (matterType: string) => {
@@ -246,26 +318,32 @@ export default function AdminDashboard() {
       className="space-y-10 pb-20"
     >
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-red-500">
-            Admin Panel
-          </span>
-          <h1 className="mt-3 font-display text-4xl font-bold tracking-tight">Platform Overview</h1>
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.3em] text-red-500 border-red-500/20 bg-red-500/5">
+              Operations Center
+            </Badge>
+          </div>
+          <h1 className="mt-3 font-display text-4xl font-bold tracking-tight text-titanium-50">
+            Command <span className="text-red-500">Dashboard</span>
+          </h1>
           <p className="mt-2 text-sm text-titanium-400">
             Real-time statistics and recent activity across the platform.
           </p>
         </div>
-        <button
-          onClick={() => handleRefresh("all")}
-          className="group flex items-center gap-2 rounded-sm border border-titanium-800 bg-titanium-900/50 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500 transition-all hover:border-action/50 hover:text-action"
-        >
-          {refreshing === "all" ? (
-            <Loader2 className="size-3 animate-spin text-action" />
-          ) : (
-            <RefreshCw className="size-3 transition-transform group-hover:rotate-180" />
-          )}
-          Refresh
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => handleRefresh("all")}
+            className="group flex items-center gap-2 rounded-sm border border-titanium-800 bg-titanium-900/50 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500 transition-all hover:border-action/50 hover:text-action"
+          >
+            {refreshing === "all" ? (
+              <Loader2 className="size-3 animate-spin text-action" />
+            ) : (
+              <RefreshCw className="size-3 transition-transform group-hover:rotate-180" />
+            )}
+            Refresh
+          </button>
+        </div>
       </header>
 
       {/* Stat Cards */}
@@ -333,6 +411,14 @@ export default function AdminDashboard() {
                       <span className={`text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full border ${s.status === "active" ? "border-red-500/30 text-red-400 bg-red-500/5" : "border-titanium-700 text-titanium-500"}`}>
                         {s.status}
                       </span>
+                      {s.status === "rejected" && s.rejection_message && (
+                        <button
+                          onClick={() => setViewingRejection(s)}
+                          className="font-mono text-[9px] uppercase tracking-widest text-red-400 hover:text-red-300 transition-colors flex items-center gap-1"
+                        >
+                          <AlertTriangle className="size-3" /> View Reason
+                        </button>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 text-sm text-titanium-200">
                       <UserIcon className="size-3.5 text-titanium-500" />
@@ -479,6 +565,14 @@ export default function AdminDashboard() {
                       <span className={`text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full border border-titanium-700 text-titanium-500`}>
                         {i.status}
                       </span>
+                      {i.status === "rejected" && i.rejection_message && (
+                        <button
+                          onClick={() => setViewingRejection(i)}
+                          className="font-mono text-[9px] uppercase tracking-widest text-red-400 hover:text-red-300 transition-colors flex items-center gap-1 ml-2"
+                        >
+                          <AlertTriangle className="size-3" /> View Reason
+                        </button>
+                      )}
                     </div>
                     <h3 className="text-sm font-bold text-titanium-100">{i.subject}</h3>
                     <div className="flex items-center gap-2 text-xs text-titanium-400">
@@ -605,14 +699,26 @@ export default function AdminDashboard() {
                         {a.contact_phone}
                       </span>
                     </div>
-                    <p className="text-sm text-titanium-200 italic">"{a.message || "No message provided"}"</p>
+                    <p className="text-sm text-titanium-200 italic">
+                      "{a.message || "No message provided"}"
+                      {a.link_address && (
+                        <a
+                          href={`https://www.google.com/maps/search/${a.link_address}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-2 text-action underline not-italic"
+                        >
+                          View Location
+                        </a>
+                      )}
+                    </p>
                     <div className="flex items-center gap-2 text-sm text-titanium-400">
                       <UserIcon className="size-3.5 text-titanium-500" />
                       {a.user.full_name || a.user.email}
                       {a.user.phone && <span className="text-titanium-600 ml-1">({a.user.phone})</span>}
                     </div>
                   </div>
-                  <div className="space-y-1 sm:text-right">
+                  <div className="space-y-1 sm:text-right min-w-[150px]">
                     <div className="font-mono text-[10px] text-titanium-600 uppercase tracking-widest">
                       {new Date(a.sent_at).toLocaleString()}
                     </div>
@@ -625,6 +731,81 @@ export default function AdminDashboard() {
         )
         }
       </AnimatePresence >
+
+      <AnimatePresence>
+        {viewingRejection && (
+          <div className="fixed inset-0 z-[200] mt-20 m-0 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md rounded-lg border border-titanium-800 bg-titanium-950 shadow-2xl overflow-hidden"
+            >
+              <div className="bg-red-500/10 border-b border-titanium-800 p-6 flex items-center gap-4">
+                <div className="size-12 rounded-full bg-red-500/20 flex items-center justify-center text-red-500 border border-red-500/20">
+                  <AlertCircle className="size-6" />
+                </div>
+                <div>
+                  <h3 className="font-display text-xl font-bold text-titanium-50">Rejection Details</h3>
+                </div>
+                <button onClick={() => setViewingRejection(null)} className="ml-auto text-titanium-500 hover:text-white">
+                  <X className="size-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="space-y-2 w-full min-w-0">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Attorney Feedback</span>
+                  <div className="rounded-sm border border-titanium-800 bg-titanium-900/50 p-4 italic text-titanium-300 text-sm leading-relaxed break-words whitespace-pre-wrap">
+                    "{viewingRejection.rejection_message || "No specific feedback provided by counsel."}"
+                  </div>
+                </div>
+
+                {viewingRejection.assigned_attorney && (
+                  <div className="space-y-4">
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Rejected By</span>
+                    <div className="rounded-sm border border-titanium-800 bg-titanium-950 p-4 space-y-3">
+                      <div>
+                        <div className="font-display font-bold text-titanium-50 text-base">{viewingRejection.assigned_attorney.full_name}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="outline" className="font-mono text-[8px] uppercase tracking-widest text-action border-action/20">
+                            {viewingRejection.assigned_attorney.role || "Attorney"}
+                          </Badge>
+                          <span className="text-titanium-600 text-xs">•</span>
+                          <span className="text-xs text-titanium-400">{viewingRejection.assigned_attorney.specialties || "Legal Professional"}</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-titanium-800/50 flex flex-col gap-2">
+                        <div className="flex items-center gap-2 text-xs text-titanium-300">
+                          <Mail className="size-3 text-titanium-500" />
+                          <span>{viewingRejection.assigned_attorney.email || "N/A"}</span>
+                        </div>
+                        {viewingRejection.assigned_attorney.phone && (
+                          <div className="flex items-center gap-3">
+                            <Phone className="size-3 text-titanium-500" />
+                            <span className="font-mono text-xs text-titanium-300">{viewingRejection.assigned_attorney.phone}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-4">
+                  <Button
+                    variant="outline"
+                    className="w-full border-titanium-800 text-titanium-300 hover:text-white font-mono text-[10px] uppercase tracking-widest"
+                    onClick={() => setViewingRejection(null)}
+                  >
+                    Close Briefing
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Recent Users Table */}
       < section className="space-y-4" >

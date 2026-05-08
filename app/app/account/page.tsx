@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import PhoneInput, { parsePhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { useLoading } from "@/components/LoadingProvider";
+import { Country, City } from 'country-state-city';
 
 
 
@@ -109,7 +110,7 @@ export default function AccountPage() {
         }
       }
 
-      const data = await fetch("/api/auth/me", {
+      const data = await fetch("/api/auth/account", {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -166,28 +167,60 @@ export default function AccountPage() {
           />
         </label>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="City" value={profile.city ?? ""} onChange={(v) => update("city", v)} />
-          <Field label="Country" value={profile.country ?? ""} onChange={(v) => update("country", v)} />
+          <label className="block">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Country</span>
+            <select
+              value={Country.getAllCountries().find(c => c.name === profile.country)?.isoCode || ""}
+              onChange={(e) => {
+                const countryCode = e.target.value;
+                const countryName = Country.getCountryByCode(countryCode)?.name || "";
+                setProfile(prev => ({ ...prev!, country: countryName, city: "" }));
+              }}
+              className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action disabled:opacity-50 cursor-pointer"
+            >
+              <option value="">Select Country</option>
+              {Country.getAllCountries().map((c) => (
+                <option key={c.isoCode} value={c.isoCode}>{c.name}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">City</span>
+            <select
+              value={profile.city ?? ""}
+              onChange={(e) => update("city", e.target.value)}
+              disabled={!profile.country}
+              className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action disabled:opacity-50 cursor-pointer"
+            >
+              <option value="">Select City</option>
+              {profile.country && City.getCitiesOfCountry(Country.getAllCountries().find(c => c.name === profile.country)?.isoCode || "")?.map((city, index) => (
+                <option key={`${city.name}-${index}`} value={city.name}>{city.name}</option>
+              ))}
+            </select>
+          </label>
         </div>
 
-        <div className="border-t border-titanium-800 pt-6">
-          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-action">Emergency Contact</div>
-          <p className="mt-2 text-sm text-titanium-400">Notified automatically when you trigger an SOS.</p>
-          <div className="mt-6 space-y-4">
-            <Field label="Contact Name" value={profile.emergency_contact_name ?? ""} onChange={(v) => update("emergency_contact_name", v)} />
-            <label className="block">
-              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Contact Number</span>
-              <PhoneInput
-                placeholder="Enter phone number"
-                value={profile.emergency_contact_phone ?? ''}
-                onChange={(v) => update("emergency_contact_phone", v ?? '')}
-                defaultCountry="US"
-                international={false}
-                className="phone-input-custom mt-2"
-              />
-            </label>
+        {user.role !== "ATTORNEY" && (
+          <div className="border-t border-titanium-800 pt-6">
+            <div className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-action">Emergency Contact</div>
+            <p className="mt-2 text-sm text-titanium-400">Notified automatically when you trigger an SOS.</p>
+            <div className="mt-6 space-y-4">
+              <Field label="Contact Name" value={profile.emergency_contact_name ?? ""} onChange={(v) => update("emergency_contact_name", v)} />
+              <label className="block">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Contact Number</span>
+                <PhoneInput
+                  placeholder="Enter phone number"
+                  value={profile.emergency_contact_phone ?? ''}
+                  onChange={(v) => update("emergency_contact_phone", v ?? '')}
+                  defaultCountry="US"
+                  international={false}
+                  className="phone-input-custom mt-2"
+                />
+              </label>
+            </div>
           </div>
-        </div>
+        )}
 
         {error && (
           <div className="animate-shake rounded-sm border border-red-500/40 bg-red-500/10 p-3 font-mono text-xs text-red-500">
@@ -210,11 +243,11 @@ export default function AccountPage() {
   );
 }
 
-function Field({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
+function Field({ label, value, onChange, type = "text", placeholder }: { label: string; value: string; onChange: (v: string) => void; type?: string, placeholder?: string }) {
   return (
     <label className="block">
       <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">{label} {label === 'Full Name' ? <span className="text-red-500">*</span> : ''}</span>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)}
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
         className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm outline-none focus:border-action" />
     </label>
   );

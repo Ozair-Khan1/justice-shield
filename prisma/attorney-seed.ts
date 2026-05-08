@@ -1,6 +1,5 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { email } from "zod";
 
 const prisma = new PrismaClient();
 
@@ -68,7 +67,7 @@ const ATTORNIES = [
     email: "accident2@gmail.com",
     full_name: "Trent Bolt",
     specialties: "accident",
-    year_experience: 6,
+    years_experience: 6,
     phone: "1234567890",
     city: 'hyderabad',
     country: 'Pakistan'
@@ -77,10 +76,21 @@ const ATTORNIES = [
     email: "test@gmail.com",
     full_name: "Trent Bolt",
     specialties: "accident",
-    year_experience: 6,
+    years_experience: 6,
     phone: "1234567890",
     city: 'hyderabad',
-    country: 'Pakistan'
+    country: 'Pakistan',
+    bar_number: "00123"
+  },
+  {
+    email: "search@gmail.com",
+    full_name: "Search",
+    specialties: "Search",
+    years_experience: 6,
+    phone: "1234567890",
+    city: 'Islamabad',
+    country: 'Pakistan',
+    bar_number: "00123"
   }
 ];
 
@@ -95,6 +105,7 @@ async function main() {
         full_name: att.full_name,
         password_hash,
         firm_name: att.firm_name,
+        bar_number: att.bar_number,
         specialties: att.specialties,
         years_experience: att.years_experience,
         role: "ATTORNEY",
@@ -108,6 +119,7 @@ async function main() {
         full_name: att.full_name,
         firm_name: att.firm_name,
         specialties: att.specialties,
+        bar_number: att.bar_number,
         years_experience: att.years_experience,
         role: "ATTORNEY",
         membership_tier: "basic",

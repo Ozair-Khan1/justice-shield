@@ -29,7 +29,7 @@ export async function GET(req: Request) {
     const civilIntakes = await prisma.civilIntake.findMany({
       where: {
         assigned_attorney_id: user.id,
-        status: { in: ["active", "pending"] },
+        status: { in: ["assigned", "active"] },
       },
       orderBy: { created_at: "desc" },
       include: {

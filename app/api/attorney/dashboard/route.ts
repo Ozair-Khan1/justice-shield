@@ -68,7 +68,6 @@ export async function GET(req: Request) {
         started_at: true,
         location_address: true,
         notes: true,
-        metadata: true,
         user: {
           select: {
             full_name: true,
@@ -102,7 +101,7 @@ export async function GET(req: Request) {
     const pendingCases = await prisma.civilIntake.findMany({
       where: {
         assigned_attorney_id: payload.id as string,
-        status: "pending"
+        status: "assigned"
       },
       orderBy: { created_at: "desc" },
       take: 10,

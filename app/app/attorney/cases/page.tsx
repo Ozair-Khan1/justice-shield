@@ -162,7 +162,7 @@ export default function AttorneyCasesPage() {
     }
   };
   const activeCases = cases.filter(c => c.status === "active");
-  const pendingCases = cases.filter(c => c.status === "pending");
+  const pendingCases = cases.filter(c => c.status === "assigned");
   const currentCases = tab === "active" ? activeCases : pendingCases;
 
   const totalPages = Math.ceil(currentCases.length / ITEMS_PER_PAGE);
@@ -268,7 +268,7 @@ export default function AttorneyCasesPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {c.status === "pending" && (
+                        {c.status === "assigned" && (
                           <div className="flex gap-2 items-center">
                             <Button
                               onClick={() => setRejectingCase(c)}
@@ -472,7 +472,7 @@ export default function AttorneyCasesPage() {
                     Resolve Matter
                   </Button>
                 )}
-                {selectedCase.status === "pending" && (
+                {selectedCase.status === "assigned" && (
                   <>
                     <Button
                       onClick={() => setRejectingCase(selectedCase)}

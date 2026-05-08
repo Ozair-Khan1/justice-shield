@@ -203,7 +203,7 @@ export default function CivilIntakePage() {
           assignedAttorneyId: attorneyId,
           opposingParty,
           opposingPartyLocation,
-          status: "pending"
+          status: attorneyId === null ? "pending" : "assigned"
         }),
       });
 

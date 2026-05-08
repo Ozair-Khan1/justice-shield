@@ -267,7 +267,7 @@ export default function AuthPage() {
           <form onSubmit={onSubmit} className="mt-8 space-y-4">
             {mode === "signup" && step === "details" && (
               <>
-                <Field label="Full name" type="text" value={fullName} onChange={setFullName} />
+                <Field label="Full name" placeholder="Enter full name" type="text" value={fullName} onChange={setFullName} />
                 <label className="block">
                   <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Phone <span className="text-red-500">*</span></span>
                   <PhoneInput

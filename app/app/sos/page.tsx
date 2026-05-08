@@ -23,6 +23,7 @@ const ENCOUNTER_TYPES = [
   { id: "accident", label: "Accident" },
   { id: "search", label: "Search / Seizure" },
   { id: "arrest", label: "Arrest" },
+  { id: "contract", label: "Contract" },
   { id: "other", label: "Other" },
 ] as const;
 
@@ -50,6 +51,7 @@ export default function SOSPage() {
   const [assigning, setAssigning] = useState(false);
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
   const [locationCoords, setLocationCoords] = useState<{ lat: number | null, lng: number | null }>({ lat: null, lng: null });
+  const [alertId, setAlertId] = useState<string | null>(null);
 
   useEffect(() => {
     refreshUser();
@@ -87,6 +89,7 @@ export default function SOSPage() {
           encounter_type: type,
           location_lat: coords?.latitude ?? null,
           location_lng: coords?.longitude ?? null,
+          confirm: false
         }),
       });
 
@@ -95,6 +98,7 @@ export default function SOSPage() {
 
       setResolvedAddress(data.address);
       setRecommendedAttorneys(data.recommendedAttorneys || []);
+      setAlertId(data.alertId || null);
       setStage("match");
     } catch (err: any) {
       setError(err.message || "Failed to initiate emergency protocol");
@@ -121,6 +125,7 @@ export default function SOSPage() {
           location_address: addressOverride !== undefined ? addressOverride : resolvedAddress,
           assigned_attorney_id: attorneyId,
           confirm: true,
+          alertId: alertId
         }),
       });
       if (!res.ok) throw new Error("Failed to assign attorney");

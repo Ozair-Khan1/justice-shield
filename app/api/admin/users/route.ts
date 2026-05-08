@@ -20,6 +20,7 @@ export async function GET(req: Request) {
         role: true,
         full_name: true,
         phone: true,
+        country: true,
         membership_tier: true,
         created_at: true,
         _count: {

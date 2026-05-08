@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import PhoneInput, { parsePhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
+import { Country, City } from 'country-state-city';
 
 export default function AdminAccountPage() {
     const { user, refreshUser } = useAuth();
@@ -133,8 +134,39 @@ export default function AdminAccountPage() {
                             className="phone-input-custom mt-2"
                         />
                     </Field>
-                    <Field label="City" value={city} onChange={setCity} />
-                    <Field label="Country" value={country} onChange={setCountry} />
+                    <label className="block relative">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Country</span>
+                        <select
+                            value={Country.getAllCountries().find(c => c.name === country)?.isoCode || ""}
+                            onChange={(e) => {
+                                const countryCode = e.target.value;
+                                const countryName = Country.getCountryByCode(countryCode)?.name || "";
+                                setCountry(countryName);
+                                setCity("");
+                            }}
+                            className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-red-500 disabled:opacity-50 cursor-pointer"
+                        >
+                            <option value="">Select Country</option>
+                            {Country.getAllCountries().map((c) => (
+                                <option key={c.isoCode} value={c.isoCode}>{c.name}</option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <label className="block relative">
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">City</span>
+                        <select
+                            value={city}
+                            onChange={(e) => setCity(e.target.value)}
+                            disabled={!country}
+                            className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-red-500 disabled:opacity-50 cursor-pointer"
+                        >
+                            <option value="">Select City</option>
+                            {country && City.getCitiesOfCountry(Country.getAllCountries().find(c => c.name === country)?.isoCode || "")?.map((c, index) => (
+                                <option key={`${c.name}-${index}`} value={c.name}>{c.name}</option>
+                            ))}
+                        </select>
+                    </label>
                 </div>
             </section>
 

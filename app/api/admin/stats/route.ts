@@ -32,6 +32,8 @@ export async function GET(req: Request) {
         full_name: true,
         membership_tier: true,
         created_at: true,
+        city: true,
+        country: true,
       },
     });
 
@@ -57,11 +59,17 @@ export async function GET(req: Request) {
         status: true,
         started_at: true,
         location_address: true,
+        rejection_message: true,
         assigned_attorney_id: true,
         emergency_contact_phone: true,
         assigned_attorney: {
           select: {
             full_name: true,
+            email: true,
+            phone: true,
+            specialties: true,
+            role: true,
+            firm_name: true,
           }
         },
         user: {
@@ -80,13 +88,18 @@ export async function GET(req: Request) {
     const civilIntakes = await prisma.civilIntake.findMany({
       orderBy: { created_at: "desc" },
       where: {
-        status: { in: ["assigned", "pending", "active"] }
+        status: { in: ["assigned", "pending", "active", "resolved", "rejected"] }
       },
       take: 10,
       include: {
         assigned_attorney: {
           select: {
             full_name: true,
+            email: true,
+            phone: true,
+            specialties: true,
+            role: true,
+            firm_name: true,
           }
         },
         user: {
@@ -103,7 +116,7 @@ export async function GET(req: Request) {
       }
     });
 
-    const emergencyAlerts = await prisma.emergencyAlert.findMany({
+    const alerts = await prisma.emergencyAlert.findMany({
       orderBy: { sent_at: "desc" },
       take: 10,
       select: {
@@ -112,6 +125,12 @@ export async function GET(req: Request) {
         contact_phone: true,
         message: true,
         sent_at: true,
+        session: {
+          select: {
+            location_lat: true,
+            location_lng: true,
+          }
+        },
         user: {
           select: {
             full_name: true,
@@ -121,6 +140,13 @@ export async function GET(req: Request) {
         }
       }
     });
+
+    const emergencyAlerts = alerts.map(a => ({
+      ...a,
+      link_address: a.session?.location_lat && a.session?.location_lng
+        ? `${a.session.location_lat},${a.session.location_lng}`
+        : null
+    }));
 
     return NextResponse.json({
       stats: { userCount, sessionCount, intakeCount, alertCount, vendorCount, pendingVendors },

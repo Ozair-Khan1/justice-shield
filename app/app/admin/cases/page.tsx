@@ -647,7 +647,7 @@ export default function AdminCasesPage() {
 
       <AnimatePresence>
         {viewingRejection && (
-          <div className="fixed inset-0 z-[200] mt-20 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md">
+          <div className="fixed inset-0 z-[200] mt-20 m-0 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}

@@ -23,10 +23,11 @@ export async function POST(req: Request) {
       location_lng,
       confirm,
       location_address,
-      assigned_attorney_id
+      assigned_attorney_id,
+      alertId
     } = body;
 
-    if (confirm) {
+    if (confirm === true) {
       let attorney_name = null;
       if (assigned_attorney_id) {
         const attorney = await prisma.user.findUnique({
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
       // Fetch user for emergency contact details
       const user = await prisma.user.findUnique({
         where: { id: payload.id as string },
-        select: { full_name: true, emergency_contact_name: true, emergency_contact_phone: true },
+        select: { full_name: true, email: true, emergency_contact_name: true, emergency_contact_phone: true },
       });
 
       // Create the session
@@ -47,27 +48,26 @@ export async function POST(req: Request) {
         data: {
           user: { connect: { id: payload.id as string } },
           encounter_type,
-          status: "pending",
+          status: assigned_attorney_id ? "assigned" : "pending",
           location_lat: (location_lat !== null && location_lat !== undefined) ? Number(location_lat) : null,
           location_lng: (location_lng !== null && location_lng !== undefined) ? Number(location_lng) : null,
           location_address: location_address || null,
           assigned_attorney: assigned_attorney_id ? { connect: { id: assigned_attorney_id } } : undefined,
           attorney_name: attorney_name || null,
           emergency_contact_phone: user?.emergency_contact_phone,
+          started_at: new Date(),
         },
       });
 
-      // Create an alert record if contact info exists
-      if (user?.emergency_contact_phone) {
-        await prisma.emergencyAlert.create({
+      // Link the existing alert to this session
+      if (alertId) {
+        await prisma.emergencyAlert.update({
+          where: { id: alertId },
           data: {
             session_id: session.id,
-            user_id: payload.id as string,
-            contact_name: user.emergency_contact_name,
-            contact_phone: user.emergency_contact_phone,
-            message: `EMERGENCY: ${user.emergency_contact_name || "Contact"}, your contact ${user.full_name || "Member"} is in a ${encounter_type.replace("_", " ")} and has triggered an SOS. ${attorney_name ? `Attorney ${attorney_name} has been assigned.` : "Waiting for attorney dispatch."}`,
+            message: `EMERGENCY: ${user?.emergency_contact_name || "Contact"}, your contact ${user?.full_name || "Member"} is in a ${encounter_type.replace("_", " ")} and has triggered an SOS. ${attorney_name ? `Attorney ${attorney_name} has been assigned.` : "Waiting for attorney dispatch."}`,
           },
-        });
+        }).catch(e => console.error("Link alert error:", e));
       }
 
       return NextResponse.json({ session });
@@ -118,7 +118,17 @@ export async function POST(req: Request) {
     // Fetch the user to get their registered location for fallback
     const triggeringUser = await prisma.user.findUnique({
       where: { id: payload.id as string },
-      select: { city: true, country: true }
+      select: { city: true, country: true, email: true, full_name: true, emergency_contact_name: true, emergency_contact_phone: true }
+    });
+
+    // Create an alert record immediately in the recommendation phase
+    const alert = await prisma.emergencyAlert.create({
+      data: {
+        user_id: payload.id as string,
+        contact_name: triggeringUser?.emergency_contact_name,
+        contact_phone: triggeringUser?.emergency_contact_phone,
+        message: `${triggeringUser?.full_name} has triggered an SOS of type ${encounter_type.replace("_", " ")} at ${address}`
+      },
     });
 
     // If API failed and user has no location set, return error
@@ -132,12 +142,21 @@ export async function POST(req: Request) {
     const matchCity = resolvedCity || triggeringUser?.city;
     const matchCountry = resolvedCountry || triggeringUser?.country;
 
+    // If no location data at all, we can't match attorneys strictly by location
+    if (!matchCity && !matchCountry) {
+      return NextResponse.json({
+        address,
+        recommendedAttorneys: [],
+        warning: "No city or country found to filter attorneys."
+      });
+    }
+
     // Fetch attorneys that match BOTH specialty AND location (city or country required)
     const keywords = encounter_type.split("_");
 
     const locationConditions = [
-      ...(matchCity ? [{ city: { equals: matchCity, mode: "insensitive" as const } }] : []),
-      ...(matchCountry ? [{ country: { equals: matchCountry, mode: "insensitive" as const } }] : []),
+      ...(matchCity ? [{ city: { contains: matchCity, mode: "insensitive" as const } }] : []),
+      ...(matchCountry ? [{ country: { contains: matchCountry, mode: "insensitive" as const } }] : []),
     ];
 
     const allMatches = await prisma.user.findMany({
@@ -151,8 +170,8 @@ export async function POST(req: Request) {
               specialties: { contains: kw, mode: "insensitive" }
             }))
           },
-          // Must match city OR country — specialty-only match not enough
-          ...(locationConditions.length > 0 ? [{ OR: locationConditions }] : [{ id: "__no_results__" }])
+          // Must match city OR country — specialty-only match not allowed
+          { OR: locationConditions }
         ]
       },
       select: {
@@ -179,8 +198,8 @@ export async function POST(req: Request) {
     const recommendedAttorneys = allMatches.map(a => ({
       ...a,
       total_cases: a.assigned_intakes.length + a.assigned_encounters.length,
-      resolved_cases: a.assigned_intakes.filter(i => i.status === "resolved").length + 
-                      a.assigned_encounters.filter(e => e.status === "resolved").length,
+      resolved_cases: a.assigned_intakes.filter(i => i.status === "resolved").length +
+        a.assigned_encounters.filter(e => e.status === "resolved").length,
       assigned_intakes: undefined,
       assigned_encounters: undefined
     })).sort((a, b) => {
@@ -189,7 +208,7 @@ export async function POST(req: Request) {
       return bCityMatch - aCityMatch;
     }).slice(0, 3);
 
-    return NextResponse.json({ address, recommendedAttorneys });
+    return NextResponse.json({ address, recommendedAttorneys, alertId: alert.id });
   } catch (error) {
     console.error("SOS API error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

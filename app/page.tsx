@@ -66,9 +66,9 @@ export default function HomePage() {
         {/* HOW IT WORKS QUICK */}
         <section className="border-b border-titanium-800 py-24">
           <div className="mx-auto max-w-7xl px-6">
-            <SectionTag>03 / Operating Protocol</SectionTag>
+            <SectionTag>02 / Operating Protocol</SectionTag>
             <h2 className="mt-4 max-w-3xl font-display text-4xl font-bold tracking-tight md:text-5xl">
-              Three taps. Counsel on the line.
+              Four taps. Counsel on the line.
             </h2>
             <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
               <Step n="01" title="Activate Shield" body="One tap on the SOS panel triggers GPS log, audio recording, and an alert to your emergency contact." />
@@ -82,11 +82,11 @@ export default function HomePage() {
         {/* COVERAGE */}
         <section className="border-b border-titanium-800 py-24">
           <div className="mx-auto max-w-7xl px-6">
-            <SectionTag>04 / Coverage Matrix</SectionTag>
+            <SectionTag>03 / Coverage Matrix</SectionTag>
             <h2 className="mt-4 max-w-3xl font-display text-4xl font-bold tracking-tight md:text-5xl">
               Built for the moment things escalate.
             </h2>
-            <div className="mt-16 grid gap-px bg-titanium-800 md:grid-cols-3">
+            <div className="mt-16 grid gap-px bg-titanium-800 md:grid-cols-2">
               <Coverage
                 kind="critical"
                 tag="Tier 1 — Emergency"
@@ -101,13 +101,6 @@ export default function HomePage() {
                 items={["Landlord / tenant disputes", "Employment & wage claims", "Contracts & agreements", "Small claims", "Bankruptcy", "Personal injury", "Family matters"]}
                 cta="Intake → callback within 4 hours"
               />
-              <Coverage
-                kind="standard"
-                tag="Tier 3 — Intelligence"
-                title="AI-Powered Analysis"
-                items={["Real-time encounter monitoring", "Automated evidence structuring", "Critical moment identification", "Legal vulnerability reporting", "Constitutional audit logs", "Probable cause assessment"]}
-                cta="Deploy Intelligence Protocol"
-              />
             </div>
           </div>
         </section>
@@ -117,7 +110,7 @@ export default function HomePage() {
           <div className="mx-auto max-w-7xl px-6">
             <div className="grid gap-12 md:grid-cols-3">
               <div>
-                <SectionTag>05 / Warranty</SectionTag>
+                <SectionTag>04 / Warranty</SectionTag>
                 <h2 className="mt-4 font-display text-4xl font-bold tracking-tight">
                   Member Protection Warranty
                 </h2>

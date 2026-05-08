@@ -18,6 +18,7 @@ export async function GET(req: Request) {
     // Attorney-only specialty match without a location overlap is not returned.
     const where: any = {
       role: "ATTORNEY",
+      password_hash: { not: `LOCKED${process.env.LOCKED_PASS}` }
     };
 
     if (specialty && locationConditions.length > 0) {
@@ -64,8 +65,8 @@ export async function GET(req: Request) {
     const attorneysWithCount = attorneys.map(a => ({
       ...a,
       total_cases: a.assigned_intakes.length + a.assigned_encounters.length,
-      resolved_cases: a.assigned_intakes.filter(i => i.status === "resolved").length + 
-                      a.assigned_encounters.filter(e => e.status === "resolved").length,
+      resolved_cases: a.assigned_intakes.filter(i => i.status === "resolved").length +
+        a.assigned_encounters.filter(e => e.status === "resolved").length,
       assigned_intakes: undefined,
       assigned_encounters: undefined
     }));

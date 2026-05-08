@@ -52,7 +52,7 @@ export async function PATCH(
     if (!payload || !payload.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { status, assigned_attorney_id, notes } = body;
+    const { status, assigned_attorney_id, rejection_message } = body;
 
     const data: any = {};
     if (status) data.status = status;
@@ -68,7 +68,7 @@ export async function PATCH(
         data.status = "pending";
       }
     }
-    if (notes) data.notes = notes;
+    if (rejection_message) data.rejection_message = rejection_message;
     if (status === "resolved") data.ended_at = new Date();
 
     const updatedSession = await prisma.encounterSession.update({

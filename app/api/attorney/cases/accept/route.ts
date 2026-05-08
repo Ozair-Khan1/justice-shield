@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     const updatedIntake = await prisma.civilIntake.update({
       where: { id: intakeId },
       data: {
-        status: "assigned",
+        status: "active",
         assigned_attorney_id: user.id,
       },
       include: {

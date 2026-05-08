@@ -100,6 +100,7 @@
 @layer base {
   * {
     border-color: var(--color-border);
+    scrollbar-color: var(--color-titanium-700) var(--color-titanium-900);
   }
 
   html,
@@ -165,15 +166,15 @@
   }
 
   .phone-input-custom input {
-    @apply bg-transparent border-none outline-none text-titanium-50 w-full ml-2;
+    @apply bg-titanium-900 border-none outline-none text-titanium-50 w-full ml-2;
   }
 
   .phone-input-custom .PhoneInputCountry {
-    @apply flex items-center;
+    @apply flex items-center bg-titanium-900 pr-2 border-r border-titanium-800;
   }
 
   .PhoneInputCountrySelectArrow {
-    @apply text-titanium-400;
+    @apply text-titanium-400 bg-titanium-900;
   }
 }
 
@@ -196,7 +197,7 @@
 
 /* Style the country dropdown (select) */
 .PhoneInputCountrySelect {
-  @apply bg-slate-800 text-white cursor-pointer;
+  @apply bg-titanium-900 text-white cursor-pointer;
 }
 
 /* Dark mode tweaks for the country icon/flag wrapper */

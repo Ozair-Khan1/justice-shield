@@ -26,8 +26,8 @@ const THEME = {
 
 const attachments = [
   {
-    filename: "shield-logo.png",
-    path: path.join(process.cwd(), "public", "shield-logo.png"),
+    filename: "shield-logo.webp",
+    path: path.join(process.cwd(), "public", "shield-logo.webp"),
     cid: "shield-logo",
   },
 ];

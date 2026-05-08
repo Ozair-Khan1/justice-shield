@@ -112,7 +112,6 @@ export default function AdminAttorneysPage() {
               <th className="px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Firm / Bar</th>
               <th className="px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500 text-center">Exp</th>
               <th className="px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Specialties</th>
-              <th className="px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500 text-center">Cases</th>
               <th className="px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Joined</th>
             </tr>
           </thead>
@@ -147,18 +146,6 @@ export default function AdminAttorneysPage() {
                 <td className="px-4 py-4">
                   <div className="max-w-[200px] text-xs leading-relaxed text-titanium-400">
                     {a.specialties || "—"}
-                  </div>
-                </td>
-                <td className="px-4 py-4 text-center">
-                  <div className="flex items-center justify-center gap-4">
-                    <div className="text-center">
-                      <div className="font-mono text-xs font-bold text-red-400">{a._count.encounter_sessions}</div>
-                      <div className="font-mono text-[8px] uppercase tracking-tighter text-titanium-600">SOS</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-mono text-xs font-bold text-blue-400">{a._count.civil_intakes}</div>
-                      <div className="font-mono text-[8px] uppercase tracking-tighter text-titanium-600">Civil</div>
-                    </div>
                   </div>
                 </td>
                 <td className="px-4 py-4 font-mono text-xs text-titanium-500">

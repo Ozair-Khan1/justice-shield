@@ -17,7 +17,8 @@ import {
   RefreshCw,
   ShieldCheck,
   X,
-  MapPinIcon
+  MapPinIcon,
+  AlertTriangle
 } from "lucide-react";
 import Link from "next/link";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -42,6 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Pagination } from "@/components/Pagination";
+import { format } from "date-fns";
 
 interface CaseUser {
   full_name: string | null;
@@ -105,6 +107,9 @@ export default function AttorneyDashboard() {
   const [cityFilter, setCityFilter] = useState("all");
   const [refreshing, setRefreshing] = useState<string | null>(null);
   const [sosPage, setSosPage] = useState(1);
+  const [seenCaseIds, setSeenCaseIds] = useState<Set<string>>(new Set());
+  const [hasInitializedCases, setHasInitializedCases] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
   const { startLoading, stopLoading } = useLoading();
 
   const fetchDashboard = async (silent = false) => {
@@ -120,6 +125,27 @@ export default function AttorneyDashboard() {
       setAssignedCases(data.assignedCases || []);
       setStats(data.stats);
 
+      // Handle notifications for new SOS sessions
+      if (data.sosSessions && data.sosSessions.length > 0) {
+        if (!hasInitializedCases) {
+          const initialIds = new Set<string>(data.sosSessions.map((s: SOSSession) => s.id));
+          setSeenCaseIds(initialIds);
+          setHasInitializedCases(true);
+        } else {
+          data.sosSessions.forEach((session: SOSSession) => {
+            if (!seenCaseIds.has(session.id)) {
+              if (Notification.permission === "granted") {
+                new Notification("NEW EMERGENCY SOS", {
+                  body: `A new ${session.encounter_type.replace("_", " ")} SOS has been triggered. Tap to review.`,
+                  icon: "/favicon.webp"
+                });
+              }
+              setSeenCaseIds(prev => new Set<string>(prev).add(session.id));
+            }
+          });
+        }
+      }
+
       const elapsed = Date.now() - start;
       const minDelay = 1000;
       if (!silent && elapsed < minDelay) {
@@ -133,8 +159,35 @@ export default function AttorneyDashboard() {
     }
   };
 
+  const requestPermission = async () => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      if (permission === "granted") {
+        new Notification("Notifications Enabled", {
+          body: "You will now receive alerts for new emergency SOS triggers.",
+          icon: "/favicon.webp"
+        });
+      }
+    }
+  };
+
   useEffect(() => {
     fetchDashboard();
+
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotificationPermission(Notification.permission);
+      if (Notification.permission === "default") {
+        Notification.requestPermission().then(setNotificationPermission);
+      }
+    }
+
+    // Poll every 15 seconds
+    const interval = setInterval(() => {
+      fetchDashboard(true);
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const allRelevantUsers = [
@@ -213,12 +266,12 @@ export default function AttorneyDashboard() {
       const res = await fetch(`/api/sos/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "assigned" }),
+        body: JSON.stringify({ status: "active" }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to accept SOS");
 
-      setAssignedSessions(prev => prev.map(s => s.id === id ? { ...s, status: "assigned" } : s));
+      setAssignedSessions(prev => prev.map(s => s.id === id ? { ...s, status: "active" } : s));
     } catch (err: any) {
       alert(err.message || "An error occurred");
     } finally {
@@ -268,9 +321,9 @@ export default function AttorneyDashboard() {
       const acceptedCase = pendingCases.find(c => c.id === id);
       if (acceptedCase) {
         setPendingCases(prev => prev.filter(c => c.id !== id));
-        setAssignedCases(prev => [{ ...acceptedCase, status: "assigned" }, ...prev]);
+        setAssignedCases(prev => [{ ...acceptedCase, status: "active" }, ...prev]);
         if (selectedIntake?.id === id) {
-          setSelectedIntake({ ...selectedIntake, status: "assigned" });
+          setSelectedIntake({ ...selectedIntake, status: "active" });
         }
       }
     } catch (err: any) {
@@ -296,7 +349,7 @@ export default function AttorneyDashboard() {
         const res = await fetch(`/api/sos/${rejectCaseId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "rejected", notes: `Attorney Rejected: ${rejectReason.trim()}` }),
+          body: JSON.stringify({ status: "rejected", rejection_message: rejectReason.trim() }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to reject SOS session");
@@ -363,9 +416,24 @@ export default function AttorneyDashboard() {
       <header className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between relative">
         <div className="relative">
           <div className="absolute -left-4 top-0 h-full w-1 bg-action/50 blur-[2px]" />
-          <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.4em] text-action border-action/20 bg-action/5 mb-2">
-            Counselor Console
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.4em] text-action border-action/20 bg-action/5 mb-2">
+              Counselor Console
+            </Badge>
+            {notificationPermission !== "granted" && (
+              <button
+                onClick={requestPermission}
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 font-mono text-[9px] uppercase tracking-widest hover:bg-amber-500/20 transition-all"
+              >
+                <AlertTriangle className="size-3" /> Enable Notifications
+              </button>
+            )}
+            {notificationPermission === "granted" && (
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 font-mono text-[9px] uppercase tracking-widest">
+                <ShieldCheck className="size-3" /> Notifications Active
+              </div>
+            )}
+          </div>
           <h1 className="mt-3 font-display text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
             Attorney <span className="text-titanium-500">Dashboard</span>
           </h1>
@@ -373,17 +441,35 @@ export default function AttorneyDashboard() {
             Manage your assigned legal responses and active engagements. All records are privileged and confidential.
           </p>
         </div>
-        <button
-          onClick={() => handleRefresh("all")}
-          className="group flex items-center gap-2 rounded-sm border border-titanium-800 bg-titanium-900/50 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500 transition-all hover:border-action/50 hover:text-action"
-        >
-          {refreshing === "all" ? (
-            <Loader2 className="size-3 animate-spin text-action" />
-          ) : (
-            <RefreshCw className="size-3 transition-transform group-hover:rotate-180" />
-          )}
-          Refresh
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => {
+              if (Notification.permission === "granted") {
+                new Notification("TEST ALERT", {
+                  body: "Emergency dispatch test successful.",
+                  icon: "/favicon.webp"
+                });
+              } else {
+                requestPermission();
+              }
+            }}
+            className="group relative flex items-center gap-2 rounded-sm border border-titanium-800 bg-titanium-950 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-400 hover:border-red-500/50 hover:text-red-400 transition-all"
+          >
+            Test Notification
+          </button>
+          <button
+            onClick={() => fetchDashboard()}
+            disabled={loading}
+            className="group relative flex items-center gap-2 rounded-sm border border-titanium-800 bg-titanium-900/50 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500 transition-all hover:border-action/50 hover:text-action"
+          >
+            {refreshing === "all" ? (
+              <Loader2 className="size-3 animate-spin text-action" />
+            ) : (
+              <RefreshCw className="size-3 transition-transform group-hover:rotate-180" />
+            )}
+            Refresh
+          </button>
+        </div>
       </header>
 
       {/* Stats Grid */}
@@ -424,8 +510,8 @@ export default function AttorneyDashboard() {
                     <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between min-w-0">
                       <div className="space-y-4 min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                          <Badge className={`${s.status === "pending" ? "bg-amber-500" : "bg-emerald-500"} text-white font-mono text-[8px] md:text-[9px] uppercase tracking-widest px-2 py-0.5 shrink-0`}>
-                            {s.status === "pending" ? "Pending Assignment" : "In Progress"}
+                          <Badge className={`${s.status === "assigned" ? "bg-amber-500" : "bg-emerald-500"} text-white font-mono text-[8px] md:text-[9px] uppercase tracking-widest px-2 py-0.5 shrink-0`}>
+                            {s.status === "assigned" ? "Assigned" : "In Progress"}
                           </Badge>
                           <span className="font-mono text-[9px] md:text-[10px] text-titanium-400 uppercase tracking-widest truncate">{s.encounter_type.replace("_", " ")}</span>
                         </div>
@@ -439,6 +525,9 @@ export default function AttorneyDashboard() {
                             <span className="hidden md:inline text-titanium-700 shrink-0">·</span>
                             <span className="font-mono text-[8px] md:text-[10px] text-action uppercase tracking-widest bg-action/5 px-2 py-0.5 rounded-sm border border-action/10 shrink-0">
                               {s.user.city || "N/A"}, {s.user.country || "N/A"}
+                            </span>
+                            <span className="font-mono text-[8px] md:text-[10px] text-action uppercase tracking-widest bg-action/5 px-2 py-0.5 rounded-sm border border-action/10 shrink-0">
+                              {format(new Date(s.started_at), "MMM d, h:mm a")}
                             </span>
                           </div>
                         </div>
@@ -484,12 +573,13 @@ export default function AttorneyDashboard() {
                             </span>
                           )}
                         </Button>
-                        {s.status === "pending" ? (
+                        {s.status === "assigned" ? (
                           <>
                             <Button
                               onClick={() => {
                                 setRejectCaseId(s.id);
                                 setRejectType("sos");
+                                setRejectReason("");
                               }}
                               variant="outline"
                               className="w-full md:w-auto border-red-500/50 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white h-11 md:h-12 px-5 font-mono text-[10px] font-bold uppercase tracking-widest transition-all"
@@ -763,7 +853,7 @@ export default function AttorneyDashboard() {
                 >
                   Close File
                 </Button>
-                {(selectedIntake.status === "active" || selectedIntake.status === "assigned") && (
+                {(selectedIntake.status === "active") && (
                   <Button
                     onClick={() => {
                       if (selectedIntake.is_sos) {
@@ -780,7 +870,7 @@ export default function AttorneyDashboard() {
                     Resolve Matter
                   </Button>
                 )}
-                {selectedIntake.status === "pending" && (
+                {selectedIntake.status === "assigned" && (
                   <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     <Button
                       onClick={() => {
@@ -902,7 +992,7 @@ function CaseCard({ i, onReview, onAccept, onReject }: { i: CivilIntake; onRevie
             </div>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            {onReject && i.status === "pending" && (
+            {onReject && i.status === "assigned" && (
               <Button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -914,7 +1004,7 @@ function CaseCard({ i, onReview, onAccept, onReject }: { i: CivilIntake; onRevie
                 Reject
               </Button>
             )}
-            {onAccept && i.status === "pending" && (
+            {onAccept && i.status === "assigned" && (
               <Button
                 onClick={(e) => {
                   e.stopPropagation();

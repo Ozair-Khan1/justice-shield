@@ -60,7 +60,7 @@ model EncounterSession {
   attorney_name    String?
   recording_url    String?
   emergency_contact_phone String?
-  metadata         Json?
+  rejection_message String?
   started_at       DateTime         @default(now())
   ended_at         DateTime?
   created_at       DateTime         @default(now())
@@ -104,7 +104,7 @@ model CivilIntake {
 
 model EmergencyAlert {
   id            String            @id @default(uuid())
-  session_id    String?
+  session_id    String?            @unique
   session       EncounterSession? @relation(fields: [session_id], references: [id], onDelete: Cascade)
   user_id       String
   user          User              @relation(fields: [user_id], references: [id], onDelete: Cascade)

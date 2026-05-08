@@ -37,7 +37,8 @@ export async function GET(req: Request) {
             contact_phone: true,
             message: true,
             sent_at: true,
-          }
+          },
+          orderBy: { sent_at: "desc" },
         },
         encounter_sessions: {
           select: {
@@ -45,7 +46,8 @@ export async function GET(req: Request) {
             encounter_type: true,
             status: true,
             started_at: true,
-          }
+          },
+          orderBy: { started_at: "desc" },
         },
         civil_intakes: {
           select: {
@@ -53,7 +55,8 @@ export async function GET(req: Request) {
             matter_type: true,
             status: true,
             created_at: true,
-          }
+          },
+          orderBy: { created_at: "desc" },
         },
       },
     });
@@ -75,32 +78,3 @@ export async function POST() {
   return NextResponse.json({ success: true });
 }
 
-export async function PUT(req: Request) {
-  try {
-    const token = await getAuthToken(req);
-
-    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const user = await verifyJwt(token);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const { full_name, phone, emergency_contact_name, emergency_contact_phone, city, country } = await req.json();
-
-    const updatedUser = await prisma.user.update({
-      where: { id: user.id as string },
-      data: {
-        full_name,
-        phone,
-        emergency_contact_name,
-        emergency_contact_phone,
-        city,
-        country,
-      },
-    });
-
-    return NextResponse.json({ user: updatedUser });
-  } catch (error) {
-    console.error("Update profile error:", error);
-    return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
-  }
-}
