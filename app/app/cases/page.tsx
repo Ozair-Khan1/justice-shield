@@ -37,6 +37,7 @@ interface Case {
   urgency: string;
   subject: string;
   description: string;
+  location_address: string;
   status: string;
   created_at: string;
   attorney: AttorneyInfo | null;
@@ -44,7 +45,9 @@ interface Case {
   opposing_party_location?: string | null;
   rejection_message?: string | null;
   metadata?: Record<string, any> | null;
+  case_type?: string;
 }
+
 
 export default function CasesPage() {
   const { user } = useAuth();
@@ -138,16 +141,22 @@ export default function CasesPage() {
     setCurrentPage(1);
   }, [tab, statusFilter]);
 
-  const activeCases = cases.filter(c => ["pending", "assigned", "active"].includes(c.status));
+  const activeCases = cases.filter(c => c.case_type === "civil" && ["pending", "assigned", "active"].includes(c.status));
   const filteredActiveCases = activeCases.filter(c => {
     if (statusFilter === "all") return true;
     return c.status === statusFilter;
   });
 
-  const draftCases = cases.filter(c => c.status === "draft");
+  const draftCases = cases.filter(c => c.case_type === "civil" && c.status === "draft");
   const rejectedCases = cases.filter(c => c.status === "rejected");
 
-  const currentCases = tab === "active" ? filteredActiveCases : tab === "draft" ? draftCases : rejectedCases;
+  const filteredRejectedCases = rejectedCases.filter(c => {
+    if (statusFilter === "all") return true;
+    return c.case_type === statusFilter;
+  });
+
+  const currentCases = tab === "active" ? filteredActiveCases : tab === "draft" ? draftCases : filteredRejectedCases;
+
 
   const totalPages = Math.ceil(currentCases.length / ITEMS_PER_PAGE);
   const paginatedCases = currentCases.slice(
@@ -186,20 +195,20 @@ export default function CasesPage() {
           <p className="mt-4 max-w-2xl text-titanium-400 leading-relaxed">
             {tab === "active" && "These civil intakes have been accepted by an attorney in the Justice Shield network. Reach out directly to your assigned counsel."}
             {tab === "draft" && "These intakes were started but not yet assigned to an attorney. You can complete them at any time."}
-            {tab === "rejected" && "These intakes were reviewed by an attorney but could not be accepted at this time. You can review the reason below."}
+            {tab === "rejected" && "These cases were reviewed by an attorney but could not be accepted at this time. You can review the reason below."}
           </p>
         </header>
 
         <Tabs value={tab} onValueChange={setTab} className="space-y-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <TabsList className="bg-titanium-900/50 border border-titanium-800 p-1">
-              <TabsTrigger value="active" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-8 py-2.5 transition-all">
+              <TabsTrigger value="active" onClick={() => setStatusFilter("all")} className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-8 py-2.5 transition-all">
                 Active Case
               </TabsTrigger>
-              <TabsTrigger value="draft" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-8 py-2.5 transition-all">
+              <TabsTrigger value="draft" onClick={() => setStatusFilter("all")} className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-8 py-2.5 transition-all">
                 Drafts
               </TabsTrigger>
-              <TabsTrigger value="rejected" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-8 py-2.5 transition-all">
+              <TabsTrigger value="rejected" onClick={() => setStatusFilter("all")} className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-8 py-2.5 transition-all">
                 Rejected
               </TabsTrigger>
             </TabsList>
@@ -216,6 +225,22 @@ export default function CasesPage() {
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="assigned">Assigned</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {tab === "rejected" && (
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-titanium-600">Filter:</span>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[140px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest h-9">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent className="border-titanium-800 bg-titanium-950 text-titanium-200">
+                    <SelectItem value="all">All Cases</SelectItem>
+                    <SelectItem value="civil">Civil</SelectItem>
+                    <SelectItem value="sos">SOS</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -266,7 +291,7 @@ export default function CasesPage() {
                                 {c.urgency}
                               </Badge>
                             </div>
-                            <p className="text-sm text-titanium-400 leading-relaxed max-w-3xl line-clamp-2">{c.description}</p>
+                            <p className="text-sm text-titanium-400 leading-relaxed max-w-3xl line-clamp-2">{c.description || c.location_address}</p>
                           </div>
 
                           {tab === "rejected" && (
@@ -275,9 +300,10 @@ export default function CasesPage() {
                               className="w-full sm:w-auto border-red-500/20 bg-red-500/5 text-red-400 font-mono text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all"
                               onClick={() => setViewingRejection(c)}
                             >
-                              View Rejection Details
+                              View Rejection Reason
                             </Button>
                           )}
+
                         </div>
 
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -307,7 +333,7 @@ export default function CasesPage() {
                             </Button>
                           )}
 
-                          {tab === "rejected" && (
+                          {tab === "rejected" && c.case_type === "civil" && (
                             <Button
                               className="bg-titanium-800 hover:bg-titanium-700 text-titanium-100 font-mono text-[10px] uppercase tracking-widest px-6 h-10 border border-titanium-700"
                               onClick={() => router.push(`/app/civil?draft=${c.id}&step=2`)}
@@ -316,15 +342,29 @@ export default function CasesPage() {
                             </Button>
                           )}
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-titanium-800 text-titanium-300 hover:text-white h-10 px-4 font-mono text-[10px] uppercase tracking-widest"
-                            onClick={() => tab === "active" ? openEditModal(c) : router.push(`/app/civil?draft=${c.id}`)}
-                          >
-                            {tab === "active" ? "Modify" : "Edit Intake"}
-                          </Button>
+                          {(c.case_type === "civil" || (tab === "active" && c.case_type === "sos")) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-titanium-800 text-titanium-300 hover:text-white h-10 px-4 font-mono text-[10px] uppercase tracking-widest"
+                              onClick={() => {
+                                if (tab === "active") {
+                                  if (c.case_type === "sos") {
+                                    router.push("/app/history");
+                                  } else {
+                                    openEditModal(c);
+                                  }
+                                } else {
+                                  router.push(`/app/civil?draft=${c.id}`);
+                                }
+                              }}
+                            >
+                              {tab === "active" ? (c.case_type === "sos" ? "View Details" : "Modify") : "Edit Intake"}
+                            </Button>
+                          )}
+
                         </div>
+
                       </div>
                     </CardContent>
                   </Card>
@@ -559,15 +599,18 @@ export default function CasesPage() {
                 )}
 
                 <div className="pt-4 flex flex-col gap-3">
-                  <Button
-                    className="w-full bg-action hover:bg-action/90 text-action-foreground font-mono text-[10px] uppercase tracking-widest py-6"
-                    onClick={() => {
-                      setViewingRejection(null);
-                      router.push(`/app/civil?draft=${viewingRejection.id}&step=2`);
-                    }}
-                  >
-                    Resubmit for New Assignment →
-                  </Button>
+                  {viewingRejection.case_type === "civil" && (
+                    <Button
+                      className="w-full bg-action hover:bg-action/90 text-action-foreground font-mono text-[10px] uppercase tracking-widest py-6"
+                      onClick={() => {
+                        setViewingRejection(null);
+                        router.push(`/app/civil?draft=${viewingRejection.id}&step=2`);
+                      }}
+                    >
+                      Resubmit for New Assignment →
+                    </Button>
+                  )}
+
                   <Button
                     variant="ghost"
                     className="w-full text-titanium-500 font-mono text-[10px] uppercase tracking-widest"

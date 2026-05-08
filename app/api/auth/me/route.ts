@@ -28,6 +28,7 @@ export async function GET(req: Request) {
         membership_tier: true,
         emergency_contact_name: true,
         emergency_contact_phone: true,
+        specialties: true,
         city: true,
         country: true,
         emergency_alerts: {

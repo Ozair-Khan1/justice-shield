@@ -6,6 +6,10 @@ import PhoneInput, { parsePhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { useLoading } from "@/components/LoadingProvider";
 import { Country, City } from 'country-state-city';
+import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import * as React from "react";
+
 
 
 
@@ -27,6 +31,10 @@ export default function AccountPage() {
   const { startLoading, stopLoading } = useLoading();
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  const [specialtiesOpen, setSpecialtiesOpen] = useState(false);
+  const specialtiesRef = React.useRef<HTMLTextAreaElement>(null);
+
 
   useEffect(() => {
     if (!user) return;
@@ -125,7 +133,7 @@ export default function AccountPage() {
           emergency_contact_phone: profile.emergency_contact_phone,
           city: profile.city,
           country: profile.country,
-          specialties: profile.specialties,
+          specialties: profile.specialties.trim().toLowerCase(),
         })
       }).then(res => res.json());
 
@@ -143,121 +151,143 @@ export default function AccountPage() {
   };
 
   return (
-    <div className="space-y-12 max-w-3xl">
-      <header>
-        <span className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-action">Member Profile</span>
-        <h1 className="mt-3 font-display text-4xl font-bold tracking-tight">Account</h1>
-      </header>
+    <TooltipProvider delayDuration={0}>
+      <div className="space-y-12 max-w-3xl">
 
-      <section className="space-y-6 rounded-lg border border-titanium-800 bg-titanium-900/40 p-6 sm:p-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-titanium-500">Membership</div>
-            <div className="mt-1 font-display text-2xl font-bold uppercase">{user.membership_tier}</div>
+        <header>
+          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-action">Member Profile</span>
+          <h1 className="mt-3 font-display text-4xl font-bold tracking-tight">Account</h1>
+        </header>
+
+        <section className="space-y-6 rounded-lg border border-titanium-800 bg-titanium-900/40 p-6 sm:p-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-titanium-500">Membership</div>
+              <div className="mt-1 font-display text-2xl font-bold uppercase">{user.membership_tier}</div>
+            </div>
+            <span className="rounded-sm border border-action/40 bg-action/10 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-action">Active</span>
           </div>
-          <span className="rounded-sm border border-action/40 bg-action/10 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-action">Active</span>
-        </div>
 
-        <Field label="Full Name" value={profile.full_name ?? ""} onChange={(v) => update("full_name", v)} />
-        <label className="block">
-          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Phone <span className="text-red-500">*</span></span>
-          <PhoneInput
-            placeholder="Enter phone number"
-            value={profile.phone ?? ''}
-            onChange={handlePhoneChange}
-            defaultCountry="US"
-            international={false}
-            className="phone-input-custom mt-2"
-          />
-        </label>
-        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Full Name" value={profile.full_name ?? ""} onChange={(v) => update("full_name", v)} />
           <label className="block">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Country</span>
-            <select
-              value={Country.getAllCountries().find(c => c.name === profile.country)?.isoCode || ""}
-              onChange={(e) => {
-                const countryCode = e.target.value;
-                const countryName = Country.getCountryByCode(countryCode)?.name || "";
-                setProfile(prev => ({ ...prev!, country: countryName, city: "" }));
-              }}
-              className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action disabled:opacity-50 cursor-pointer"
-            >
-              <option value="">Select Country</option>
-              {Country.getAllCountries().map((c) => (
-                <option key={c.isoCode} value={c.isoCode}>{c.name}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">City</span>
-            <select
-              value={profile.city ?? ""}
-              onChange={(e) => update("city", e.target.value)}
-              disabled={!profile.country}
-              className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action disabled:opacity-50 cursor-pointer"
-            >
-              <option value="">Select City</option>
-              {profile.country && City.getCitiesOfCountry(Country.getAllCountries().find(c => c.name === profile.country)?.isoCode || "")?.map((city, index) => (
-                <option key={`${city.name}-${index}`} value={city.name}>{city.name}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        {user.role === "ATTORNEY" && (
-          <div className="border-t border-titanium-800 pt-6">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-action">Professional Specialties</span>
-            <p className="mt-2 text-xs text-titanium-500">Comma-separated list of your legal practice areas (e.g., Criminal Law, Civil Litigation, Family Law).</p>
-            <textarea
-              value={profile.specialties}
-              onChange={(e) => setProfile({ ...profile, specialties: e.target.value })}
-              rows={2}
-              className="mt-4 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action"
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Phone <span className="text-red-500">*</span></span>
+            <PhoneInput
+              placeholder="Enter phone number"
+              value={profile.phone ?? ''}
+              onChange={handlePhoneChange}
+              defaultCountry="US"
+              international={false}
+              className="phone-input-custom mt-2"
             />
-          </div>
-        )}
+          </label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Country</span>
+              <select
+                value={Country.getAllCountries().find(c => c.name === profile.country)?.isoCode || ""}
+                onChange={(e) => {
+                  const countryCode = e.target.value;
+                  const countryName = Country.getCountryByCode(countryCode)?.name || "";
+                  setProfile(prev => ({ ...prev!, country: countryName, city: "" }));
+                }}
+                className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action disabled:opacity-50 cursor-pointer"
+              >
+                <option value="">Select Country</option>
+                {Country.getAllCountries().map((c) => (
+                  <option key={c.isoCode} value={c.isoCode}>{c.name}</option>
+                ))}
+              </select>
+            </label>
 
-        {user.role !== "ATTORNEY" && (
-          <div className="border-t border-titanium-800 pt-6">
-            <div className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-action">Emergency Contact</div>
-            <p className="mt-2 text-sm text-titanium-400">Notified automatically when you trigger an SOS.</p>
-            <div className="mt-6 space-y-4">
-              <Field label="Contact Name" value={profile.emergency_contact_name ?? ""} onChange={(v) => update("emergency_contact_name", v)} />
-              <label className="block">
-                <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Contact Number</span>
-                <PhoneInput
-                  placeholder="Enter phone number"
-                  value={profile.emergency_contact_phone ?? ''}
-                  onChange={(v) => update("emergency_contact_phone", v ?? '')}
-                  defaultCountry="US"
-                  international={false}
-                  className="phone-input-custom mt-2"
-                />
-              </label>
+            <label className="block">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">City</span>
+              <select
+                value={profile.city ?? ""}
+                onChange={(e) => update("city", e.target.value)}
+                disabled={!profile.country}
+                className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action disabled:opacity-50 cursor-pointer"
+              >
+                <option value="">Select City</option>
+                {profile.country && City.getCitiesOfCountry(Country.getAllCountries().find(c => c.name === profile.country)?.isoCode || "")?.map((city, index) => (
+                  <option key={`${city.name}-${index}`} value={city.name}>{city.name}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {user.role === "ATTORNEY" && (
+            <div className="border-t border-titanium-800 pt-6">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-action">Professional Specialties</span>
+              <p className="mt-2 text-xs text-titanium-500">Comma-separated list of your legal practice areas (e.g., Criminal Law, Civil Litigation, Family Law).</p>
+              <Popover open={specialtiesOpen} onOpenChange={setSpecialtiesOpen}>
+                <PopoverAnchor asChild>
+                  <textarea
+                    ref={specialtiesRef}
+                    value={profile.specialties}
+                    onChange={(e) => setProfile({ ...profile, specialties: e.target.value })}
+                    onFocus={() => setSpecialtiesOpen(true)}
+                    onMouseEnter={() => setSpecialtiesOpen(true)}
+                    onMouseLeave={() => document.activeElement !== specialtiesRef.current && setSpecialtiesOpen(false)}
+                    rows={2}
+                    className="mt-4 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action"
+                  />
+                </PopoverAnchor>
+                <PopoverContent
+                  side="top"
+                  align="center"
+                  sideOffset={8}
+                  collisionPadding={10}
+                  className="z-50 w-auto max-w-[280px] overflow-hidden rounded-md bg-action px-3 py-1.5 text-xs text-action-foreground animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 border-none shadow-xl"
+                >
+                  <p className="text-center font-medium">Please separate multiple specialties with commas.</p>
+                </PopoverContent>
+              </Popover>
+
             </div>
-          </div>
-        )}
+          )}
 
-        {error && (
-          <div className="animate-shake rounded-sm border border-red-500/40 bg-red-500/10 p-3 font-mono text-xs text-red-500">
-            <div className="flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-alert-circle"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></svg>
-              <span>{error}</span>
+          {user.role !== "ATTORNEY" && (
+            <div className="border-t border-titanium-800 pt-6">
+              <div className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-action">Emergency Contact</div>
+              <p className="mt-2 text-sm text-titanium-400">Notified automatically when you trigger an SOS.</p>
+              <div className="mt-6 space-y-4">
+                <Field label="Contact Name" value={profile.emergency_contact_name ?? ""} onChange={(v) => update("emergency_contact_name", v)} />
+                <label className="block">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Contact Number</span>
+                  <PhoneInput
+                    placeholder="Enter phone number"
+                    value={profile.emergency_contact_phone ?? ''}
+                    onChange={(v) => update("emergency_contact_phone", v ?? '')}
+                    defaultCountry="US"
+                    international={false}
+                    className="phone-input-custom mt-2"
+                  />
+                </label>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="flex items-center gap-4">
-          <button onClick={onSave} disabled={saving}
-            className="rounded-sm bg-action px-6 py-3 text-sm font-bold uppercase tracking-widest text-action-foreground hover:bg-action/90 disabled:opacity-50">
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
-          {savedAt && <span className="font-mono text-[10px] uppercase tracking-widest text-emerald-500">✓ Saved</span>}
-        </div>
-      </section>
-    </div>
+          {error && (
+            <div className="animate-shake rounded-sm border border-red-500/40 bg-red-500/10 p-3 font-mono text-xs text-red-500">
+              <div className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-alert-circle"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></svg>
+                <span>{error}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-4">
+            <button onClick={onSave} disabled={saving}
+              className="rounded-sm bg-action px-6 py-3 text-sm font-bold uppercase tracking-widest text-action-foreground hover:bg-action/90 disabled:opacity-50">
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
+            {savedAt && <span className="font-mono text-[10px] uppercase tracking-widest text-emerald-500">✓ Saved</span>}
+          </div>
+        </section>
+      </div>
+    </TooltipProvider>
   );
+
 }
 
 function Field({ label, value, onChange, type = "text", placeholder }: { label: string; value: string; onChange: (v: string) => void; type?: string, placeholder?: string }) {

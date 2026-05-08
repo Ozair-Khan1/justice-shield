@@ -86,7 +86,7 @@ export default function SOSPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          encounter_type: type,
+          encounter_type: type.toLowerCase(),
           location_lat: coords?.latitude ?? null,
           location_lng: coords?.longitude ?? null,
           confirm: false
@@ -119,7 +119,7 @@ export default function SOSPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          encounter_type: typeOverride || encounterType,
+          encounter_type: typeOverride?.toLowerCase() || encounterType?.toLowerCase(),
           location_lat: coordsOverride ? coordsOverride.lat : locationCoords.lat,
           location_lng: coordsOverride ? coordsOverride.lng : locationCoords.lng,
           location_address: addressOverride !== undefined ? addressOverride : resolvedAddress,
@@ -193,26 +193,35 @@ export default function SOSPage() {
           {recommendedAttorneys.map((attorney) => (
             <Card key={attorney.id} className="group border-titanium-800 bg-titanium-900/40 hover:border-action/30 transition-all cursor-pointer overflow-hidden" onClick={() => onAssign(attorney.id)}>
               <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-5">
-                    <div className="size-12 rounded-full bg-titanium-950 flex items-center justify-center border border-titanium-800 group-hover:border-action/50 transition-colors">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                  <div className="flex items-start sm:items-center gap-5">
+                    <div className="size-12 rounded-full bg-titanium-950 flex items-center justify-center border border-titanium-800 group-hover:border-action/50 transition-colors shrink-0">
                       <User className="size-6 text-titanium-400 group-hover:text-action transition-colors" />
                     </div>
-                    <div>
-                      <h3 className="font-display text-lg font-bold text-titanium-50 group-hover:text-action transition-colors">{attorney.full_name}</h3>
-                      <p className="text-sm text-titanium-400">{attorney.firm_name || "Specialized Response Counsel"}</p>
-                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-wider">
-                        <span className="text-titanium-600">{attorney.years_experience || 0} Years Exp.</span>
-                        <span className="text-titanium-800">•</span>
-                        <span className="text-emerald-500/80">{attorney.resolved_cases || 0} Resolved</span>
-                        <span className="text-titanium-800">•</span>
-                        <span className="text-titanium-600">{attorney.total_cases || 0} Total</span>
-                        <span className="text-titanium-800">•</span>
-                        <span className="text-action/70">{attorney.specialties || "Generalist"}</span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-display text-lg font-bold text-titanium-50 group-hover:text-action transition-colors truncate">{attorney.full_name}</h3>
+                      <p className="text-sm text-titanium-400 truncate">{attorney.firm_name || "Specialized Response Counsel"}</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 font-mono text-[10px] uppercase tracking-wider">
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-titanium-800/30 border border-titanium-800">
+                          <span className="text-titanium-400">{attorney.years_experience || 0}Y Exp.</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/5 border border-emerald-500/10">
+                          <span className="text-emerald-500/80">{attorney.resolved_cases || 0} Resolved</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-titanium-800/30 border border-titanium-800">
+                          <span className="text-titanium-400">{attorney.total_cases || 0} Total</span>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className="font-mono text-[9px] uppercase tracking-widest text-action/70 bg-action/5 border border-action/10 px-2 py-0.5 rounded-sm">
+                          {attorney.specialties || "Generalist"}
+                        </span>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between sm:justify-end gap-3 border-t border-titanium-800/50 sm:border-none pt-4 sm:pt-0">
+
+
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button

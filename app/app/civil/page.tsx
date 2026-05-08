@@ -10,9 +10,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Loader2, CheckCircle2, User as UserIcon, Scale, ShieldCheck, ChevronRight, MapPin } from "lucide-react";
+import { ArrowRight, Loader2, CheckCircle2, User as UserIcon, Scale, ShieldCheck, ChevronRight, MapPin, BadgeInfo, Mail, Phone, Award } from "lucide-react";
 import Link from "next/link";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+
 const MATTER_TYPES = [
   { id: "landlord_tenant", label: "Landlord / Tenant" },
   { id: "employment", label: "Employment & Wages" },
@@ -159,7 +167,7 @@ export default function CivilIntakePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: draftId,
-          matterType,
+          matterType: matterType.toLowerCase(),
           urgency,
           subject,
           description,
@@ -194,7 +202,7 @@ export default function CivilIntakePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: draftId,
-          matterType,
+          matterType: matterType.toLowerCase(),
           urgency,
           subject,
           description,
@@ -262,42 +270,159 @@ export default function CivilIntakePage() {
               availableAttorneys.map((attorney) => (
                 <Card key={attorney.id} className="group border-titanium-800 bg-titanium-900/40 hover:border-action/30 transition-all cursor-pointer overflow-hidden" onClick={() => handleAssignAttorney(attorney.id)}>
                   <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-5">
-                        <div className="size-12 rounded-full bg-titanium-950 flex items-center justify-center border border-titanium-800 group-hover:border-action/50 transition-colors">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                      <div className="flex items-start sm:items-center gap-5">
+                        <div className="size-12 rounded-full bg-titanium-950 flex items-center justify-center border border-titanium-800 group-hover:border-action/50 transition-colors shrink-0">
                           <UserIcon className="size-6 text-titanium-400 group-hover:text-action transition-colors" />
                         </div>
-                        <div>
-                          <h3 className="font-display text-lg font-bold text-titanium-50 group-hover:text-action transition-colors">{attorney.full_name}</h3>
-                          <p className="text-sm text-titanium-400">{attorney.firm_name || "Independent Network Counsel"}</p>
-                          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px] uppercase tracking-wider">
-                            <span className="text-titanium-600">
-                              {attorney.years_experience || 0} Years Exp.
-                            </span>
-                            <span className="text-titanium-800">•</span>
-                            <span className="text-emerald-500/80">
-                              {attorney.resolved_cases || 0} Resolved
-                            </span>
-                            <span className="text-titanium-800">•</span>
-                            <span className="text-titanium-600">
-                              {attorney.total_cases || 0} Total
-                            </span>
-                            <span className="text-titanium-800">•</span>
-                            <span className="text-action/70">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-display text-lg font-bold text-titanium-50 group-hover:text-action transition-colors truncate">{attorney.full_name}</h3>
+                          <p className="text-sm text-titanium-400 truncate">{attorney.firm_name || "Independent Network Counsel"}</p>
+                          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 font-mono text-[10px] uppercase tracking-wider">
+                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-titanium-800/30 border border-titanium-800">
+                              <span className="text-titanium-400">{attorney.years_experience || 0}Y Exp.</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/5 border border-emerald-500/10">
+                              <span className="text-emerald-500/80">{attorney.resolved_cases || 0} Resolved</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-titanium-800/30 border border-titanium-800">
+                              <span className="text-titanium-400">{attorney.total_cases || 0} Total</span>
+                            </div>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className="font-mono text-[9px] uppercase tracking-widest text-action/70 bg-action/5 border border-action/10 px-2 py-0.5 rounded-sm">
                               {attorney.specialties || "Generalist"}
                             </span>
                           </div>
                           {(attorney.city || attorney.country) && (
-                            <div className="mt-1 flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-tight text-titanium-500">
-                              <MapPin className="size-3 text-titanium-600" />
-                              <span>{[attorney.city, attorney.country].filter(Boolean).join(", ")}</span>
+                            <div className="mt-2 flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-tight text-titanium-600">
+                              <MapPin className="size-3" />
+                              <span className="truncate">{[attorney.city, attorney.country].filter(Boolean).join(", ")}</span>
                             </div>
                           )}
                         </div>
                       </div>
-                      <Button variant="ghost" className="text-titanium-600 group-hover:text-action group-hover:translate-x-1 transition-all">
-                        Assign <ChevronRight className="size-4 ml-1" />
-                      </Button>
+                      <div className="flex items-center justify-between sm:justify-end gap-3 border-t border-titanium-800/50 sm:border-none pt-4 sm:pt-0">
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={(e) => e.stopPropagation()}
+                              className="size-10 border-titanium-800 bg-titanium-950/50 hover:border-action/50 hover:text-action transition-all shrink-0"
+                            >
+                              <BadgeInfo className="size-5" />
+                            </Button>
+                          </DialogTrigger>
+
+                          <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto border-titanium-800 bg-titanium-950 p-0 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] scrollbar-hide text-left">
+                            <div className="relative h-24 md:h-32 bg-gradient-to-r from-action/20 via-titanium-900 to-titanium-950 border-b border-titanium-800">
+                              <div className="absolute -bottom-10 left-4 md:left-8 rounded-full border-4 border-titanium-950 bg-titanium-900 p-3 md:p-4 text-action shadow-2xl">
+                                <UserIcon className="size-8 md:size-12" />
+                              </div>
+                              <div className="absolute top-4 right-4 flex gap-2">
+                                <div className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2 md:px-3 py-0.5 md:py-1 font-mono text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-emerald-400 backdrop-blur-sm">
+                                  Verified Partner
+                                </div>
+                              </div>
+                            </div>
+                            <div className="p-4 md:p-8 pt-12 md:pt-14 space-y-6 md:space-y-8">
+                              <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                                <div className="space-y-1">
+                                  <DialogTitle className="font-display text-2xl md:text-3xl font-bold text-titanium-50 tracking-tight">
+                                    {attorney.full_name}
+                                  </DialogTitle>
+                                  <p className="font-mono text-[10px] md:text-xs uppercase tracking-[0.2em] text-action/80">
+                                    {attorney.firm_name || "Independent Legal Professional"}
+                                  </p>
+                                </div>
+                                {attorney.years_experience !== null && (
+                                  <div className="flex md:flex-col items-center md:items-end gap-3 md:gap-1">
+                                    <div className="flex flex-col items-center md:items-end">
+                                      <span className="font-mono text-lg md:text-xl font-bold text-titanium-50 leading-none">{attorney.years_experience}</span>
+                                      <span className="font-mono text-[7px] md:text-[8px] uppercase tracking-widest text-titanium-500 mt-1">Years Practice</span>
+                                    </div>
+                                    <div className="size-1 bg-titanium-800 rounded-full md:hidden" />
+                                    <div className="flex flex-col items-center md:items-end">
+                                      <div className="font-mono text-lg md:text-base font-bold text-titanium-50 leading-none">{attorney.total_cases || 0}</div>
+                                      <div className="font-mono text-[7px] uppercase tracking-widest text-titanium-500 mt-1">Total Cases</div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 border-y border-titanium-800/50 py-6 md:py-8">
+                                <div className="space-y-4 md:space-y-5">
+                                  <div className="flex items-center gap-2">
+                                    <div className="size-1 bg-action rounded-full" />
+                                    <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Contact Interface</h4>
+                                  </div>
+                                  <div className="space-y-3 md:space-y-4">
+                                    <div className="flex items-center gap-3 text-xs md:text-sm text-titanium-300 group/link">
+                                      <div className="size-7 md:size-8 rounded-sm bg-titanium-900 flex items-center justify-center border border-titanium-800 group-hover/link:border-action/30 transition-colors">
+                                        <Mail className="size-3.5 md:size-4 text-action/70" />
+                                      </div>
+                                      <span className="truncate">{attorney.email}</span>
+                                    </div>
+                                    {(attorney.city || attorney.country) && (
+                                      <div className="flex items-center gap-3 text-xs md:text-sm text-titanium-300 group/link">
+                                        <div className="size-7 md:size-8 rounded-sm bg-titanium-900 flex items-center justify-center border border-titanium-800 group-hover/link:border-action/30 transition-colors">
+                                          <MapPin className="size-3.5 md:size-4 text-action/70" />
+                                        </div>
+                                        <span>{[attorney.city, attorney.country].filter(Boolean).join(", ")}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="space-y-4 md:space-y-5">
+                                  <div className="flex items-center gap-2">
+                                    <div className="size-1 bg-action rounded-full" />
+                                    <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500">Legal Specializations</h4>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {attorney.specialties?.split(",").map((s: string, idx: number) => (
+                                      <span key={idx} className="rounded-sm border border-titanium-800 bg-titanium-900/50 px-2 md:px-2.5 py-1 md:py-1.5 font-mono text-[8px] md:text-[9px] uppercase tracking-widest text-titanium-200 transition-colors hover:border-action/30 hover:bg-titanium-900">
+                                        {s.trim()}
+                                      </span>
+                                    )) || <span className="text-xs text-titanium-500 italic">General Practice Law</span>}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 gap-6">
+                                {(attorney.resolved_cases ?? 0) > 0 && (
+                                  <div className="flex items-center justify-between rounded-lg bg-emerald-500/5 border border-emerald-500/10 p-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="size-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                                        <ShieldCheck className="size-4" />
+                                      </div>
+                                      <div className="font-mono text-[10px] font-bold uppercase tracking-widest text-emerald-400">Success Metric</div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="font-mono text-xl font-bold text-emerald-400 leading-none">{attorney.resolved_cases}</div>
+                                      <div className="font-mono text-[7px] uppercase tracking-widest text-emerald-500/70 mt-1">Cases Resolved</div>
+                                    </div>
+                                  </div>
+                                )}
+
+                                <div className="rounded-lg bg-action/5 border border-action/10 p-4 md:p-6 space-y-3 md:space-y-4">
+                                  <div className="flex items-center gap-2 text-action">
+                                    <Award className="size-4" />
+                                    <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest">Network Verification</h4>
+                                  </div>
+                                  <p className="text-[13px] md:text-sm leading-relaxed text-titanium-300 italic">
+                                    "{attorney.full_name} is a verified senior member of the Justice Shield attorney network. They have undergone rigorous vetting for tactical legal defense capabilities."
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                        <Button variant="ghost" className="text-titanium-600 group-hover:text-action group-hover:translate-x-1 transition-all">
+                          Assign <ChevronRight className="size-4 ml-1" />
+                        </Button>
+                      </div>
+
                     </div>
                   </CardContent>
                 </Card>
