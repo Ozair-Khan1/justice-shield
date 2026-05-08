@@ -44,7 +44,7 @@ export async function POST(req: Request) {
           city: city || null,
           country: country || null,
           website: website || null,
-          specialties: specialties || null,
+          specialties: specialties || "",
           bar_number: bar_number || null,
           years_experience: years_experience ? parseInt(String(years_experience)) : 0,
           message: message || null,

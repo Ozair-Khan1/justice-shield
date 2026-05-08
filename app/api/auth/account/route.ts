@@ -13,7 +13,8 @@ export async function PUT(req: Request) {
     const user = await verifyJwt(token);
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { full_name, phone, emergency_contact_name, emergency_contact_phone, password, email, city, country } = await req.json();
+    const body = await req.json();
+    const { full_name, phone, emergency_contact_name, emergency_contact_phone, password, email, city, country, specialties } = body;
 
     // Basic validation
     if (email && !/^\S+@\S+\.\S+$/.test(email)) {
@@ -38,6 +39,7 @@ export async function PUT(req: Request) {
           emergency_contact_phone,
           city,
           country,
+          specialties: Array.isArray(specialties) ? specialties.join(", ") : specialties,
         },
       });
 

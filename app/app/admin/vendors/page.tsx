@@ -379,7 +379,7 @@ export default function AdminVendorsPage() {
                   </div>
                   <div className="rounded-lg bg-titanium-900/50 border border-titanium-800 p-6">
                     <p className="text-sm leading-relaxed text-titanium-300 font-light whitespace-pre-wrap break-words">
-                      {selectedApp.specialties}
+                      {selectedApp.specialties || "No specialties listed"}
                     </p>
                   </div>
                 </div>

@@ -17,6 +17,7 @@ interface Profile {
   membership_tier: string;
   city?: string | null;
   country?: string | null;
+  specialties: string;
 }
 
 export default function AccountPage() {
@@ -26,6 +27,7 @@ export default function AccountPage() {
   const { startLoading, stopLoading } = useLoading();
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+
   useEffect(() => {
     if (!user) return;
     const normalize = (p: string | null | undefined) => {
@@ -41,6 +43,7 @@ export default function AccountPage() {
         membership_tier: user.membership_tier ?? "basic",
         city: user.city ?? "",
         country: user.country ?? "",
+        specialties: (user as any).specialties || "",
       }
     );
   }, [user]);
@@ -122,6 +125,7 @@ export default function AccountPage() {
           emergency_contact_phone: profile.emergency_contact_phone,
           city: profile.city,
           country: profile.country,
+          specialties: profile.specialties,
         })
       }).then(res => res.json());
 
@@ -200,6 +204,19 @@ export default function AccountPage() {
             </select>
           </label>
         </div>
+
+        {user.role === "ATTORNEY" && (
+          <div className="border-t border-titanium-800 pt-6">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-action">Professional Specialties</span>
+            <p className="mt-2 text-xs text-titanium-500">Comma-separated list of your legal practice areas (e.g., Criminal Law, Civil Litigation, Family Law).</p>
+            <textarea
+              value={profile.specialties}
+              onChange={(e) => setProfile({ ...profile, specialties: e.target.value })}
+              rows={2}
+              className="mt-4 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action"
+            />
+          </div>
+        )}
 
         {user.role !== "ATTORNEY" && (
           <div className="border-t border-titanium-800 pt-6">

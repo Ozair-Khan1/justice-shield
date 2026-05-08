@@ -62,11 +62,11 @@ export async function GET(req: Request) {
       },
     });
 
-    const attorneysWithCount = attorneys.map(a => ({
+    const attorneysWithCount = (attorneys as any[]).map(a => ({
       ...a,
       total_cases: a.assigned_intakes.length + a.assigned_encounters.length,
-      resolved_cases: a.assigned_intakes.filter(i => i.status === "resolved").length +
-        a.assigned_encounters.filter(e => e.status === "resolved").length,
+      resolved_cases: a.assigned_intakes.filter((i: any) => i.status === "resolved").length +
+        a.assigned_encounters.filter((e: any) => e.status === "resolved").length,
       assigned_intakes: undefined,
       assigned_encounters: undefined
     }));

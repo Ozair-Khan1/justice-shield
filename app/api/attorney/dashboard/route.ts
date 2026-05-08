@@ -58,7 +58,7 @@ export async function GET(req: Request) {
     const assignedSessions = await prisma.encounterSession.findMany({
       where: {
         assigned_attorney_id: payload.id as string,
-        status: { in: ["assigned", "pending"] }
+        status: { in: ["assigned", "pending", "active"] }
       },
       orderBy: { started_at: "desc" },
       select: {

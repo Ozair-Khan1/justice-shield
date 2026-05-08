@@ -125,27 +125,6 @@ export default function AttorneyDashboard() {
       setAssignedCases(data.assignedCases || []);
       setStats(data.stats);
 
-      // Handle notifications for new SOS sessions
-      if (data.sosSessions && data.sosSessions.length > 0) {
-        if (!hasInitializedCases) {
-          const initialIds = new Set<string>(data.sosSessions.map((s: SOSSession) => s.id));
-          setSeenCaseIds(initialIds);
-          setHasInitializedCases(true);
-        } else {
-          data.sosSessions.forEach((session: SOSSession) => {
-            if (!seenCaseIds.has(session.id)) {
-              if (Notification.permission === "granted") {
-                new Notification("NEW EMERGENCY SOS", {
-                  body: `A new ${session.encounter_type.replace("_", " ")} SOS has been triggered. Tap to review.`,
-                  icon: "/favicon.webp"
-                });
-              }
-              setSeenCaseIds(prev => new Set<string>(prev).add(session.id));
-            }
-          });
-        }
-      }
-
       const elapsed = Date.now() - start;
       const minDelay = 1000;
       if (!silent && elapsed < minDelay) {
@@ -420,19 +399,6 @@ export default function AttorneyDashboard() {
             <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.4em] text-action border-action/20 bg-action/5 mb-2">
               Counselor Console
             </Badge>
-            {notificationPermission !== "granted" && (
-              <button
-                onClick={requestPermission}
-                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 font-mono text-[9px] uppercase tracking-widest hover:bg-amber-500/20 transition-all"
-              >
-                <AlertTriangle className="size-3" /> Enable Notifications
-              </button>
-            )}
-            {notificationPermission === "granted" && (
-              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 font-mono text-[9px] uppercase tracking-widest">
-                <ShieldCheck className="size-3" /> Notifications Active
-              </div>
-            )}
           </div>
           <h1 className="mt-3 font-display text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
             Attorney <span className="text-titanium-500">Dashboard</span>
@@ -442,21 +408,6 @@ export default function AttorneyDashboard() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => {
-              if (Notification.permission === "granted") {
-                new Notification("TEST ALERT", {
-                  body: "Emergency dispatch test successful.",
-                  icon: "/favicon.webp"
-                });
-              } else {
-                requestPermission();
-              }
-            }}
-            className="group relative flex items-center gap-2 rounded-sm border border-titanium-800 bg-titanium-950 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-400 hover:border-red-500/50 hover:text-red-400 transition-all"
-          >
-            Test Notification
-          </button>
           <button
             onClick={() => fetchDashboard()}
             disabled={loading}

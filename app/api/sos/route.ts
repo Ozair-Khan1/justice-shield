@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJwt, getAuthToken } from "@/lib/jwt";
+import { any } from "zod";
 
 export async function POST(req: Request) {
   try {
@@ -166,7 +167,7 @@ export async function POST(req: Request) {
         AND: [
           // Must match at least one specialty keyword
           {
-            OR: keywords.map((kw: string) => ({
+            OR: keywords.map((kw: any) => ({
               specialties: { contains: kw, mode: "insensitive" }
             }))
           },
@@ -195,14 +196,14 @@ export async function POST(req: Request) {
     });
 
     // Within qualifying attorneys, sort city match above country-only match
-    const recommendedAttorneys = allMatches.map(a => ({
+    const recommendedAttorneys = (allMatches as any[]).map(a => ({
       ...a,
       total_cases: a.assigned_intakes.length + a.assigned_encounters.length,
-      resolved_cases: a.assigned_intakes.filter(i => i.status === "resolved").length +
-        a.assigned_encounters.filter(e => e.status === "resolved").length,
+      resolved_cases: a.assigned_intakes.filter((i: any) => i.status === "resolved").length +
+        a.assigned_encounters.filter((e: any) => e.status === "resolved").length,
       assigned_intakes: undefined,
       assigned_encounters: undefined
-    })).sort((a, b) => {
+    })).sort((a: any, b: any) => {
       const aCityMatch = matchCity && a.city?.toLowerCase() === matchCity.toLowerCase() ? 1 : 0;
       const bCityMatch = matchCity && b.city?.toLowerCase() === matchCity.toLowerCase() ? 1 : 0;
       return bCityMatch - aCityMatch;

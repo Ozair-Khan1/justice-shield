@@ -228,7 +228,7 @@ export default function VendorsPage() {
                     </>
                   )}
                 </div>
-                <TextArea name="specialties" label={vendorType === "attorney" ? "Practice areas / specialties" : "Marketing specialties (SEO, paid, brand, etc.)"} rows={2} />
+                <TextArea name="specialties" label={vendorType === "attorney" ? "Practice areas / specialties" : "Marketing specialties (SEO, paid, brand, etc.)"} rows={2} placeholder={vendorType === "attorney" ? "e.g. Criminal Law, Family Law, Traffic Stop" : "e.g. SEO, Paid Search, Brand Strategy"} />
                 <TextArea name="message" label="Tell us about yourself" rows={5} />
                 {error && (
                   <div className="animate-shake rounded-sm border border-red-500/40 bg-red-500/10 p-3 font-mono text-xs text-red-500">
@@ -274,11 +274,11 @@ function Field({ name, label, type = "text", required, placeholder }: { name: st
   );
 }
 
-function TextArea({ name, label, rows = 4, required }: { name: string; label: string; rows?: number; required?: boolean }) {
+function TextArea({ name, label, rows = 4, required, placeholder }: { name: string; label: string; rows?: number; required?: boolean; placeholder?: string }) {
   return (
     <label className="block">
       <Label>{label} <span className="text-red-600">*</span></Label>
-      <textarea name={name} rows={rows} required={required}
+      <textarea name={name} rows={rows} required={required} placeholder={placeholder}
         className="mt-2 w-full rounded-sm border border-titanium-700 bg-titanium-900 px-4 py-3 text-sm text-titanium-50 outline-none transition-colors focus:border-action" />
     </label>
   );
