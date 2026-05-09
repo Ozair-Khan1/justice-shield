@@ -23,6 +23,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 interface AttorneyInfo {
+  id: string;
   full_name: string | null;
   email: string;
   phone: string | null;
@@ -308,12 +309,20 @@ export default function CasesPage() {
 
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                           {tab === "active" && c.attorney && (
-                            <div className="flex items-center gap-3 rounded-sm border border-titanium-800 bg-titanium-950/50 px-4 py-2">
-                              <div className="text-right">
-                                <div className="font-mono text-[9px] uppercase tracking-widest text-titanium-500">Counsel</div>
-                                <div className="text-sm font-bold text-titanium-200">{c.attorney.full_name}</div>
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                              <div className="flex items-center justify-between gap-3 rounded-sm border border-titanium-800 bg-titanium-950/50 px-4 py-2">
+                                <div className="text-left sm:text-right">
+                                  <div className="font-mono text-[9px] uppercase tracking-widest text-titanium-500">Counsel</div>
+                                  <div className="text-sm font-bold text-titanium-200">{c.attorney.full_name}</div>
+                                </div>
+                                <ShieldCheck className="size-5 text-emerald-500" />
                               </div>
-                              <ShieldCheck className="size-5 text-emerald-500" />
+                              <Button
+                                onClick={() => router.push(`/app/messages?user=${c.attorney?.id}&name=${encodeURIComponent(c.attorney?.full_name || "Attorney")}&role=ATTORNEY`)}
+                                className="bg-action hover:bg-action/90 text-white h-10 sm:h-[50px] px-6 font-mono text-[10px] font-bold uppercase tracking-widest"
+                              >
+                                Message
+                              </Button>
                             </div>
                           )}
 

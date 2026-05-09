@@ -7,8 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed:attorneys": "npx tsx --env-file=.env prisma/attorney-seed.ts",
-    "delete:attorneys": "npx tsx --env-file=.env prisma/delete-attorney.ts"
+    "seed:attorneys": "bun prisma/attorney-seed.ts",
+    "delete:attorneys": "bun prisma/delete-attorney.ts",
+    "seed:admin": "bun prisma/seed.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -60,6 +61,8 @@
     "react-phone-number-input": "^3.4.16",
     "react-resizable-panels": "^4.10.0",
     "recharts": "^3.8.1",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
     "sonner": "^2.0.7",
     "supabase": "^2.95.5",
     "tailwind-merge": "^3.5.0",

@@ -14,6 +14,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       { href: "/app/attorney", label: "Dashboard", exact: true },
       { href: "/app/attorney/cases", label: "My Cases" },
       { href: "/app/attorney/history", label: "All Records" },
+      { href: "/app/messages", label: "Messages" },
       { href: "/app/account", label: "Account" },
     ]
     : [
@@ -23,6 +24,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       { href: "/app/cases", label: "Cases" },
       { href: "/app/attorneys", label: "Attorneys" },
       { href: "/app/history", label: "History" },
+      { href: "/app/messages", label: "Messages" },
       { href: "/app/account", label: "Account" },
     ];
 

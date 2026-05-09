@@ -25,6 +25,7 @@ export async function GET(req: Request) {
         include: {
           assigned_attorney: {
             select: {
+              id: true,
               full_name: true,
               email: true,
               phone: true,
@@ -44,6 +45,7 @@ export async function GET(req: Request) {
         include: {
           assigned_attorney: {
             select: {
+              id: true,
               full_name: true,
               email: true,
               phone: true,

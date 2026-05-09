@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import {
   Shield,
@@ -24,6 +25,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Pagination } from "@/components/Pagination";
+import ChatInterface from "@/components/ChatInterface";
+import ChatDashboard from "@/components/ChatDashboard";
+import { MessageSquare } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -40,6 +44,7 @@ interface Session {
   started_at: string;
   ended_at: string | null;
   attorney_name: string | null;
+  assigned_attorney_id: string | null;
   location_lat: number | null;
   location_lng: number | null;
   location_address: string | null;
@@ -55,6 +60,7 @@ interface Intake {
   status: string;
   created_at: string;
   assigned_attorney: {
+    id: string;
     full_name: string | null;
     email: string | null;
   } | null;
@@ -65,6 +71,7 @@ interface Intake {
 
 export default function HistoryPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [tab, setTab] = useState<string>("sos");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [intakes, setIntakes] = useState<Intake[]>([]);
@@ -320,6 +327,30 @@ export default function HistoryPage() {
                           }`}>
                           {s.status}
                         </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            // Convert session to intake-like object for details view
+                            setSelectedIntake({
+                              id: s.id,
+                              matter_type: s.encounter_type,
+                              urgency: "CRITICAL",
+                              subject: `SOS Engagement: ${s.encounter_type.replace("_", " ")}`,
+                              description: "Emergency tactical record.",
+                              preferred_contact: "Direct Link",
+                              status: s.status,
+                              created_at: s.started_at,
+                              assigned_attorney: s.attorney_name ? { id: s.assigned_attorney_id || "", full_name: s.attorney_name, email: null } : null,
+                              opposing_party: null,
+                              opposing_party_location: null,
+                              is_sos: true
+                            } as any);
+                          }}
+                          className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action hover:text-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all"
+                        >
+                          View Details {s.status === "active" ? "& Chat" : ""}
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -516,41 +547,9 @@ export default function HistoryPage() {
                     </p>
                   </div>
                 </div>
-
-                {selectedIntake.opposing_party && (
-                  <div className="rounded-lg bg-red-500/5 border border-red-500/10 p-4 md:p-6 space-y-3">
-                    <div className="flex items-center gap-2 text-red-500/80">
-                      <Scale className="size-4" />
-                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest">Opposing Party Information</h4>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-sm font-bold text-titanium-50">{selectedIntake.opposing_party}</div>
-                      {selectedIntake.opposing_party_location && (
-                        <div className="font-mono text-[10px] uppercase text-titanium-500">{selectedIntake.opposing_party_location}</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {selectedIntake.metadata && Object.keys(selectedIntake.metadata).length > 0 && (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-action/60">
-                      <Shield className="size-4" />
-                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest">Additional Information</h4>
-                    </div>
-                    <div className="grid gap-2 rounded-lg border border-titanium-800 bg-titanium-950/30 p-4">
-                      {Object.entries(selectedIntake.metadata).map(([key, value]) => (
-                        <div key={key} className="flex justify-between text-sm items-center py-2 border-b border-titanium-800 last:border-0">
-                          <span className="text-titanium-500 capitalize text-[10px] font-mono">{key.replace(/_/g, " ")}:</span>
-                          <span className="font-medium text-titanium-200 text-xs">{String(value)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
 
-              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex justify-end backdrop-blur-md">
+              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex justify-end gap-3 backdrop-blur-md">
                 <Button
                   variant="outline"
                   onClick={() => setSelectedIntake(null)}
@@ -558,6 +557,15 @@ export default function HistoryPage() {
                 >
                   Close Record
                 </Button>
+
+                {(selectedIntake?.status === "active") && selectedIntake.assigned_attorney?.id && (
+                  <Button
+                    onClick={() => router.push(`/app/messages?user=${selectedIntake.assigned_attorney?.id}&name=${encodeURIComponent(selectedIntake.assigned_attorney?.full_name || "Attorney")}&role=ATTORNEY`)}
+                    className="w-full sm:w-auto bg-action hover:bg-action/90 text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest"
+                  >
+                    Message Attorney
+                  </Button>
+                )}
               </div>
             </motion.div>
           </div>

@@ -43,6 +43,8 @@ model User {
   assigned_intakes        CivilIntake[]      @relation("AttorneyIntakes")
   assigned_encounters     EncounterSession[] @relation("AttorneyEncounters")
   emergency_alerts        EmergencyAlert[]
+  sent_messages           ChatMessage[]      @relation("SentMessages")
+  received_messages       ChatMessage[]      @relation("ReceivedMessages")
 
   @@index([role])
 }
@@ -100,6 +102,22 @@ model CivilIntake {
   @@index([user_id])
   @@index([status])
   @@index([assigned_attorney_id])
+}
+
+model ChatMessage {
+  id            String   @id @default(uuid())
+  content       String
+  sender_id     String
+  sender        User     @relation("SentMessages", fields: [sender_id], references: [id], onDelete: Cascade)
+  
+  receiver_id   String
+  receiver      User     @relation("ReceivedMessages", fields: [receiver_id], references: [id], onDelete: Cascade)
+
+  is_read       Boolean  @default(false)
+  created_at    DateTime @default(now())
+
+  @@index([sender_id])
+  @@index([receiver_id])
 }
 
 model EmergencyAlert {

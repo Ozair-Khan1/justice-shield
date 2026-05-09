@@ -43,6 +43,7 @@ export async function GET(req: Request) {
         metadata: true,
         user: {
           select: {
+            id: true,
             full_name: true,
             email: true,
             phone: true,
@@ -70,6 +71,7 @@ export async function GET(req: Request) {
         notes: true,
         user: {
           select: {
+            id: true,
             full_name: true,
             email: true,
             phone: true,
@@ -120,6 +122,7 @@ export async function GET(req: Request) {
         metadata: true,
         user: {
           select: {
+            id: true,
             full_name: true,
             email: true,
             phone: true,

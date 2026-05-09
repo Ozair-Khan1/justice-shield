@@ -1,25 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import {
   Shield,
-  FileText,
-  MapPin,
-  User as UserIcon,
-  Phone,
-  AlertCircle,
-  CheckCircle2,
-  ChevronRight,
-  Loader2,
   Scale,
-  Mail,
-  RefreshCw,
-  ShieldCheck,
-  X,
   MapPinIcon,
-  AlertTriangle
+  FileText,
+  Phone,
+  CheckCircle2,
+  ShieldCheck,
+  AlertCircle,
+  Mail,
+  User as UserIcon,
+  ChevronRight,
+  X,
+  MessageSquare,
+  MapPin,
+  AlertTriangle,
+  RefreshCw,
+  Loader2,
+  LayoutDashboard
 } from "lucide-react";
+import ChatInterface from "@/components/ChatInterface";
+import ChatDashboard from "@/components/ChatDashboard";
 import Link from "next/link";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { motion, AnimatePresence } from "framer-motion";
@@ -46,6 +51,7 @@ import { Pagination } from "@/components/Pagination";
 import { format } from "date-fns";
 
 interface CaseUser {
+  id: string;
   full_name: string | null;
   email: string;
   phone: string | null;
@@ -89,6 +95,7 @@ const SOS_ITEMS_PER_PAGE = 5;
 
 export default function AttorneyDashboard() {
   const { user } = useAuth();
+  const router = useRouter();
   const [sosSessions, setSosSessions] = useState<SOSSession[]>([]);
   const [assignedSessions, setAssignedSessions] = useState<SOSSession[]>([]);
   const [pendingCases, setPendingCases] = useState<CivilIntake[]>([]);
@@ -423,232 +430,232 @@ export default function AttorneyDashboard() {
         </div>
       </header>
 
-      {/* Stats Grid */}
-      <section className="grid gap-6 sm:grid-cols-2">
-        <Card className="border-titanium-800 bg-titanium-900/40">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <Shield className="size-5 text-action" />
-              <span className="font-mono text-[10px] font-bold text-titanium-500 uppercase tracking-widest">Active SOS Assignments</span>
-            </div>
-            <div className="mt-4 font-display text-4xl font-bold">{assignedSessions.length}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-titanium-800 bg-titanium-900/40 text-action shadow-[0_0_20px_rgba(var(--action-rgb),0.1)]">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <Scale className="size-5 text-action" />
-              <span className="font-mono text-[10px] font-bold text-action/50 uppercase tracking-widest">Active Civil Matters</span>
-            </div>
-            <div className="mt-4 font-display text-4xl font-bold">{assignedCases.length}</div>
-          </CardContent>
-        </Card>
-      </section>
+      <div className="space-y-12">
+        {/* Stats Grid */}
+        <section className="grid gap-6 sm:grid-cols-2">
+          <Card className="border-titanium-800 bg-titanium-900/40">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <Shield className="size-5 text-action" />
+                <span className="font-mono text-[10px] font-bold text-titanium-500 uppercase tracking-widest">Active SOS Assignments</span>
+              </div>
+              <div className="mt-4 font-display text-4xl font-bold">{assignedSessions.length}</div>
+            </CardContent>
+          </Card>
+          <Card className="border-titanium-800 bg-titanium-900/40 text-action shadow-[0_0_20px_rgba(var(--action-rgb),0.1)]">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <Scale className="size-5 text-action" />
+                <span className="font-mono text-[10px] font-bold text-action/50 uppercase tracking-widest">Active Civil Matters</span>
+              </div>
+              <div className="mt-4 font-display text-4xl font-bold">{assignedCases.length}</div>
+            </CardContent>
+          </Card>
+        </section>
 
-      {/* Active Engagement Section */}
-      {assignedSessions.length > 0 && (
-        <section className="space-y-6 w-full">
-          <div className="flex items-center gap-3 border-b border-titanium-800 pb-2">
-            <div className="size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-            <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.3em] text-emerald-500">Active SOS ({assignedSessions.length})</h2>
-          </div>
-          <div className="grid gap-4">
-            {assignedSessions
-              .slice((sosPage - 1) * SOS_ITEMS_PER_PAGE, sosPage * SOS_ITEMS_PER_PAGE)
-              .map((s) => (
-                <Card key={s.id} className="w-full border-emerald-500/30 bg-emerald-500/5 transition-all hover:border-emerald-500/50 overflow-hidden">
-                  <CardContent className="p-3 sm:p-5 md:p-6">
-                    <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between min-w-0">
-                      <div className="space-y-4 min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                          <Badge className={`${s.status === "assigned" ? "bg-amber-500" : "bg-emerald-500"} text-white font-mono text-[8px] md:text-[9px] uppercase tracking-widest px-2 py-0.5 shrink-0`}>
-                            {s.status === "assigned" ? "Assigned" : "In Progress"}
-                          </Badge>
-                          <span className="font-mono text-[9px] md:text-[10px] text-titanium-400 uppercase tracking-widest truncate">{s.encounter_type.replace("_", " ")}</span>
-                        </div>
-                        <div className="space-y-1.5 min-w-0">
-                          <h3 className="font-display text-xl md:text-2xl font-bold text-titanium-50 truncate leading-tight">{s.user.full_name}</h3>
-                          <div className="text-[11px] md:text-sm text-titanium-400 flex flex-wrap items-center gap-x-2 gap-y-1.5 min-w-0">
-                            <div className="flex items-center gap-1.5 min-w-0 max-w-full">
-                              <MapPinIcon className="size-3.5 md:size-4 text-action shrink-0" />
-                              <span className="truncate">{s.location_address || "Location Tracking Active"}</span>
+        {/* Active Engagement Section */}
+        {assignedSessions.length > 0 && (
+          <section className="space-y-6 w-full">
+            <div className="flex items-center gap-3 border-b border-titanium-800 pb-2">
+              <div className="size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+              <h2 className="font-mono text-[11px] font-bold uppercase tracking-[0.3em] text-emerald-500">Active SOS ({assignedSessions.length})</h2>
+            </div>
+            <div className="grid gap-4">
+              {assignedSessions
+                .slice((sosPage - 1) * SOS_ITEMS_PER_PAGE, sosPage * SOS_ITEMS_PER_PAGE)
+                .map((s) => (
+                  <Card key={s.id} className="w-full border-emerald-500/30 bg-emerald-500/5 transition-all hover:border-emerald-500/50 overflow-hidden">
+                    <CardContent className="p-3 sm:p-5 md:p-6">
+                      <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between min-w-0">
+                        <div className="space-y-4 min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                            <Badge className={`${s.status === "assigned" ? "bg-amber-500" : "bg-emerald-500"} text-white font-mono text-[8px] md:text-[9px] uppercase tracking-widest px-2 py-0.5 shrink-0`}>
+                              {s.status === "assigned" ? "Assigned" : "In Progress"}
+                            </Badge>
+                            <span className="font-mono text-[9px] md:text-[10px] text-titanium-400 uppercase tracking-widest truncate">{s.encounter_type.replace("_", " ")}</span>
+                          </div>
+                          <div className="space-y-1.5 min-w-0">
+                            <h3 className="font-display text-xl md:text-2xl font-bold text-titanium-50 truncate leading-tight">{s.user.full_name}</h3>
+                            <div className="text-[11px] md:text-sm text-titanium-400 flex flex-wrap items-center gap-x-2 gap-y-1.5 min-w-0">
+                              <div className="flex items-center gap-1.5 min-w-0 max-w-full">
+                                <MapPinIcon className="size-3.5 md:size-4 text-action shrink-0" />
+                                <span className="truncate">{s.location_address || "Location Tracking Active"}</span>
+                              </div>
+                              <span className="hidden md:inline text-titanium-700 shrink-0">·</span>
+                              <span className="font-mono text-[8px] md:text-[10px] text-action uppercase tracking-widest bg-action/5 px-2 py-0.5 rounded-sm border border-action/10 shrink-0">
+                                {s.user.city || "N/A"}, {s.user.country || "N/A"}
+                              </span>
+                              <span className="font-mono text-[8px] md:text-[10px] text-action uppercase tracking-widest bg-action/5 px-2 py-0.5 rounded-sm border border-action/10 shrink-0">
+                                {format(new Date(s.started_at), "MMM d, h:mm a")}
+                              </span>
                             </div>
-                            <span className="hidden md:inline text-titanium-700 shrink-0">·</span>
-                            <span className="font-mono text-[8px] md:text-[10px] text-action uppercase tracking-widest bg-action/5 px-2 py-0.5 rounded-sm border border-action/10 shrink-0">
-                              {s.user.city || "N/A"}, {s.user.country || "N/A"}
-                            </span>
-                            <span className="font-mono text-[8px] md:text-[10px] text-action uppercase tracking-widest bg-action/5 px-2 py-0.5 rounded-sm border border-action/10 shrink-0">
-                              {format(new Date(s.started_at), "MMM d, h:mm a")}
-                            </span>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2.5 shrink-0">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            // Map SOSSession to CivilIntake for the modal
-                            setSelectedIntake({
-                              id: s.id,
-                              matter_type: s.encounter_type,
-                              urgency: "urgent",
-                              subject: `Emergency SOS: ${s.encounter_type.replace("_", " ")}`,
-                              description: (s as any).notes || "No tactical notes provided.",
-                              preferred_contact: "phone",
-                              status: s.status,
-                              created_at: s.started_at,
-                              user: s.user,
-                              metadata: (s as any).metadata,
-                              is_sos: true
-                            });
-                          }}
-                          className="w-full md:w-auto border-titanium-700 bg-titanium-900 h-11 md:h-12 px-5 font-mono text-[10px] uppercase tracking-widest transition-colors hover:bg-titanium-800"
-                        >
-                          <FileText className="size-3.5 mr-2" />
-                          Review Details
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleCallMember(s.user, s.id)}
-                          className="w-full md:w-auto border-titanium-700 bg-titanium-900 h-11 md:h-12 px-5 font-mono text-[10px] uppercase tracking-widest transition-colors hover:bg-titanium-800"
-                        >
-                          {copiedId === s.id ? (
-                            <span className="flex items-center gap-2 text-emerald-500">
-                              <CheckCircle2 className="size-3.5" />
-                              {copiedPhone}
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-2">
-                              <Phone className="size-3.5" />
-                              Call Member
-                            </span>
-                          )}
-                        </Button>
-                        {s.status === "assigned" ? (
-                          <>
-                            <Button
-                              onClick={() => {
-                                setRejectCaseId(s.id);
-                                setRejectType("sos");
-                                setRejectReason("");
-                              }}
-                              variant="outline"
-                              className="w-full md:w-auto border-red-500/50 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white h-11 md:h-12 px-5 font-mono text-[10px] font-bold uppercase tracking-widest transition-all"
-                            >
-                              Reject
-                            </Button>
-                            <Button
-                              onClick={() => handleAcceptSos(s.id)}
-                              disabled={accepting}
-                              className="w-full md:w-auto bg-action text-action-foreground hover:bg-action/90 h-11 md:h-12 px-6 font-mono text-[10px] font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(255,87,34,0.2)]"
-                            >
-                              {accepting ? <Loader2 className="size-3 animate-spin mr-2" /> : <ShieldCheck className="size-3.5 mr-2" />}
-                              <span className="whitespace-nowrap">Accept</span>
-                            </Button>
-                          </>
-                        ) : (
+                        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2.5 shrink-0">
                           <Button
-                            onClick={() => handleResolveSos(s.id)}
-                            disabled={accepting}
-                            className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-white h-11 md:h-12 px-6 font-bold uppercase tracking-widest text-[10px] shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                            variant="outline"
+                            onClick={() => {
+                              // Map SOSSession to CivilIntake for the modal
+                              setSelectedIntake({
+                                id: s.id,
+                                matter_type: s.encounter_type,
+                                urgency: "urgent",
+                                subject: `Emergency SOS: ${s.encounter_type.replace("_", " ")}`,
+                                description: (s as any).notes || "No tactical notes provided.",
+                                preferred_contact: "phone",
+                                status: s.status,
+                                created_at: s.started_at,
+                                user: s.user,
+                                metadata: (s as any).metadata,
+                                is_sos: true
+                              });
+                            }}
+                            className="w-full md:w-auto border-titanium-700 bg-titanium-900 h-11 md:h-12 px-5 font-mono text-[10px] uppercase tracking-widest transition-colors hover:bg-titanium-800"
                           >
-                            {accepting ? <Loader2 className="size-3 animate-spin mr-2" /> : <CheckCircle2 className="size-3.5 mr-2" />}
-                            <span className="whitespace-nowrap">Resolve Session</span>
+                            <FileText className="size-3.5 mr-2" />
+                            Review Details
                           </Button>
-                        )}
+                          <Button
+                            variant="outline"
+                            onClick={() => handleCallMember(s.user, s.id)}
+                            className="w-full md:w-auto border-titanium-700 bg-titanium-900 h-11 md:h-12 px-5 font-mono text-[10px] uppercase tracking-widest transition-colors hover:bg-titanium-800"
+                          >
+                            {copiedId === s.id ? (
+                              <span className="flex items-center gap-2 text-emerald-500">
+                                <CheckCircle2 className="size-3.5" />
+                                {copiedPhone}
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-2">
+                                <Phone className="size-3.5" />
+                                Call Member
+                              </span>
+                            )}
+                          </Button>
+                          {s.status === "assigned" ? (
+                            <>
+                              <Button
+                                onClick={() => {
+                                  setRejectCaseId(s.id);
+                                  setRejectType("sos");
+                                  setRejectReason("");
+                                }}
+                                variant="outline"
+                                className="w-full md:w-auto border-red-500/50 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white h-11 md:h-12 px-5 font-mono text-[10px] font-bold uppercase tracking-widest transition-all"
+                              >
+                                Reject
+                              </Button>
+                              <Button
+                                onClick={() => handleAcceptSos(s.id)}
+                                disabled={accepting}
+                                className="w-full md:w-auto bg-action text-action-foreground hover:bg-action/90 h-11 md:h-12 px-6 font-mono text-[10px] font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(255,87,34,0.2)]"
+                              >
+                                {accepting ? <Loader2 className="size-3 animate-spin mr-2" /> : <ShieldCheck className="size-3.5 mr-2" />}
+                                <span className="whitespace-nowrap">Accept</span>
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              onClick={() => handleResolveSos(s.id)}
+                              disabled={accepting}
+                              className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-white h-11 md:h-12 px-6 font-bold uppercase tracking-widest text-[10px] shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                            >
+                              {accepting ? <Loader2 className="size-3 animate-spin mr-2" /> : <CheckCircle2 className="size-3.5 mr-2" />}
+                              <span className="whitespace-nowrap">Resolve Session</span>
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                ))}
+            </div>
+
+            {assignedSessions.length > SOS_ITEMS_PER_PAGE && (
+              <div className="pt-4">
+                <Pagination
+                  currentPage={sosPage}
+                  totalPages={Math.ceil(assignedSessions.length / SOS_ITEMS_PER_PAGE)}
+                  onPageChange={setSosPage}
+                  totalItems={assignedSessions.length}
+                  itemsPerPage={SOS_ITEMS_PER_PAGE}
+                />
+              </div>
+            )}
+          </section>
+        )}
+
+
+        {/* Case Management */}
+        <Tabs value={caseTab} onValueChange={setCaseTab} className="space-y-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between border-b border-titanium-800 pb-4">
+            <div>
+              <div className="flex items-center gap-3">
+                <h2 className="font-display text-2xl font-bold">Civil Matters</h2>
+                <button onClick={() => handleRefresh("civil")} className="p-1 text-titanium-600 hover:text-action transition-colors">
+                  <RefreshCw className={`size-3.5 ${refreshing === "civil" ? "animate-spin text-action" : ""}`} />
+                </button>
+              </div>
+              <p className="mt-1 text-sm text-titanium-500">Showing 10 most recent intakes.</p>
+            </div>
+            <TabsList className="bg-titanium-900/50 border border-titanium-800">
+              <TabsTrigger value="my-active" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-widest px-6 transition-all">
+                My Cases ({assignedCases.length})
+              </TabsTrigger>
+              <TabsTrigger value="pending-assignments" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-widest px-6 transition-all">
+                Assigned Cases ({pendingCases.length})
+              </TabsTrigger>
+            </TabsList>
           </div>
 
-          {assignedSessions.length > SOS_ITEMS_PER_PAGE && (
-            <div className="pt-4">
-              <Pagination
-                currentPage={sosPage}
-                totalPages={Math.ceil(assignedSessions.length / SOS_ITEMS_PER_PAGE)}
-                onPageChange={setSosPage}
-                totalItems={assignedSessions.length}
-                itemsPerPage={SOS_ITEMS_PER_PAGE}
-              />
-            </div>
-          )}
-        </section>
-      )}
-
-
-      {/* Case Management */}
-      <Tabs value={caseTab} onValueChange={setCaseTab} className="space-y-8">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between border-b border-titanium-800 pb-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="font-display text-2xl font-bold">Civil Matters</h2>
-              <button onClick={() => handleRefresh("civil")} className="p-1 text-titanium-600 hover:text-action transition-colors">
-                <RefreshCw className={`size-3.5 ${refreshing === "civil" ? "animate-spin text-action" : ""}`} />
-              </button>
-            </div>
-            <p className="mt-1 text-sm text-titanium-500">Showing 10 most recent intakes.</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Select value={cityFilter} onValueChange={setCityFilter}>
+              <SelectTrigger className="w-full sm:w-auto sm:min-w-[240px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest h-10">
+                <SelectValue placeholder="City Filter" />
+              </SelectTrigger>
+              <SelectContent className="border-titanium-800 bg-titanium-950 text-titanium-200">
+                <SelectItem value="all">All Available Cities</SelectItem>
+                {uniqueCities.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <TabsList className="bg-titanium-900/50 border border-titanium-800">
-            <TabsTrigger value="my-active" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-widest px-6 transition-all">
-              My Cases ({assignedCases.length})
-            </TabsTrigger>
-            <TabsTrigger value="pending-assignments" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-widest px-6 transition-all">
-              Assigned Cases ({pendingCases.length})
-            </TabsTrigger>
-          </TabsList>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Select value={cityFilter} onValueChange={setCityFilter}>
-            <SelectTrigger className="w-full sm:w-auto sm:min-w-[240px] border-titanium-800 bg-titanium-900/50 text-titanium-300 font-mono text-[10px] uppercase tracking-widest h-10">
-              <SelectValue placeholder="City Filter" />
-            </SelectTrigger>
-            <SelectContent className="border-titanium-800 bg-titanium-950 text-titanium-200">
-              <SelectItem value="all">All Available Cities</SelectItem>
-              {uniqueCities.map(c => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-        </div>
-
-
-        <TabsContent value="my-active" className="grid gap-4 focus-visible:ring-0">
-          {assignedCases.filter(i => filterByLocation(i.user)).length === 0 ? (
-            <div className="rounded-lg border border-dashed border-titanium-800 p-12 text-center text-titanium-600 font-mono text-[10px] uppercase tracking-widest">
-              You have no active cases matching location filters
+          <TabsContent value="my-active" className="grid gap-4 focus-visible:ring-0">
+            {assignedCases.filter(i => filterByLocation(i.user)).length === 0 ? (
+              <div className="rounded-lg border border-dashed border-titanium-800 p-12 text-center text-titanium-600 font-mono text-[10px] uppercase tracking-widest">
+                You have no active cases matching location filters
+              </div>
+            ) : (
+              <>
+                {assignedCases.filter(i => filterByLocation(i.user)).map((i) => (
+                  <CaseCard key={i.id} i={i} onReview={() => setSelectedIntake(i)} />
+                ))}
+              </>
+            )}
+            <div className="mt-4 text-center">
+              <Button asChild variant="link" className="font-mono text-[10px] uppercase tracking-widest text-titanium-500 hover:text-action">
+                <Link href="/app/attorney/cases">View All<ChevronRight className="size-3 ml-1" /></Link>
+              </Button>
             </div>
-          ) : (
-            <>
-              {assignedCases.filter(i => filterByLocation(i.user)).map((i) => (
-                <CaseCard key={i.id} i={i} onReview={() => setSelectedIntake(i)} />
-              ))}
-            </>
-          )}
-          <div className="mt-4 text-center">
-            <Button asChild variant="link" className="font-mono text-[10px] uppercase tracking-widest text-titanium-500 hover:text-action">
-              <Link href="/app/attorney/cases">View All<ChevronRight className="size-3 ml-1" /></Link>
-            </Button>
-          </div>
-        </TabsContent>
+          </TabsContent>
 
-        <TabsContent value="pending-assignments" className="grid gap-4 focus-visible:ring-0">
-          {pendingCases.filter(i => filterByLocation(i.user)).length === 0 ? (
-            <div className="rounded-lg border border-dashed border-titanium-800 p-12 text-center text-titanium-600 font-mono text-[10px] uppercase tracking-widest">
-              You have no assigned cases awaiting acceptance
-            </div>
-          ) : (
-            <>
-              {pendingCases.filter(i => filterByLocation(i.user)).map((i) => (
-                <CaseCard key={i.id} i={i} onReview={() => setSelectedIntake(i)} onAccept={() => handleAcceptCivilCase(i.id)} onReject={() => handleRejectCase(i.id)} />
-              ))}
-            </>
-          )}
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="pending-assignments" className="grid gap-4 focus-visible:ring-0">
+            {pendingCases.filter(i => filterByLocation(i.user)).length === 0 ? (
+              <div className="rounded-lg border border-dashed border-titanium-800 p-12 text-center text-titanium-600 font-mono text-[10px] uppercase tracking-widest">
+                You have no assigned cases awaiting acceptance
+              </div>
+            ) : (
+              <>
+                {pendingCases.filter(i => filterByLocation(i.user)).map((i) => (
+                  <CaseCard key={i.id} i={i} onReview={() => setSelectedIntake(i)} onAccept={() => handleAcceptCivilCase(i.id)} onReject={() => handleRejectCase(i.id)} />
+                ))}
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
 
       {/* Footer Branding */}
       <div className="rounded-lg border border-titanium-800 bg-titanium-950/50 p-6 text-center">
@@ -804,10 +811,18 @@ export default function AttorneyDashboard() {
                 >
                   Close File
                 </Button>
-                {(selectedIntake.status === "active") && (
+                {selectedIntake?.status === "active" && selectedIntake?.user?.id && (
+                  <Button
+                    onClick={() => router.push(`/app/messages?user=${selectedIntake.user.id}&name=${encodeURIComponent(selectedIntake.user.full_name || "Client")}&role=USER`)}
+                    className="w-full sm:w-auto bg-action hover:bg-action/90 text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest"
+                  >
+                    Message Client
+                  </Button>
+                )}
+                {(selectedIntake?.status === "active") && (
                   <Button
                     onClick={() => {
-                      if (selectedIntake.is_sos) {
+                      if (selectedIntake?.is_sos) {
                         handleResolveSos(selectedIntake.id);
                         setSelectedIntake(null);
                       } else {
@@ -859,55 +874,31 @@ export default function AttorneyDashboard() {
         )}
       </AnimatePresence>
 
-      {/* Rejection Modal */}
-      <Dialog open={!!rejectCaseId} onOpenChange={(open) => {
-        if (!open) {
-          setRejectCaseId(null);
-          setRejectReason("");
-        }
-      }}>
+      <Dialog open={!!rejectCaseId} onOpenChange={(open) => !open && setRejectCaseId(null)}>
         <DialogContent className="border-titanium-800 bg-titanium-950 text-titanium-50 sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-display text-xl text-titanium-50">Reject Case Assignment</DialogTitle>
+            <DialogTitle className="font-display text-xl text-titanium-50">Reject Assignment</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <p className="text-sm text-titanium-400">
-              Please provide a reason for rejecting this case. This information will be logged for administrative review.
+              Please provide a reason for rejecting this case.
             </p>
-            <div className="space-y-2">
-              <label className="text-xs font-mono uppercase tracking-widest text-titanium-500">Rejection Reason</label>
-              <textarea
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="e.g. Conflict of interest, outside of specialty, current workload..."
-                className="w-full min-h-[100px] rounded-md border border-titanium-800 bg-titanium-900/50 p-3 text-sm text-titanium-200 placeholder:text-titanium-600 focus:border-action focus:outline-none"
-              />
-            </div>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Rejection reason..."
+              className="w-full min-h-[100px] rounded-md border border-titanium-800 bg-titanium-900/50 p-3 text-sm text-titanium-200"
+            />
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-3 sm:gap-0 sm:justify-between">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setRejectCaseId(null);
-                setRejectReason("");
-              }}
-              disabled={isRejecting}
-              className="border-titanium-700 bg-titanium-900 font-mono text-[10px] uppercase tracking-widest text-titanium-300 w-full sm:w-auto"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={submitRejectCase}
-              disabled={isRejecting || !rejectReason.trim()}
-              className="bg-red-500 hover:bg-red-600 text-white font-mono text-[10px] uppercase tracking-widest w-full sm:w-auto"
-            >
-              {isRejecting ? <Loader2 className="mr-2 size-3 animate-spin" /> : null}
-              Confirm Rejection
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRejectCaseId(null)}>Cancel</Button>
+            <Button className="bg-red-500 hover:bg-red-600" onClick={submitRejectCase} disabled={isRejecting || !rejectReason.trim()}>
+              {isRejecting ? <Loader2 className="animate-spin" /> : "Confirm Rejection"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </motion.div >
+    </motion.div>
   );
 }
 

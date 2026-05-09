@@ -19,6 +19,15 @@ export async function GET(req: Request) {
     const sessions = await prisma.encounterSession.findMany({
       where: { user_id: payload.id as string },
       orderBy: { started_at: "desc" },
+      include: {
+        assigned_attorney: {
+          select: {
+            id: true,
+            full_name: true,
+            email: true,
+          }
+        }
+      }
     });
 
     const intakes = await prisma.civilIntake.findMany({
@@ -31,6 +40,7 @@ export async function GET(req: Request) {
       include: {
         assigned_attorney: {
           select: {
+            id: true,
             full_name: true,
             email: true,
           }
