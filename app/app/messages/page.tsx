@@ -1,14 +1,27 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import ChatDashboard from "@/components/ChatDashboard";
 import { motion } from "framer-motion";
 import { MessageSquare, Shield } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 export default function MessagesPage() {
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+    }, 1000);
+  }, []);
+
+  if (loading) {
+    return <LoadingScreen message="Loading messages" />;
+  }
 
   return (
     <motion.div

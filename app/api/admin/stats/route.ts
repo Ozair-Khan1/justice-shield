@@ -12,9 +12,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const [userCount, sessionCount, intakeCount, alertCount, vendorCount, pendingVendors] =
+    const [userCount, attorneyCount, sessionCount, intakeCount, alertCount, vendorCount, pendingVendors] =
       await Promise.all([
-        prisma.user.count(),
+        prisma.user.count({ where: { role: "USER" } }),
+        prisma.user.count({ where: { role: "ATTORNEY" } }),
         prisma.encounterSession.count(),
         prisma.civilIntake.count(),
         prisma.emergencyAlert.count(),
@@ -25,6 +26,7 @@ export async function GET(req: Request) {
     const recentUsers = await prisma.user.findMany({
       orderBy: { created_at: "desc" },
       where: {
+        role: { in: ["USER"] },
         password_hash: { not: `LOCKED${process.env.LOCKED_PASS}` }
       },
       take: 10,
@@ -152,7 +154,7 @@ export async function GET(req: Request) {
     }));
 
     return NextResponse.json({
-      stats: { userCount, sessionCount, intakeCount, alertCount, vendorCount, pendingVendors },
+      stats: { userCount, attorneyCount, sessionCount, intakeCount, alertCount, vendorCount, pendingVendors },
       recentUsers,
       recentVendors,
       sosSessions,

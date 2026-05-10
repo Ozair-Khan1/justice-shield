@@ -15,6 +15,7 @@ export async function GET(req: Request) {
     const users = await prisma.user.findMany({
       orderBy: { created_at: "desc" },
       where: {
+        role: "USER",
         password_hash: { not: `LOCKED${process.env.LOCKED_PASS}` }
       },
       select: {
@@ -23,9 +24,12 @@ export async function GET(req: Request) {
         role: true,
         full_name: true,
         phone: true,
+        city: true,
         country: true,
         membership_tier: true,
         created_at: true,
+        civil_intakes: { select: { status: true } },
+        encounter_sessions: { select: { status: true } },
         _count: {
           select: {
             encounter_sessions: true,
@@ -36,7 +40,28 @@ export async function GET(req: Request) {
       },
     });
 
-    return NextResponse.json({ users });
+    const enrichedUsers = users.map((u) => {
+      const allCases = [
+        ...u.civil_intakes,
+        ...u.encounter_sessions
+      ];
+      const case_stats = {
+        pending: allCases.filter(c => c.status === "pending").length,
+        active: allCases.filter(c => c.status === "active").length,
+        assigned: allCases.filter(c => c.status === "assigned").length,
+        resolved: allCases.filter(c => c.status === "resolved").length,
+        rejected: allCases.filter(c => c.status === "rejected").length,
+      };
+
+      const {
+        civil_intakes,
+        encounter_sessions,
+        ...userWithoutArrays
+      } = u;
+      return { ...userWithoutArrays, case_stats };
+    });
+
+    return NextResponse.json({ users: enrichedUsers });
   } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

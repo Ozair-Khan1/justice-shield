@@ -6,8 +6,9 @@ import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
-interface SessionRow { id: string; encounter_type: string; status: string; started_at: string }
-interface IntakeRow { id: string; matter_type: string; subject: string; status: string; created_at: string }
+interface AttorneyRef { id: string; full_name: string | null; }
+interface SessionRow { id: string; encounter_type: string; status: string; started_at: string; assigned_attorney?: AttorneyRef; }
+interface IntakeRow { id: string; matter_type: string; subject: string; status: string; created_at: string; assigned_attorney?: AttorneyRef; }
 
 export default function AppDashboard() {
   const { user } = useAuth();
@@ -85,7 +86,17 @@ export default function AppDashboard() {
                   <div className="font-mono text-[10px] uppercase tracking-widest text-action">SOS · {s.encounter_type.replace("_", " ")}</div>
                   <div className="mt-1 text-sm">{new Date(s.started_at).toLocaleString()}</div>
                 </div>
-                <span className="rounded-sm bg-titanium-800 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-titanium-300">{s.status}</span>
+                <div className="flex items-center gap-3">
+                  <span className="rounded-sm bg-titanium-800 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-titanium-300">{s.status}</span>
+                  {s.status === "active" || s.status === "resolved" && s.assigned_attorney?.id && user?.role !== "ADMIN" && (
+                    <Link
+                      href={`/app/messages?user=${s.assigned_attorney.id}&name=${encodeURIComponent(s.assigned_attorney.full_name || "Attorney")}&role=ATTORNEY`}
+                      className="rounded-sm border border-titanium-700 bg-action/10 text-action hover:bg-action hover:text-white px-3 py-1 font-mono text-[10px] uppercase tracking-widest transition-colors"
+                    >
+                      Message
+                    </Link>
+                  )}
+                </div>
               </div>
             ))}
             {intakes.map((i) => (
@@ -94,7 +105,17 @@ export default function AppDashboard() {
                   <div className="font-mono text-[10px] uppercase tracking-widest text-titanium-400">CIVIL · {i.matter_type.replace("_", " ")}</div>
                   <div className="mt-1 text-sm">{i.subject}</div>
                 </div>
-                <span className="rounded-sm bg-titanium-800 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-titanium-300">{i.status}</span>
+                <div className="flex items-center gap-3">
+                  <span className="rounded-sm bg-titanium-800 px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-titanium-300">{i.status}</span>
+                  {i.status === "active" && i.assigned_attorney?.id && user?.role !== "ADMIN" && (
+                    <Link
+                      href={`/app/messages?user=${i.assigned_attorney.id}&name=${encodeURIComponent(i.assigned_attorney.full_name || "Attorney")}&role=ATTORNEY`}
+                      className="rounded-sm border border-titanium-700 bg-action/10 text-action hover:bg-action hover:text-white px-3 py-1 font-mono text-[10px] uppercase tracking-widest transition-colors"
+                    >
+                      Message
+                    </Link>
+                  )}
+                </div>
               </div>
             ))}
           </div>

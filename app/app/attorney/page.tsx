@@ -555,14 +555,15 @@ export default function AttorneyDashboard() {
                               </Button>
                             </>
                           ) : (
-                            <Button
-                              onClick={() => handleResolveSos(s.id)}
-                              disabled={accepting}
-                              className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-white h-11 md:h-12 px-6 font-bold uppercase tracking-widest text-[10px] shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-                            >
-                              {accepting ? <Loader2 className="size-3 animate-spin mr-2" /> : <CheckCircle2 className="size-3.5 mr-2" />}
-                              <span className="whitespace-nowrap">Resolve Session</span>
-                            </Button>
+                            <>
+                              <Button
+                                onClick={() => router.push(`/app/messages?user=${s.user.id}&name=${encodeURIComponent(s.user.full_name || "Member")}&role=USER`)}
+                                className="w-full md:w-auto bg-action hover:bg-action/90 text-white h-11 md:h-12 px-6 font-bold uppercase tracking-widest text-[10px] shadow-[0_0_15px_rgba(202,152,73,0.2)]"
+                              >
+                                <MessageSquare className="size-3.5 mr-2" />
+                                <span className="whitespace-nowrap">Message</span>
+                              </Button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -858,6 +859,7 @@ export default function AttorneyDashboard() {
                           setSelectedIntake(null);
                         } else {
                           handleAcceptCivilCase(selectedIntake.id);
+                          setSelectedIntake(null);
                         }
                       }}
                       disabled={accepting || isRejecting}
@@ -955,6 +957,16 @@ function CaseCard({ i, onReview, onAccept, onReject }: { i: CivilIntake; onRevie
                 className="bg-action text-action-foreground hover:bg-action/90 h-10 px-6 font-mono text-[10px] font-bold uppercase tracking-widest transition-all"
               >
                 <ShieldCheck className="mr-2 size-3" /> Accept
+              </Button>
+            )}
+            {i.status === "active" && (
+              <Button
+                asChild
+                className="bg-action text-action-foreground hover:bg-action/90 h-10 px-6 font-mono text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer"
+              >
+                <Link href={`/app/messages?user=${i.user.id}&name=${encodeURIComponent(i.user.full_name || i.user.email)}&role=USER`}>
+                  <MessageSquare className="mr-2 size-3" /> Message
+                </Link>
               </Button>
             )}
             <Button

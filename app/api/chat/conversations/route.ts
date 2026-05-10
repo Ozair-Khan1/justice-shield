@@ -33,6 +33,8 @@ export async function GET(req: Request) {
     const threadMap = new Map<string, {
       participant: { id: string; full_name: string | null; email: string; role: string };
       lastMessage: string;
+      lastMessageSenderId: string;
+      lastMessageIsRead: boolean;
       updatedAt: Date;
       unreadCount: number;
     }>();
@@ -45,6 +47,8 @@ export async function GET(req: Request) {
         threadMap.set(other.id, {
           participant: other,
           lastMessage: msg.content,
+          lastMessageSenderId: msg.sender_id,
+          lastMessageIsRead: msg.is_read,
           updatedAt: msg.created_at,
           unreadCount: (!msg.is_read && msg.receiver_id === userId) ? 1 : 0,
         });
@@ -55,6 +59,7 @@ export async function GET(req: Request) {
       }
     }
 
+
     const conversations = Array.from(threadMap.entries()).map(([participantId, thread]) => ({
       id: participantId, // use participant's userId as the conversation identifier
       participant: thread.participant,
@@ -62,6 +67,8 @@ export async function GET(req: Request) {
       updatedAt: thread.updatedAt,
       unreadCount: thread.unreadCount,
     }));
+
+    conversations.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
     return NextResponse.json({ conversations });
   } catch (error) {

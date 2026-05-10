@@ -227,6 +227,33 @@ export default function CivilIntakePage() {
     }
   };
 
+  const saveDraft = async () => {
+    try {
+      const res = await fetch("/api/civil/intake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: draftId,
+          matterType: matterType.toLowerCase(),
+          urgency,
+          subject,
+          description,
+          preferredContact,
+          metadata,
+          opposingParty,
+          opposingPartyLocation,
+          status: "draft"
+        }),
+      });
+      const data = await res.json();
+      if (data.intake?.id) {
+        setDraftId(data.intake.id);
+      }
+    } catch (err) {
+      console.error("Failed to save draft:", err);
+    }
+  }
+
   if (loading) {
     return (
       <LoadingScreen />
@@ -654,7 +681,7 @@ export default function CivilIntakePage() {
                 variant="link"
                 className="h-auto p-0 font-mono text-[10px] uppercase tracking-widest text-action hover:text-action/80"
               >
-                <Link href="/app/account">Go to Settings</Link>
+                <Link href="/app/account" onClick={() => saveDraft()}>Go to Settings</Link>
               </Button>
             </motion.div>
           )}

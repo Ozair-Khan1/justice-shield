@@ -269,3 +269,37 @@ export async function sendMarketingProfileSetupCompleteEmail(email: string, name
   return transporter.sendMail(mailOptions);
 }
 
+export async function sendContactReplyEmail(email: string, name: string, originalMessage: string, adminReply: string) {
+  const mailOptions = {
+    from: `"Justice Shield" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+    to: email,
+    subject: "Response to Your Inquiry - Justice Shield",
+    attachments,
+    html: wrapEmail(`
+      <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Message Response</h2>
+      <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: left;">
+        Hello ${name},
+      </p>
+      <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: left; margin-bottom: 24px;">
+        Thank you for contacting Justice Shield. Here is our response to your inquiry:
+      </p>
+      
+      <div style="background-color: ${THEME.card}; border: 1px solid ${THEME.border}; padding: 24px; border-radius: 4px; margin: 32px 0;">
+        <h3 style="color: ${THEME.accent}; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin-top: 0;">Our Reply</h3>
+        <p style="color: ${THEME.text}; font-size: 14px; line-height: 1.6; margin-bottom: 0; white-space: pre-wrap;">${adminReply}</p>
+      </div>
+
+      <div style="background-color: ${THEME.bg}; border-left: 3px solid ${THEME.border}; padding: 16px 24px; margin: 32px 0; opacity: 0.8;">
+        <h4 style="color: ${THEME.muted}; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 8px;">Your Original Message</h4>
+        <p style="color: ${THEME.footer}; font-size: 13px; line-height: 1.5; margin-bottom: 0; font-style: italic; white-space: pre-wrap;">${originalMessage}</p>
+      </div>
+      
+      <div style="text-align: center; margin: 40px 0;">
+        <a href="${process.env.WEB_URL}" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Visit Justice Shield</a>
+      </div>
+    `),
+  };
+
+  return transporter.sendMail(mailOptions);
+}
+

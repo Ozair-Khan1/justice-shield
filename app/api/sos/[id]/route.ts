@@ -76,7 +76,7 @@ export async function PATCH(
       data,
       include: {
         assigned_attorney: {
-          select: { full_name: true }
+          select: { full_name: true, email: true, phone: true }
         }
       }
     });

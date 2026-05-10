@@ -173,6 +173,7 @@ model ContactMessage {
   name       String
   email      String
   message    String
+  hasReplied Boolean  @default(false)
   status     String   @default("unread") // "unread", "read", "archived"
   created_at DateTime @default(now())
 

@@ -35,6 +35,7 @@ export async function GET(req: Request) {
       include: {
         user: {
           select: {
+            id: true,
             full_name: true,
             email: true,
             phone: true,
@@ -52,6 +53,7 @@ export async function GET(req: Request) {
       include: {
         user: {
           select: {
+            id: true,
             full_name: true,
             email: true,
             phone: true,

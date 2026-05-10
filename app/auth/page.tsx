@@ -279,9 +279,9 @@ export default function AuthPage() {
                     className="phone-input-custom mt-2"
                   />
                 </label>
-                <Field label="Email" type="email" value={email} onChange={setEmail} />
+                <Field label="Email" placeholder="Enter your email" type="email" value={email} onChange={setEmail} />
                 <div className="space-y-1">
-                  <Field label="Password" type="password" value={password} onChange={setPassword} />
+                  <Field label="Password" placeholder="Enter your password" type="password" value={password} onChange={setPassword} />
                 </div>
               </>
             )}
@@ -324,9 +324,9 @@ export default function AuthPage() {
 
             {mode === "signin" && (
               <>
-                <Field label="Email" type="email" value={email} onChange={setEmail} required />
+                <Field label="Email" placeholder="Enter your email" type="email" value={email} onChange={setEmail} required />
                 <div className="space-y-3">
-                  <Field label="Password" type="password" value={password} onChange={setPassword} />
+                  <Field label="Password" placeholder="Enter your password" type="password" value={password} onChange={setPassword} />
                   <div className="flex justify-end">
                     <button
                       type="button"

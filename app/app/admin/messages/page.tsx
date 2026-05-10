@@ -23,6 +23,7 @@ interface ContactMessage {
   name: string;
   email: string;
   message: string;
+  hasReplied: boolean;
   status: "unread" | "read" | "archived";
   created_at: string;
 }
@@ -135,8 +136,8 @@ export default function AdminMessagesPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={`group relative flex items-center gap-2 px-6 py-4 transition-all ${activeTab === tab.id
-                  ? "text-titanium-50"
-                  : "text-titanium-500 hover:text-titanium-300"
+                ? "text-titanium-50"
+                : "text-titanium-500 hover:text-titanium-300"
                 }`}
             >
               <tab.icon className={`size-4 ${activeTab === tab.id ? tab.color : "text-titanium-600"}`} />
@@ -145,8 +146,8 @@ export default function AdminMessagesPage() {
               </span>
               {tab.count > 0 && (
                 <span className={`flex size-5 items-center justify-center rounded-full text-[9px] font-bold ring-1 ${activeTab === tab.id
-                    ? "bg-titanium-50 text-titanium-950 ring-titanium-50"
-                    : "bg-titanium-800 text-titanium-400 ring-titanium-700"
+                  ? "bg-titanium-50 text-titanium-950 ring-titanium-50"
+                  : "bg-titanium-800 text-titanium-400 ring-titanium-700"
                   }`}>
                   {tab.count}
                 </span>
@@ -199,6 +200,9 @@ export default function AdminMessagesPage() {
                     msg={msg}
                     onAction={(action) => handleAction(msg.id, action)}
                     isActioning={actioningId === msg.id}
+                    onReplySuccess={(id) => {
+                      setMessages(msgs => msgs.map(m => m.id === id ? { ...m, status: "read", hasReplied: true } : m));
+                    }}
                   />
                 ))}
               </motion.div>
@@ -209,16 +213,55 @@ export default function AdminMessagesPage() {
     </motion.div>
   );
 }
+import { Send, X } from "lucide-react";
 
 function MessageCard({
   msg,
   onAction,
-  isActioning
+  isActioning,
+  onReplySuccess
 }: {
   msg: ContactMessage;
   onAction: (s: "read" | "archived" | "delete") => void;
   isActioning: boolean;
+  onReplySuccess: (id: string) => void;
 }) {
+  const [isReplying, setIsReplying] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+  const [isSendingReply, setIsSendingReply] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSendReply = async () => {
+    setError(null);
+    if (!replyContent) {
+      setError("Reply message is required");
+      return;
+    } else if (replyContent.trim().length < 5) {
+      setError("Reply message must be at least 5 characters long");
+      return;
+    }
+
+    setIsSendingReply(true);
+    try {
+      const res = await fetch("/api/admin/messages/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: msg.id, replyMessage: replyContent, hasReplied: true })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      setIsReplying(false);
+      setReplyContent("");
+      alert("Reply sent successfully!");
+      onReplySuccess(msg.id);
+    } catch (err: any) {
+      setError(err.message || "Failed to send reply");
+    } finally {
+      setIsSendingReply(false);
+    }
+  };
+
   return (
     <div className={`group relative overflow-hidden rounded-sm border border-titanium-800 transition-all hover:border-titanium-700 ${msg.status === 'unread' ? 'bg-titanium-900/40' : 'bg-titanium-950/20'
       } p-6 sm:p-8`}>
@@ -245,12 +288,59 @@ function MessageCard({
           <div className="w-full overflow-hidden rounded-sm border border-titanium-800/50 bg-titanium-950/50 p-6 text-sm leading-relaxed text-titanium-300 whitespace-pre-wrap break-words">
             {msg.message}
           </div>
+
+          {/* Reply Interface */}
+          {isReplying && (
+            <div className="mt-4 border border-titanium-700 bg-titanium-900/50 rounded-lg p-4 space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="font-mono text-[10px] uppercase tracking-widest text-titanium-400">Replying to {msg.name}</span>
+                <button onClick={() => setIsReplying(false)} className="text-titanium-500 hover:text-white transition-colors">
+                  <X className="size-4" />
+                </button>
+              </div>
+              <textarea
+                value={replyContent}
+                disabled={isSendingReply}
+                onChange={(e) => { setReplyContent(e.target.value); setError(null) }}
+                placeholder="Type your response here..."
+                className="w-full min-h-[120px] bg-titanium-950 border border-titanium-800 rounded-md p-3 text-sm text-titanium-50 focus:ring-action focus:border-action transition-colors resize-y"
+              />
+              {error && (
+                <div className="animate-shake rounded-sm border border-red-500/40 bg-red-500/10 p-3 font-mono text-xs text-red-500">
+                  <div className="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-alert-circle"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></svg>
+                    <span>{error}</span>
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSendReply}
+                  disabled={isSendingReply}
+                  className="flex items-center gap-2 bg-action text-white px-4 py-2 rounded-md text-xs font-bold uppercase tracking-widest hover:bg-action/90 disabled:opacity-50 transition-colors"
+                >
+                  {isSendingReply ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                  Send
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-2 justify-center lg:border-l lg:border-titanium-800 lg:pl-8">
+          {!isReplying && msg.hasReplied === false && (
+            <button
+              onClick={() => setIsReplying(true)}
+              className="flex items-center justify-center gap-2 rounded-sm border border-action/30 bg-action/10 px-6 py-4 font-mono text-[10px] font-bold uppercase tracking-widest text-action transition-all hover:bg-action hover:text-white disabled:opacity-50"
+            >
+              <Send className="size-3" />
+              Reply
+            </button>
+          )}
+
           {msg.status === "unread" && (
             <button
-              disabled={isActioning}
+              disabled={isActioning || isSendingReply}
               onClick={() => onAction("read")}
               className="flex items-center justify-center gap-2 rounded-sm bg-action px-6 py-4 font-mono text-[10px] font-bold uppercase tracking-widest text-action-foreground transition-all hover:bg-action/90 disabled:opacity-50"
             >
@@ -260,7 +350,7 @@ function MessageCard({
           )}
           {msg.status !== "archived" && (
             <button
-              disabled={isActioning}
+              disabled={isActioning || isSendingReply}
               onClick={() => onAction("archived")}
               className="flex items-center justify-center gap-2 rounded-sm border border-titanium-800 bg-titanium-900/50 px-6 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-400 transition-all hover:border-titanium-700 hover:text-titanium-100 disabled:opacity-50"
             >
@@ -270,7 +360,7 @@ function MessageCard({
           )}
           {(msg.status === "read" || msg.status === "archived") && (
             <button
-              disabled={isActioning}
+              disabled={isActioning || isSendingReply}
               onClick={() => onAction("delete")}
               className="flex items-center justify-center gap-2 rounded-sm border border-red-500/20 bg-red-500/5 px-6 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-red-500/70 transition-all hover:border-red-500 hover:text-red-500 disabled:opacity-50"
             >

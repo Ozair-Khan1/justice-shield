@@ -26,6 +26,15 @@ export async function POST(
       return NextResponse.json({ error: "Intake not found or unauthorized" }, { status: 404 });
     }
 
+    const attorney = await prisma.user.findUnique({
+      where: { id: attorneyId },
+      select: { full_name: true, email: true, phone: true, firm_name: true, role: true, specialties: true }
+    });
+
+    if (!attorney) {
+      return NextResponse.json({ error: "Attorney not found" }, { status: 404 });
+    }
+
     // Update the intake with the assigned attorney
     const updatedIntake = await prisma.civilIntake.update({
       where: { id },
@@ -33,6 +42,15 @@ export async function POST(
         assigned_attorney_id: attorneyId,
         status: "assigned", // Immediately mark as assigned
       },
+      include: {
+        assigned_attorney: {
+          select: {
+            full_name: true,
+            email: true,
+            phone: true
+          }
+        }
+      }
     });
 
     return NextResponse.json({ success: true, intake: updatedIntake });

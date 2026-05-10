@@ -317,16 +317,18 @@ export default function CasesPage() {
                                 </div>
                                 <ShieldCheck className="size-5 text-emerald-500" />
                               </div>
-                              <Button
-                                onClick={() => router.push(`/app/messages?user=${c.attorney?.id}&name=${encodeURIComponent(c.attorney?.full_name || "Attorney")}&role=ATTORNEY`)}
-                                className="bg-action hover:bg-action/90 text-white h-10 sm:h-[50px] px-6 font-mono text-[10px] font-bold uppercase tracking-widest"
-                              >
-                                Message
-                              </Button>
+                              {c.status === "active" || c.status === "resolved" && c.attorney.id && user?.role !== "ADMIN" && (
+                                <Button
+                                  onClick={() => router.push(`/app/messages?user=${c.attorney?.id}&name=${encodeURIComponent(c.attorney?.full_name || "Attorney")}&role=ATTORNEY`)}
+                                  className="bg-action hover:bg-action/90 text-white h-10 sm:h-[50px] px-6 font-mono text-[10px] font-bold uppercase tracking-widest"
+                                >
+                                  Message
+                                </Button>
+                              )}
                             </div>
                           )}
 
-                          {tab === "active" && !c.attorney && (
+                          {tab === "pending" && !c.attorney && (
                             <div className="flex items-center gap-3 rounded-sm border border-amber-500/20 bg-amber-500/5 px-4 py-2">
                               <div className="font-mono text-[9px] uppercase tracking-widest text-amber-500">Awaiting Assignment</div>
                               <Loader2 className="size-4 text-amber-500 animate-spin" />

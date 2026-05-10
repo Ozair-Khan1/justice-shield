@@ -12,7 +12,7 @@ export default function HomePage() {
       <main>
         {/* HERO */}
         <section className="relative border-b border-titanium-800">
-          <div className="absolute inset-0 tactical-grid opacity-40 [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
+          <div className="absolute inset-0 tactical-grid opacity-40 mask-[radial-gradient(ellipse_at_center,black,transparent_70%)]" />
           <div className="relative items-center justify-center mx-auto grid max-w-7xl gap-16 px-6 pt-16 pb-24 lg:grid-cols-2 lg:items-center lg:pt-24">
             <div className="space-y-8 w-auto">
               <div className="inline-flex items-center gap-2 rounded-full border border-action/30 bg-action/5 px-3 py-1">

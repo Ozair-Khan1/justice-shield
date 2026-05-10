@@ -27,6 +27,7 @@ import {
 
 interface Stats {
   userCount: number;
+  attorneyCount: number;
   sessionCount: number;
   intakeCount: number;
   alertCount: number;
@@ -303,10 +304,10 @@ export default function AdminDashboard() {
 
   const statCards = [
     { id: "users", label: "Total Users", value: stats?.userCount ?? 0, icon: Users, color: "text-blue-400", href: "/app/admin/users" },
+    { id: "attorneys", label: "Attorney Network", value: stats?.attorneyCount ?? 0, icon: Scale, color: "text-emerald-400", href: "/app/admin/attorneys" },
     { id: "sos", label: "SOS Sessions", value: stats?.sessionCount ?? 0, icon: Shield, color: "text-red-400" },
     { id: "civil", label: "Civil Intakes", value: stats?.intakeCount ?? 0, icon: FileText, color: "text-amber-400" },
     { id: "alerts", label: "Emergency Alerts", value: stats?.alertCount ?? 0, icon: AlertTriangle, color: "text-orange-400" },
-    { id: "vendors", label: "Vendor Apps", value: stats?.vendorCount ?? 0, icon: Briefcase, color: "text-emerald-400", href: "/app/admin/vendors" },
     { id: "pending", label: "Pending Vendors", value: stats?.pendingVendors ?? 0, icon: Clock, color: "text-purple-400", href: "/app/admin/vendors" },
   ];
 

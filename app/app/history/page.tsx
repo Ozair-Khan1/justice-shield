@@ -48,6 +48,12 @@ interface Session {
   location_lat: number | null;
   location_lng: number | null;
   location_address: string | null;
+  assigned_attorney?: {
+    id: string;
+    full_name: string | null;
+    email: string | null;
+    phone: string | null;
+  } | null;
 }
 
 interface Intake {
@@ -63,6 +69,7 @@ interface Intake {
     id: string;
     full_name: string | null;
     email: string | null;
+    phone?: string | null;
   } | null;
   opposing_party: string | null;
   opposing_party_location: string | null;
@@ -320,7 +327,7 @@ export default function HistoryPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 sm:flex-col sm:items-end mt-2 sm:mt-0 pt-3 sm:pt-0 border-t border-titanium-800/50 sm:border-0">
+                      <div className="flex flex-col sm:flex-row items-center gap-4 sm:items-end mt-4 sm:mt-0 pt-4 sm:pt-0 border-t border-titanium-800/50 sm:border-0">
                         <Badge className={`font-mono text-[9px] uppercase tracking-[0.2em] py-1 px-4 w-full sm:w-auto text-center justify-center h-9 items-center ${s.status === "pending" ? "bg-amber-500 text-black" :
                           s.status === "active" ? "bg-action text-action-foreground" :
                             "bg-titanium-800 text-titanium-300"
@@ -341,7 +348,12 @@ export default function HistoryPage() {
                               preferred_contact: "Direct Link",
                               status: s.status,
                               created_at: s.started_at,
-                              assigned_attorney: s.attorney_name ? { id: s.assigned_attorney_id || "", full_name: s.attorney_name, email: null } : null,
+                              assigned_attorney: s.assigned_attorney ? {
+                                id: s.assigned_attorney.id,
+                                full_name: s.assigned_attorney.full_name || s.attorney_name,
+                                email: s.assigned_attorney.email,
+                                phone: s.assigned_attorney.phone
+                              } : null,
                               opposing_party: null,
                               opposing_party_location: null,
                               is_sos: true
@@ -349,8 +361,20 @@ export default function HistoryPage() {
                           }}
                           className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action hover:text-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all"
                         >
-                          View Details {s.status === "active" ? "& Chat" : ""}
+                          View Details
                         </Button>
+                        {(s.status === "active" || s.status === "resolved") && s.assigned_attorney_id && user?.role !== "ADMIN" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              router.push(`/app/messages?user=${s.assigned_attorney_id}&name=${encodeURIComponent(s.attorney_name || "Attorney")}?fromChat=true`);
+                            }}
+                            className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action hover:text-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all"
+                          >
+                            Message Attorney
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -416,15 +440,21 @@ export default function HistoryPage() {
                               </div>
                             )}
                             {i.opposing_party && (
-                              <div className="flex items-center gap-1.5">
-                                <Scale className="size-3 text-red-400" />
-                                <span className="text-titanium-400 truncate">Opposing: {i.opposing_party} {i.opposing_party_location ? `(${i.opposing_party_location})` : ""}</span>
+                              <div className="flex items-start gap-1.5 w-full sm:w-auto mt-1 sm:mt-0">
+                                <Scale className="size-3 text-red-400 shrink-0 mt-0.5" />
+                                <span className="text-titanium-400 break-words whitespace-normal leading-tight">Opposing: {i.opposing_party} {i.opposing_party_location ? `(${i.opposing_party_location})` : ""}</span>
                               </div>
                             )}
                           </div>
                         </div>
                       </div>
                       <div className="flex flex-col sm:flex-row items-center gap-4 sm:items-end mt-4 sm:mt-0 pt-4 sm:pt-0 border-t border-titanium-800/50 sm:border-0">
+                        <Badge className={`font-mono text-[9px] uppercase tracking-[0.2em] py-1 px-4 w-full sm:w-auto text-center justify-center h-9 items-center ${i.status === "pending" ? "bg-red-500 text-white" :
+                          i.status === "active" ? "bg-action text-white"
+                            : "bg-titanium-800 text-titanium-300"
+                          }`}>
+                          {i.status}
+                        </Badge>
                         <Button
                           variant="outline"
                           onClick={() => setSelectedIntake(i)}
@@ -432,12 +462,15 @@ export default function HistoryPage() {
                         >
                           View Details
                         </Button>
-                        <Badge className={`font-mono text-[9px] uppercase tracking-[0.2em] py-1 px-4 w-full sm:w-auto text-center justify-center h-9 items-center ${i.status === "pending" ? "bg-amber-500 text-black" :
-                          i.status === "assigned" ? "bg-action text-action-foreground" :
-                            "bg-titanium-800 text-titanium-300"
-                          }`}>
-                          {i.status}
-                        </Badge>
+                        {(i.status === "active" || i.status === "resolved") && (
+                          <Button
+                            variant="outline"
+                            onClick={() => router.push(`/app/messages?user=${i.assigned_attorney?.id}&name=${encodeURIComponent(i.assigned_attorney?.full_name || "Attorney")}&role=ATTORNEY`)}
+                            className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action hover:text-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all"
+                          >
+                            Message Attorney
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -510,7 +543,7 @@ export default function HistoryPage() {
                           <div className="size-7 md:size-8 rounded-sm bg-titanium-900 flex items-center justify-center border border-titanium-800">
                             <FileText className="size-3.5 md:size-4 text-action/70" />
                           </div>
-                          <span className="truncate">{selectedIntake.assigned_attorney.email}</span>
+                          <span className="truncate">{selectedIntake.assigned_attorney.email || selectedIntake.assigned_attorney.phone || "No contact info available"}</span>
                         </div>
                       </div>
                     ) : (
@@ -558,7 +591,7 @@ export default function HistoryPage() {
                   Close Record
                 </Button>
 
-                {(selectedIntake?.status === "active") && selectedIntake.assigned_attorney?.id && (
+                {(selectedIntake?.status === "active" || selectedIntake?.status === "resolved") && selectedIntake.assigned_attorney?.id && user?.role !== "ADMIN" && (
                   <Button
                     onClick={() => router.push(`/app/messages?user=${selectedIntake.assigned_attorney?.id}&name=${encodeURIComponent(selectedIntake.assigned_attorney?.full_name || "Attorney")}&role=ATTORNEY`)}
                     className="w-full sm:w-auto bg-action hover:bg-action/90 text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest"
@@ -571,6 +604,6 @@ export default function HistoryPage() {
           </div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </motion.div >
   );
 }

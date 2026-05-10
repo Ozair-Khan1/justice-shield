@@ -30,7 +30,7 @@ export async function PATCH(
             where: {
                 id,
                 user_id: payload.id as string,
-                status: { in: ["assigned", "pending"] }
+                status: { in: ["assigned", "pending", "active"] }
             },
             data: dataToUpdate
         });

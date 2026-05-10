@@ -63,6 +63,12 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
+    if (request.nextUrl.pathname === "/app/messages" && user.role === "ADMIN") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/app";
+      return NextResponse.redirect(url);
+    }
+
     // Protect /app/admin routes
     if ((request.nextUrl.pathname === "/app/admin" || request.nextUrl.pathname.startsWith("/app/admin/")) && user.role !== "ADMIN") {
       const url = request.nextUrl.clone();

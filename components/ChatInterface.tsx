@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { io, Socket } from "socket.io-client";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 interface Message {
   id: string;
@@ -24,11 +25,13 @@ interface Message {
 interface ChatInterfaceProps {
   receiverId: string;
   userId: string;
+  receiverName?: string | null;
+  receiverRole?: string;
 }
 
 const SOCKET_URL = "http://localhost:3001";
 
-export default function ChatInterface({ receiverId, userId }: ChatInterfaceProps) {
+export default function ChatInterface({ receiverId, userId, receiverName, receiverRole }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -41,6 +44,7 @@ export default function ChatInterface({ receiverId, userId }: ChatInterfaceProps
 
   useEffect(() => {
     fetchMessages();
+    const intervalId = setInterval(fetchMessages, 2000);
 
     const socket = io(SOCKET_URL);
     socketRef.current = socket;
@@ -70,6 +74,7 @@ export default function ChatInterface({ receiverId, userId }: ChatInterfaceProps
     });
 
     return () => {
+      clearInterval(intervalId);
       socket.disconnect();
     };
   }, [receiverId]);
@@ -89,7 +94,14 @@ export default function ChatInterface({ receiverId, userId }: ChatInterfaceProps
     try {
       const res = await fetch(`/api/chat/${receiverId}`, { credentials: "include" });
       const data = await res.json();
-      if (data.messages) setMessages(data.messages);
+      if (data.messages) {
+        setMessages((prev) => {
+          if (JSON.stringify(prev) !== JSON.stringify(data.messages)) {
+            return data.messages;
+          }
+          return prev;
+        });
+      }
     } catch (error) {
       console.error("Fetch messages error:", error);
     } finally {
@@ -126,7 +138,7 @@ export default function ChatInterface({ receiverId, userId }: ChatInterfaceProps
         setMessages((prev) => [...prev, data.message]);
         setNewMessage("");
         if (socketRef.current) {
-          socketRef.current.emit("send-message", { room: roomId, message: data.message });
+          socketRef.current.emit("send-message", { room: roomId, message: data.message, receiverId });
         }
       }
     } catch (error) {
@@ -145,7 +157,10 @@ export default function ChatInterface({ receiverId, userId }: ChatInterfaceProps
             <MessageSquare className="size-5 text-action" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-titanium-50 uppercase tracking-wider">Messages</h3>
+            <h3 className="text-sm font-bold text-titanium-50 uppercase tracking-wider">{receiverName || "Contact"}</h3>
+            {receiverRole === "ATTORNEY" && (
+              <span className="text-[10px] text-titanium-600 capitalize">{receiverRole.toLowerCase()}</span>
+            )}
           </div>
         </div>
       </div>
@@ -166,7 +181,7 @@ export default function ChatInterface({ receiverId, userId }: ChatInterfaceProps
             </div>
             <h4 className="text-titanium-400 font-bold uppercase tracking-wider text-xs">No Messages Yet</h4>
             <p className="text-[11px] text-titanium-600 mt-2 leading-relaxed">
-              Start a secure conversation. All messages are private and encrypted.
+              Start a secure conversation. All messages are private
             </p>
           </div>
         ) : (
@@ -174,28 +189,23 @@ export default function ChatInterface({ receiverId, userId }: ChatInterfaceProps
             {messages.map((msg) => {
               const isMe = msg.sender_id === userId;
               const isAttorney = msg.sender.role === "ATTORNEY";
+              const isAdmin = msg.sender.role === "ADMIN";
 
               return (
                 <motion.div
                   key={msg.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+                  className={`flex m-0  w-full ${isMe ? "justify-end" : "justify-start"}`}
                 >
-                  <div className={`flex flex-col max-w-[75%] ${isMe ? "items-end" : "items-start"}`}>
+                  <div className={`flex flex-col py-2 max-w-[85%] sm:max-w-[75%] min-w-0 ${isMe ? "items-end" : "items-start"}`}>
                     {/* Sender label (only for incoming) */}
-                    {!isMe && (
-                      <span className={`text-[10px] font-bold uppercase tracking-widest mb-1 px-1 ${isAttorney ? "text-action" : "text-titanium-400"}`}>
-                        {msg.sender.full_name || "Unknown"}{isAttorney ? " • Attorney" : ""}
-                      </span>
-                    )}
-
                     {/* Bubble */}
-                    <div className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-lg ${isMe
+                    <div className={`px-4 py-2.5 rounded-2xl leading-relaxed shadow-lg max-w-full min-w-0 ${isMe
                       ? "bg-action text-white rounded-tr-none shadow-action/10"
                       : "bg-titanium-900 text-titanium-100 border border-titanium-800 rounded-tl-none shadow-black/20"
                       }`}>
-                      {msg.content}
+                      <p className="text-[13px] sm:text-sm break-all whitespace-pre-wrap">{msg.content}</p>
                     </div>
 
                     {/* Timestamp + Seen */}

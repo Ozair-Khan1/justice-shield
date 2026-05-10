@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { Scale, Phone, Mail, MapPin, User as UserIcon, AlertCircle, Loader2, CheckCircle2, RefreshCw, ChevronRight, X, FileText, Search, ShieldCheck } from "lucide-react";
+import { Scale, Phone, Mail, MapPin, User as UserIcon, AlertCircle, Loader2, CheckCircle2, RefreshCw, ChevronRight, X, FileText, Search, ShieldCheck, MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useLoading } from "@/components/LoadingProvider";
@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 interface CaseUser {
+  id: string;
   full_name: string | null;
   email: string;
   phone: string | null;
@@ -216,7 +217,7 @@ export default function AttorneyCasesPage() {
       </header>
 
       <Tabs value={tab} onValueChange={(v) => { setTab(v); setCurrentPage(1); }} className="space-y-8">
-        <TabsList className="bg-titanium-900/50 border border-titanium-800 p-1">
+        <TabsList className="bg-titanium-900/50 border border-titanium-800 p-1 flex h-auto items-center xl:justify-start lg:justify-start md:justify-start flex-wrap sm:gap-2">
           <TabsTrigger value="active" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-8 py-2.5 transition-all">
             Active Cases ({activeCases.length})
           </TabsTrigger>
@@ -267,7 +268,7 @@ export default function AttorneyCasesPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap justify-center items-center gap-2">
                         {c.status === "assigned" && (
                           <div className="flex gap-2 items-center">
                             <Button
@@ -286,6 +287,16 @@ export default function AttorneyCasesPage() {
                               Accept Case
                             </Button>
                           </div>
+                        )}
+                        {c.status === "active" && (
+                          <Button
+                            asChild
+                            className="bg-action text-action-foreground hover:bg-action/90 h-10 px-6 font-mono text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer"
+                          >
+                            <Link href={`/app/messages?user=${c.user.id}&name=${encodeURIComponent(c.user.full_name || c.user.email)}&role=USER`}>
+                              <MessageSquare className="mr-2 size-3" /> Message
+                            </Link>
+                          </Button>
                         )}
                         <Button
                           onClick={() => setSelectedCase(c)}

@@ -36,8 +36,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { useRouter } from "next/navigation";
 
 interface CaseUser {
+  id: string;
   full_name: string | null;
   email: string;
   phone: string | null;
@@ -70,6 +72,7 @@ interface CivilIntake {
 
 export default function AttorneyHistoryPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [sosSessions, setSosSessions] = useState<SOSSession[]>([]);
   const [civilIntakes, setCivilIntakes] = useState<CivilIntake[]>([]);
   const [loading, setLoading] = useState(true);
@@ -291,8 +294,8 @@ export default function AttorneyHistoryPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-cente justify-center gap-3">
-                      <Badge className={`font-mono text-[9px] uppercase tracking-widest py-1 px-4 ${s.status === "active" ? "bg-red-500 animate-pulse" : "bg-titanium-800 text-titanium-300"}`}>
+                    <div className="flex flex-col sm:flex-row items-center gap-4 sm:items-end mt-4 sm:mt-0 pt-4 sm:pt-0 border-t border-titanium-800/50 sm:border-0">
+                      <Badge className={`font-mono text-[9px] uppercase tracking-[0.2em] py-1 px-4 w-full sm:w-auto text-center justify-center h-9 ${s.status === "active" ? "bg-red-500 animate-pulse" : "bg-titanium-800 text-titanium-300"}`}>
                         {s.status}
                       </Badge>
                       <button
@@ -312,10 +315,28 @@ export default function AttorneyHistoryPage() {
                             metadata: (s as any).metadata
                           });
                         }}
-                        className="flex items-center gap-2 rounded-sm border border-titanium-700 bg-titanium-800 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-300 transition-colors hover:border-action hover:text-action"
+                        className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action hover:text-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 rounded-smn"
                       >
                         Details <ChevronRight className="size-3" />
                       </button>
+                      {s.status === "active" && (
+                        <Button
+                          onClick={() => { router.push(`/app/messages?user=${s.user.id}&name=${encodeURIComponent(s.user.full_name || "")}&role=USER`) }}
+                          className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all"
+
+                        >
+                          Message Client
+                        </Button>
+                      )}
+                      {s.status === "resolved" && (
+                        <Button
+                          onClick={() => { router.push(`/app/messages?user=${s.user.id}&name=${encodeURIComponent(s.user.full_name || "")}&role=USER`) }}
+                          className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-alll"
+
+                        >
+                          Message Client
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -366,13 +387,27 @@ export default function AttorneyHistoryPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <Badge className={`font-mono text-[9px] uppercase tracking-widest py-1 px-4 ${i.status === "pending" ? "bg-amber-500 text-black" : i.status === "assigned" ? "bg-action text-white" : "bg-titanium-800 text-titanium-300"}`}>
+                      <div className="flex flex-col sm:flex-row items-center gap-4 sm:items-end mt-4 sm:mt-0 pt-4 sm:pt-0 border-t border-titanium-800/50 sm:border-0">
+                        <Badge className={`font-mono text-[9px] uppercase tracking-[0.2em] py-1 px-4 w-full sm:w-auto text-center justify-center h-9 ${i.status === "pending" ? "bg-amber-500 text-black" : i.status === "assigned" ? "bg-action text-white" : "bg-titanium-800 text-titanium-300"}`}>
                           {i.status}
                         </Badge>
-                        <button onClick={() => setSelectedIntake(i)} className="flex items-center gap-2 rounded-sm border border-titanium-700 bg-titanium-800 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-300 transition-colors hover:border-action hover:text-action">
+                        <button onClick={() => setSelectedIntake(i)} className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action hover:text-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 rounded-sm">
                           Details <ChevronRight className="size-3" />
                         </button>
+                        {i.status === "active" && (
+                          <Button onClick={() => {
+                            router.push(`/app/messages?user=${i.user.id}&name=${encodeURIComponent(i.user.full_name || "")}&role=USER&intakeId=${i.id}`);
+                          }} className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all">
+                            Message Client
+                          </Button>
+                        )}
+                        {i.status === "resolved" && (
+                          <Button onClick={() => {
+                            router.push(`/app/messages?user=${i.user.id}&name=${encodeURIComponent(i.user.full_name || "")}&role=USER&intakeId=${i.id}`);
+                          }} className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all">
+                            Message Client
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

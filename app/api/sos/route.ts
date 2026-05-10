@@ -58,6 +58,11 @@ export async function POST(req: Request) {
           emergency_contact_phone: user?.emergency_contact_phone,
           started_at: new Date(),
         },
+        include: {
+          assigned_attorney: {
+            select: { full_name: true, email: true, phone: true }
+          }
+        }
       });
 
       // Link the existing alert to this session

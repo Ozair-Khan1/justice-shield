@@ -38,6 +38,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Attorney {
   id: string;
@@ -60,6 +62,7 @@ interface Intake {
   status: string;
   created_at: string;
   user: {
+    id: string;
     full_name: string | null;
     email: string;
     phone: string | null;
@@ -69,11 +72,12 @@ interface Intake {
     emergency_contact_phone: string | null;
   };
   assigned_attorney: {
-    full_name: string | null;
+    id: string;
+    full_name: string;
     email: string;
     phone: string | null;
     firm_name: string | null;
-    role?: string;
+    role: string;
     specialties?: string | null;
   } | null;
   rejection_message?: string | null;
@@ -102,6 +106,7 @@ export default function AdminCasesPage() {
   const [viewingRejection, setViewingRejection] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
+  const router = useRouter();
 
   const fetchData = async () => {
     setLoading(true);
@@ -393,6 +398,12 @@ export default function AdminCasesPage() {
                           <div className="text-right">
                             <div className="font-mono text-[9px] uppercase tracking-widest text-titanium-500">Assigned Attorney</div>
                             <div className="text-sm font-bold text-titanium-200">{c.assigned_attorney.full_name}</div>
+                            {(c.assigned_attorney.email || c.assigned_attorney.phone) && (
+                              <div className="mt-1 flex flex-col items-end text-[10px] text-titanium-400 font-mono">
+                                {c.assigned_attorney.email && <span>{c.assigned_attorney.email}</span>}
+                                {c.assigned_attorney.phone && <span>{c.assigned_attorney.phone}</span>}
+                              </div>
+                            )}
                           </div>
                           <CheckCircle2 className="size-5 text-emerald-500" />
                         </div>
@@ -639,6 +650,7 @@ export default function AdminCasesPage() {
                 >
                   Close Briefing
                 </Button>
+
               </div>
             </motion.div>
           </div>

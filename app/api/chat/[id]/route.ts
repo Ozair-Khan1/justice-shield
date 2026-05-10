@@ -5,19 +5,19 @@ import { getAuthToken, verifyJwt } from "@/lib/jwt";
 export const dynamic = "force-dynamic";
 
 async function canChat(userId: string, otherId: string, role?: string) {
-  if (role === "ADMIN") return true;
+  if (role === "ADMIN") return false;
 
   const otherUser = await prisma.user.findUnique({
     where: { id: otherId },
     select: { role: true },
   });
-  if (otherUser?.role === "ADMIN") return true;
+  if (otherUser?.role === "ADMIN") return false;
 
   const intakeCount = await prisma.civilIntake.count({
     where: {
       OR: [
-        { user_id: userId, assigned_attorney_id: otherId, status: "active" },
-        { user_id: otherId, assigned_attorney_id: userId, status: "active" },
+        { user_id: userId, assigned_attorney_id: otherId, status: { in: ["resolved", "active"] } },
+        { user_id: otherId, assigned_attorney_id: userId, status: { in: ["resolved", "active"] } },
       ],
     },
   });
@@ -26,8 +26,8 @@ async function canChat(userId: string, otherId: string, role?: string) {
   const sessionCount = await prisma.encounterSession.count({
     where: {
       OR: [
-        { user_id: userId, assigned_attorney_id: otherId, status: "active" },
-        { user_id: otherId, assigned_attorney_id: userId, status: "active" },
+        { user_id: userId, assigned_attorney_id: otherId, status: { in: ["active", "resolved"] } },
+        { user_id: otherId, assigned_attorney_id: userId, status: { in: ["active", "resolved"] } },
       ],
     },
   });

@@ -29,16 +29,30 @@ export async function GET(req: Request) {
         created_at: true,
         city: true,
         country: true,
+        assigned_intakes: { select: { status: true } },
+        assigned_encounters: { select: { status: true } },
         _count: {
           select: {
-            encounter_sessions: true,
-            civil_intakes: true,
+            assigned_encounters: true,
+            assigned_intakes: true,
           },
         },
       },
     });
 
-    return NextResponse.json({ attorneys });
+    const enrichedAttorneys = attorneys.map((a) => {
+      const allCases = [...a.assigned_intakes, ...a.assigned_encounters];
+      const case_stats = {
+        active: allCases.filter(c => c.status === "active" || c.status === "pending").length,
+        assigned: allCases.filter(c => c.status === "assigned").length,
+        resolved: allCases.filter(c => c.status === "resolved").length,
+      };
+      
+      const { assigned_intakes, assigned_encounters, ...attorneyWithoutArrays } = a;
+      return { ...attorneyWithoutArrays, case_stats };
+    });
+
+    return NextResponse.json({ attorneys: enrichedAttorneys });
   } catch (err) {
     console.error("Admin attorneys API error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

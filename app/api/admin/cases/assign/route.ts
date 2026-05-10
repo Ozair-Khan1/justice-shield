@@ -26,6 +26,11 @@ export async function POST(req: Request) {
           assigned_attorney_id: attorneyId,
           status: "assigned",
         },
+        include: {
+          assigned_attorney: {
+            select: { full_name: true, email: true, phone: true }
+          }
+        }
       });
     } else {
       updated = await prisma.encounterSession.update({
@@ -34,6 +39,11 @@ export async function POST(req: Request) {
           assigned_attorney_id: attorneyId,
           status: "assigned",
         },
+        include: {
+          assigned_attorney: {
+            select: { full_name: true, email: true, phone: true }
+          }
+        }
       });
     }
 

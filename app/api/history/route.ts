@@ -25,6 +25,7 @@ export async function GET(req: Request) {
             id: true,
             full_name: true,
             email: true,
+            phone: true,
           }
         }
       }
@@ -43,6 +44,7 @@ export async function GET(req: Request) {
             id: true,
             full_name: true,
             email: true,
+            phone: true,
           }
         }
       },

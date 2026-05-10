@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { MessageSquare, Search, User, Shield, Clock, ChevronRight, Loader2 } from "lucide-react";
+import { MessageSquare, Search, User, Shield, Clock, ChevronRight, Loader2, Scale } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import ChatInterface from "./ChatInterface";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 interface Participant {
   id: string;
@@ -32,7 +33,6 @@ export default function ChatDashboard({ userId }: { userId: string }) {
   const [selectedId, setSelectedId] = useState<string | null>(initialUser);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-
   // Inject the initial user if they aren't in the fetched conversations yet
   const displayedConversations = [...conversations];
   if (initialUser && !conversations.find(c => c.id === initialUser)) {
@@ -86,6 +86,13 @@ export default function ChatDashboard({ userId }: { userId: string }) {
   const handleSelect = (id: string) => {
     setSelectedId(id);
     markAsRead(id);
+
+    const chat = displayedConversations.find(c => c.id === id);
+    if (chat) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("user", id);
+      window.history.replaceState(null, "", `?${params.toString()}`);
+    }
   };
 
   const filteredConversations = displayedConversations.filter(c =>
@@ -133,11 +140,6 @@ export default function ChatDashboard({ userId }: { userId: string }) {
                   ) : (
                     <User className="size-5 text-titanium-400" />
                   )}
-                  {chat.unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 size-4 bg-action text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse">
-                      {chat.unreadCount}
-                    </span>
-                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start mb-0.5">
@@ -148,7 +150,14 @@ export default function ChatDashboard({ userId }: { userId: string }) {
                       {new Date(chat.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
-                  <p className="text-[11px] text-titanium-500 truncate">{chat.lastMessage}</p>
+                  <div className="flex justify-between items-center mt-1 gap-2">
+                    <p className="text-[11px] text-titanium-500 truncate flex-1">{chat.lastMessage}</p>
+                    {chat.unreadCount > 0 && (
+                      <div className="flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-action text-[9px] font-bold text-white shrink-0">
+                        {chat.unreadCount}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </button>
             ))
@@ -188,6 +197,8 @@ export default function ChatDashboard({ userId }: { userId: string }) {
               <ChatInterface
                 receiverId={selectedId}
                 userId={userId}
+                receiverName={selectedChat?.participant?.full_name}
+                receiverRole={selectedChat?.participant?.role}
               />
             </motion.div>
           ) : (
@@ -195,9 +206,9 @@ export default function ChatDashboard({ userId }: { userId: string }) {
               <div className="size-24 rounded-full bg-titanium-900 flex items-center justify-center mb-6 border border-titanium-800 shadow-2xl">
                 <MessageSquare className="size-10 text-titanium-700" />
               </div>
-              <h3 className="text-xl font-bold text-titanium-50 uppercase tracking-[0.2em]">Communication Hub</h3>
+              <h3 className="text-xl font-bold text-titanium-50 uppercase tracking-[0.2em]">Messages</h3>
               <p className="text-sm text-titanium-500 mt-3 max-w-sm leading-relaxed">
-                Select a conversation from the sidebar to begin secure, real-time messaging.
+                Let the attorney accept your case to start the conversation.
               </p>
               <div className="mt-8 flex items-center gap-4 text-[10px] text-titanium-600 font-mono uppercase tracking-[0.3em]">
                 <div className="flex items-center gap-1.5"><Shield className="size-3" /> Secure</div>

@@ -35,6 +35,8 @@ export const metadata: Metadata = {
 };
 
 import { LoadingProvider } from "@/components/LoadingProvider";
+import { Toaster } from "sonner";
+import { GlobalNotificationListener } from "@/components/GlobalNotificationListener";
 
 export default function RootLayout({
   children,
@@ -54,7 +56,11 @@ export default function RootLayout({
       </head>
       <body className="bg-titanium-950 text-titanium-50">
         <LoadingProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <GlobalNotificationListener />
+            <Toaster position="bottom-right" theme="dark" toastOptions={{ className: "border-titanium-800 bg-titanium-900 text-titanium-50" }} />
+          </AuthProvider>
         </LoadingProvider>
       </body>
     </html>

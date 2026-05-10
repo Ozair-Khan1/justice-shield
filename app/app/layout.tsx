@@ -9,7 +9,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
 
-  const navItems = user?.role === "ATTORNEY"
+  const navItems = (user?.role === "ATTORNEY"
     ? [
       { href: "/app/attorney", label: "Dashboard", exact: true },
       { href: "/app/attorney/cases", label: "My Cases" },
@@ -24,9 +24,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       { href: "/app/cases", label: "Cases" },
       { href: "/app/attorneys", label: "Attorneys" },
       { href: "/app/history", label: "History" },
-      { href: "/app/messages", label: "Messages" },
+      user?.role !== "ADMIN" && { href: "/app/messages", label: "Messages" },
       { href: "/app/account", label: "Account" },
-    ];
+    ]).filter(Boolean) as { href: string; label: string; exact?: boolean }[];
 
   if (pathname.startsWith("/app/admin")) {
     return <>{children}</>;
@@ -83,7 +83,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </nav>
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
+      <main className="mx-auto max-w-7xl px-4 pt-4 sm:px-6">
         {children}
       </main>
     </div>
