@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJwt, getAuthToken } from "@/lib/jwt";
+import { emitSocketEvent } from "@/lib/socket-emit";
 
 export async function GET(
   req: Request,
@@ -8,28 +9,61 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const session = await prisma.encounterSession.findUnique({
+
+    // 1. Try to find an actual Session
+    let session = await prisma.encounterSession.findUnique({
       where: { id },
       include: {
         user: {
-          select: {
-            full_name: true,
-            email: true,
-            phone: true,
-          }
+          select: { full_name: true, email: true, phone: true }
         },
         assigned_attorney: {
-          select: {
-            full_name: true,
-            email: true,
-            phone: true,
-          }
+          select: { full_name: true, email: true, phone: true }
         }
       }
     });
 
+    // 2. If not found, it might be an ID of an EmergencyAlert (pre-confirmation)
     if (!session) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+      const alert = await prisma.emergencyAlert.findUnique({
+        where: { id },
+        include: {
+          user: {
+            select: { full_name: true, email: true, phone: true }
+          },
+          session: {
+            include: {
+              user: { select: { full_name: true, email: true, phone: true } },
+              assigned_attorney: { select: { full_name: true, email: true, phone: true } }
+            }
+          }
+        }
+      });
+
+      if (alert) {
+        if (alert.session) {
+          session = alert.session as any;
+        } else {
+          // It's a preliminary alert - map it to session shape so UI works
+          session = {
+            id: alert.id,
+            user_id: alert.user_id,
+            encounter_type: "SOS_ALERT",
+            status: "pending",
+            location_address: alert.message?.split(" at ")?.[1] || "Unknown",
+            started_at: alert.sent_at,
+            user: alert.user,
+            notes: alert.message,
+            assigned_attorney: null,
+            assigned_attorney_id: null,
+            is_preliminary: true
+          } as any;
+        }
+      }
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: "SOS Record not found" }, { status: 404 });
     }
 
     return NextResponse.json({ session });
@@ -54,6 +88,20 @@ export async function PATCH(
     const body = await req.json();
     const { status, assigned_attorney_id, rejection_message } = body;
 
+    const existing = await prisma.encounterSession.findUnique({
+      where: { id },
+      select: { assigned_attorney_id: true }
+    });
+
+    if (!existing) return NextResponse.json({ error: "Session not found" }, { status: 404 });
+
+    const isAdmin = payload.role === "ADMIN";
+    const isAssigned = existing.assigned_attorney_id === payload.id;
+
+    if (!isAdmin && !isAssigned) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const data: any = {};
     if (status) data.status = status;
     if (assigned_attorney_id) {
@@ -65,7 +113,7 @@ export async function PATCH(
       data.attorney_name = attorney?.full_name;
 
       if (!status || status === "active") {
-        data.status = "pending";
+        data.status = "assigned";
       }
     }
     if (rejection_message) data.rejection_message = rejection_message;
@@ -75,10 +123,26 @@ export async function PATCH(
       where: { id },
       data,
       include: {
+        user: { select: { full_name: true } },
         assigned_attorney: {
           select: { full_name: true, email: true, phone: true }
         }
       }
+    });
+
+    // Trigger Notification
+    console.log("[SOS_PATCH] Triggering notification update...");
+    await emitSocketEvent("sos-triggered", {
+      type: "SOS_UPDATE",
+      id: updatedSession.id,
+      owner_id: updatedSession.user_id,
+      user_name: (updatedSession as any).user?.full_name || "Member",
+      encounter_type: updatedSession.encounter_type.replace("_", " "),
+      location: updatedSession.location_address || "Unknown",
+      assigned_attorney_id: updatedSession.assigned_attorney_id || null,
+      status: updatedSession.status,
+      performed_by: payload.id,
+      timestamp: new Date()
     });
 
     return NextResponse.json({ session: updatedSession });

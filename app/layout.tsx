@@ -59,7 +59,15 @@ export default function RootLayout({
           <AuthProvider>
             {children}
             <GlobalNotificationListener />
-            <Toaster position="bottom-right" theme="dark" toastOptions={{ className: "border-titanium-800 bg-titanium-900 text-titanium-50" }} />
+            <Toaster
+              position="top-right"
+              theme="dark"
+              expand={false}
+              richColors={true}
+              toastOptions={{
+                className: "border-titanium-800 bg-titanium-900 text-titanium-50",
+              }}
+            />
           </AuthProvider>
         </LoadingProvider>
       </body>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FileText,
   User as UserIcon,
@@ -15,8 +15,10 @@ import {
   Phone,
   X,
   ShieldCheck,
-  MapPin
+  MapPin,
+  RefreshCw
 } from "lucide-react";
+import { io, Socket } from "socket.io-client";
 import { motion, AnimatePresence } from "framer-motion";
 import { Pagination } from "@/components/Pagination";
 import { Button } from "@/components/ui/button";
@@ -39,7 +41,7 @@ import {
 } from "@/components/ui/dialog";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface Attorney {
   id: string;
@@ -60,7 +62,9 @@ interface Intake {
   description: string;
   preferred_contact: string;
   status: string;
+  type: 'civil' | 'sos';
   created_at: string;
+  started_at: string | null;
   user: {
     id: string;
     full_name: string | null;
@@ -107,9 +111,12 @@ export default function AdminCasesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const socketRef = useRef<Socket | null>(null);
+  const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://127.0.0.1:3001";
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [intakesRes, attorneysRes] = await Promise.all([
         fetch("/api/admin/cases"),
@@ -128,13 +135,110 @@ export default function AdminCasesPage() {
     } catch (err: any) {
       setError(err.message || "Failed to load data");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Handle auto-opening modal from URL parameters
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
+
+  // Real-time updates
+  useEffect(() => {
+    const socket = io(SOCKET_URL, {
+      transports: ["polling", "websocket"],
+      reconnectionAttempts: 5,
+    });
+    socketRef.current = socket;
+
+    const handleRefresh = (data: any) => {
+      console.log("[AdminCases] Refreshing data due to socket event:", data.type);
+      fetchData(true);
+    };
+
+    socket.on("new-civil-intake", handleRefresh);
+    socket.on("sos-alert", handleRefresh);
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+
+    const caseId = searchParams.get("caseId");
+    const type = searchParams.get("type");
+
+    if (caseId && type) {
+      if (type === "civil") {
+        const found = intakes.find(i => i.id === caseId);
+        if (found) {
+          setSelectedIntake({ ...found, type: 'civil' });
+        } else {
+          // If not in the current list (e.g. different page), fetch it specifically
+          fetch(`/api/admin/cases/${caseId}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.intake) setSelectedIntake({ ...data.intake, type: 'civil' });
+            }).catch(err => console.error("Auto-open fetch error:", err));
+        }
+      } else if (type === "sos") {
+        const found = sessions.find(s => s.id === caseId);
+        if (found) {
+          // Map SOS session to Intake shape for the modal
+          setSelectedIntake({
+            id: found.id,
+            matter_type: found.encounter_type,
+            urgency: "urgent",
+            subject: `Emergency SOS: ${found.encounter_type.replace('_', ' ')}`,
+            description: found.notes || "No tactical notes provided.",
+            preferred_contact: "phone",
+            status: found.status,
+            type: 'sos',
+            created_at: found.started_at,
+            user: found.user,
+            metadata: (found as any).metadata,
+            started_at: found.started_at,
+            assigned_attorney: found.assigned_attorney || null
+          });
+        } else {
+          // Fetch SOS session specifically
+          fetch(`/api/sos/${caseId}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.session) {
+                const s = data.session;
+                setSelectedIntake({
+                  id: s.id,
+                  matter_type: s.encounter_type,
+                  urgency: "urgent",
+                  subject: `Emergency SOS: ${s.encounter_type.replace('_', ' ')}`,
+                  description: s.notes || "No tactical notes provided.",
+                  preferred_contact: "phone",
+                  status: s.status,
+                  type: 'sos',
+                  created_at: s.started_at,
+                  started_at: s.started_at,
+                  user: s.user,
+                  metadata: (s as any).metadata,
+                  assigned_attorney: s.assigned_attorney || null
+                });
+              }
+            }).catch(err => console.error("Auto-open SOS fetch error:", err));
+        }
+      }
+    }
+  }, [loading, intakes, sessions, searchParams]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -156,14 +260,30 @@ export default function AdminCasesPage() {
       if (data.error) throw new Error(data.error);
 
       fetchData();
+      setSelectedIntake(null);
       setAssigningId(null);
       setAssigningType(null);
       setSelectedAttorney("");
+      const newUrl = new URLSearchParams(searchParams);
+      newUrl.delete("caseId");
+      newUrl.delete("type");
+      router.push(`?${newUrl.toString()}`);
     } catch (err: any) {
       alert(err.message || "Assignment failed");
     } finally {
       setProcessing(false);
     }
+  };
+
+  const handleClose = () => {
+    setSelectedIntake(null);
+    setAssigningId(null);
+    setAssigningType(null);
+    setSelectedAttorney("");
+    const newUrl = new URLSearchParams(searchParams);
+    newUrl.delete("caseId");
+    newUrl.delete("type");
+    router.push(`?${newUrl.toString()}`);
   };
 
   const combinedCases = [
@@ -221,9 +341,17 @@ export default function AdminCasesPage() {
           <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.4em] text-action border-action/20 bg-action/5 mb-4">
             Operations Center
           </Badge>
-          <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">
-            Case <span className="text-titanium-500">Dispatch</span>
-          </h1>
+          <div className="flex items-center justify-between">
+            <h1 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">
+              Case <span className="text-titanium-500">Dispatch</span>
+            </h1>
+            <div className="flex gap-2">
+              <Button className="group flex items-center gap-2 rounded-sm border border-titanium-800 bg-titanium-900/50 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-500 transition-all hover:border-action/50 hover:bg-titanium-900/50 hover:text-action" onClick={() => fetchData()}>
+                <RefreshCw className="size-3 transition-transform group-hover:rotate-180" />
+                Refresh
+              </Button>
+            </div>
+          </div>
           <p className="mt-4 max-w-2xl text-titanium-400">
             Manage and assign legal matters to the attorney network. Monitor status from intake to resolution.
           </p>
@@ -345,6 +473,9 @@ export default function AdminCasesPage() {
                         <span className="font-mono text-[10px] text-titanium-500 uppercase tracking-widest">
                           {c.type === 'sos' ? 'Triggered ' : 'Submitted '}{new Date(c.created_at).toLocaleDateString()}
                         </span>
+                        {c.type === 'sos' &&
+                          <span className="font-mono text-[10px] text-titanium-500 uppercase tracking-widest">{new Date(c.started_at).toLocaleTimeString()}</span>
+                        }
                       </div>
 
                       <div className="space-y-2">
@@ -408,7 +539,7 @@ export default function AdminCasesPage() {
                           <CheckCircle2 className="size-5 text-emerald-500" />
                         </div>
                       ) : assigningId === c.id ? (
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-titanium-800 p-2 rounded-sm bg-titanium-950/50">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-titanium-800 p-2 rounded-sm bg-titanium-950/50 h-11">
                           <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
                             <SelectTrigger className="flex-1 min-w-0 bg-transparent text-[10px] sm:text-[11px] h-10 border-titanium-800 sm:border-none rounded-sm sm:rounded-none font-mono uppercase text-titanium-200">
                               <SelectValue placeholder="Select Counsel..." />
@@ -496,12 +627,16 @@ export default function AdminCasesPage() {
 
       <AnimatePresence>
         {selectedIntake && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md">
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md"
+            onClick={handleClose}
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border border-titanium-800 bg-titanium-950 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] scrollbar-hide"
+              onClick={(e) => e.stopPropagation()}
             >
               {/* Header Banner */}
               <div className="relative h-24 md:h-32 bg-gradient-to-r from-action/20 via-titanium-900 to-titanium-950 border-b border-titanium-800">
@@ -583,6 +718,10 @@ export default function AdminCasesPage() {
                         <span className="font-mono text-[9px] uppercase text-titanium-500">Registered City</span>
                         <span className="font-mono text-[10px] font-bold text-titanium-300 uppercase">{selectedIntake.user.city || "N/A"}</span>
                       </div>
+                      <div className="flex items-center justify-between rounded-sm border border-titanium-800 bg-titanium-900/30 p-3">
+                        <span className="font-mono text-[9px] uppercase text-titanium-500">Registered Country</span>
+                        <span className="font-mono text-[10px] font-bold text-titanium-300 uppercase">{selectedIntake.user.country || "N/A"}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -645,11 +784,75 @@ export default function AdminCasesPage() {
               <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row justify-end gap-3 backdrop-blur-md">
                 <Button
                   variant="outline"
-                  onClick={() => setSelectedIntake(null)}
+                  onClick={() => handleClose()}
                   className="border-titanium-700 bg-transparent text-titanium-300 hover:bg-titanium-800 h-11 px-8 font-mono text-[10px] uppercase tracking-widest"
                 >
                   Close Briefing
                 </Button>
+                {selectedIntake.status === "pending" && !selectedIntake.assigned_attorney && (
+                  assigningId === selectedIntake.id ? (
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-titanium-800 h-11 p-2 rounded-sm bg-titanium-950/50">
+                      <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
+                        <SelectTrigger className="flex-1 min-w-0 bg-transparent text-[10px] sm:text-[11px] h-10 border-titanium-800 sm:border-none rounded-sm sm:rounded-none font-mono uppercase text-titanium-200">
+                          <SelectValue placeholder="Select Counsel..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-titanium-950 border-titanium-800">
+                          {(() => {
+                            const currentCase = combinedCases.find(cc => cc.id === selectedIntake.id);
+                            const clientCity = currentCase?.user?.city;
+                            const clientCountry = currentCase?.user?.country;
+
+                            return [...attorneys].sort((a, b) => {
+                              const aCityMatch = clientCity && a.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
+                              const aCountryMatch = clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
+                              const bCityMatch = clientCity && b.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
+                              const bCountryMatch = clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
+                              return (bCityMatch + bCountryMatch) - (aCityMatch + aCountryMatch);
+                            }).map(a => {
+                              const isLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
+                                (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase());
+                              return (
+                                <SelectItem key={a.id} value={a.id} className="font-mono text-[10px] uppercase">
+                                  <div className="flex flex-col gap-0.5">
+                                    <div className="flex items-center gap-2">
+                                      {isLocal && <span className="text-action text-[8px]">📍</span>}
+                                      <span className="font-bold text-titanium-50">{a.full_name}</span>
+                                    </div>
+                                    <div className="text-[8px] text-titanium-500 max-w-[200px]">
+                                      {a.specialties || a.email} {a.city ? `(${a.city})` : ""}
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              );
+                            });
+                          })()}
+                        </SelectContent>
+                      </Select>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { handleAssign(selectedIntake.id, selectedIntake.type) }}
+                          disabled={!selectedAttorney || processing}
+                          className="flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white text-[11px] px-4 py-2 rounded-sm font-bold uppercase transition-colors"
+                        >
+                          {processing ? <Loader2 className="size-3 animate-spin" /> : "Set"}
+                        </button>
+                        <button
+                          onClick={() => setAssigningId(null)}
+                          className="p-2 text-titanium-500 hover:text-titanium-300 border border-titanium-800 sm:border-none rounded-sm"
+                        >
+                          <X className="size-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => { setAssigningId(selectedIntake.id); setAssigningType(selectedIntake.type); }}
+                      className={`${selectedIntake.type === 'sos' ? 'text-red-500 border-red-500/30 hover:bg-red-500/10 bg-transparent' : 'text-action border-action/30 hover:bg-action/10 bg-transparent'} font-mono text-[10px] uppercase tracking-widest font-bold border px-4 py-2 h-11 flex items-center gap-2 transition-all`}
+                    >
+                      Assign Attorney <ChevronRight className="size-3" />
+                    </Button>
+                  )
+                )}
 
               </div>
             </motion.div>

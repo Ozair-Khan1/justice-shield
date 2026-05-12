@@ -10,7 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Loader2, CheckCircle2, User as UserIcon, Scale, ShieldCheck, ChevronRight, MapPin, BadgeInfo, Mail, Phone, Award } from "lucide-react";
+import { ArrowRight, Loader2, CheckCircle2, Save, User as UserIcon, Scale, ShieldCheck, ChevronRight, MapPin, BadgeInfo, Mail, Phone, Award, X } from "lucide-react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import {
@@ -181,10 +182,11 @@ export default function CivilIntakePage() {
       const data = await res.json();
       if (data.intake?.id) {
         setDraftId(data.intake.id);
+        toast.success("Draft saved", { description: "Your case has been saved as a draft." });
       }
 
       setStep(2);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: 'smooth', });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -248,9 +250,13 @@ export default function CivilIntakePage() {
       const data = await res.json();
       if (data.intake?.id) {
         setDraftId(data.intake.id);
+        toast.success("Draft saved", { duration: 2000, description: "Your case has been saved as a draft in cases dashboard." });
+      } else {
+        toast.error("Failed to save draft", { description: "Please try again." });
       }
     } catch (err) {
       console.error("Failed to save draft:", err);
+      toast.error("Failed to save draft", { description: "An unexpected error occurred." });
     }
   }
 

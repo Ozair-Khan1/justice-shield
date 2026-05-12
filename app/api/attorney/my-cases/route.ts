@@ -44,9 +44,27 @@ export async function GET(req: Request) {
       }
     });
 
+    const sosSessions = await prisma.encounterSession.findMany({
+      where: {
+        assigned_attorney_id: user.id,
+        status: { in: ["assigned", "active"] },
+      },
+      orderBy: { started_at: "desc" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            full_name: true,
+            email: true,
+            phone: true,
+          }
+        }
+      }
+    });
+
     return NextResponse.json({
       cases: civilIntakes,
-      sessions: [] // SOS sessions removed from this view
+      sessions: sosSessions
     });
   } catch (error) {
     console.error("Fetch attorney cases error:", error);

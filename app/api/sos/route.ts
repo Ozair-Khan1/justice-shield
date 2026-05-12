@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJwt, getAuthToken } from "@/lib/jwt";
+import { emitSocketEvent } from "@/lib/socket-emit";
 import { any } from "zod";
 
 export async function POST(req: Request) {
+  console.log("!!! SOS API HIT !!!");
   try {
     const token = await getAuthToken(req);
 
@@ -76,6 +78,19 @@ export async function POST(req: Request) {
         }).catch(e => console.error("Link alert error:", e));
       }
 
+      console.log("[SOS_API] Triggering SOS notification (Confirmation Flow)...");
+      await emitSocketEvent("sos-triggered", {
+        type: "SOS",
+        id: session.id,
+        owner_id: payload.id,
+        user_name: user?.full_name || "Unknown Member",
+        encounter_type: encounter_type.replace("_", " "),
+        location: location_address || "Unknown",
+        assigned_attorney_id: assigned_attorney_id || null,
+        performed_by: payload.id,
+        timestamp: new Date()
+      });
+
       return NextResponse.json({ session });
     }
 
@@ -87,10 +102,17 @@ export async function POST(req: Request) {
 
     if (location_lat != null && location_lng != null) {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
+
         const geoRes = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${location_lat}&lon=${location_lng}&accept-language=en`,
-          { headers: { "User-Agent": "JusticeShieldApp/1.0" } }
+          { 
+            headers: { "User-Agent": "JusticeShieldApp/1.0" },
+            signal: controller.signal
+          }
         );
+        clearTimeout(timeoutId);
 
         if (geoRes.ok) {
           const geoData = await geoRes.json();
@@ -147,6 +169,13 @@ export async function POST(req: Request) {
     // Use current location from GPS if available, otherwise fallback to profile
     const matchCity = resolvedCity || triggeringUser?.city;
     const matchCountry = resolvedCountry || triggeringUser?.country;
+
+    console.log("[SOS_API] Recommendation phase (Skipping global socket emit)...");
+    /* 
+       We skip emitting 'sos-triggered' here because the user hasn't confirmed yet.
+       The Admin will only see the notification once the user clicks 'Confirm' 
+       or selects 'Admin Decide'.
+    */
 
     // If no location data at all, we can't match attorneys strictly by location
     if (!matchCity && !matchCountry) {

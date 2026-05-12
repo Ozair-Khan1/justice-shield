@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { Button } from "@/components/ui/button";
 
 interface AttorneyRef { id: string; full_name: string | null; }
 interface SessionRow { id: string; encounter_type: string; status: string; started_at: string; assigned_attorney?: AttorneyRef; }

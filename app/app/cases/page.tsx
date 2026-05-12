@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Scale, Phone, Mail, MapPin, Building2, User as UserIcon, AlertCircle, Loader2, X, FileText, ChevronRight, ShieldCheck } from "lucide-react";
+import { io, Socket } from "socket.io-client";
 import { motion, AnimatePresence } from "framer-motion";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { Pagination } from "@/components/Pagination";
@@ -21,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import CaseDetailModal from "@/components/CaseDetailModal";
 
 interface AttorneyInfo {
   id: string;
@@ -58,6 +60,8 @@ export default function CasesPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
+  const socketRef = useRef<Socket | null>(null);
+  const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://127.0.0.1:3001";
 
   const [tab, setTab] = useState("active");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -70,6 +74,7 @@ export default function CasesPage() {
   const [editMetadata, setEditMetadata] = useState<Record<string, any>>({});
   const [savingEdit, setSavingEdit] = useState(false);
   const [viewingRejection, setViewingRejection] = useState<Case | null>(null);
+  const [viewingCase, setViewingCase] = useState<Case | null>(null);
 
   const openEditModal = (c: Case) => {
     setEditingCase(c);
@@ -121,22 +126,55 @@ export default function CasesPage() {
     }
   };
 
-  useEffect(() => {
-    async function fetchCases() {
-      if (!user) return;
-      try {
-        const res = await fetch("/api/cases");
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-        setCases(data.cases || []);
-      } catch (err: any) {
-        setError(err.message || "Failed to load cases");
-      } finally {
-        setLoading(false);
-      }
+  const fetchCases = async (silent = false) => {
+    if (!user) return;
+    if (!silent) setLoading(true);
+    try {
+      const res = await fetch("/api/cases");
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setCases(data.cases || []);
+    } catch (err: any) {
+      setError(err.message || "Failed to load cases");
+    } finally {
+      if (!silent) setLoading(false);
     }
+  };
+
+  useEffect(() => {
     fetchCases();
   }, [user]);
+
+  // Real-time updates
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const socket = io(SOCKET_URL, {
+      transports: ["polling", "websocket"],
+      reconnectionAttempts: 5,
+    });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      console.log("[UserCases] Socket connected:", socket.id);
+      socket.emit("join-personal-room", user.id);
+    });
+
+    const handleRefresh = (data: any) => {
+      console.log("[UserCases] Refreshing data due to socket event:", data.type);
+      // Refresh if it's our case or we are part of it
+      if (data.owner_id === user.id) {
+        fetchCases(true);
+      }
+    };
+
+    socket.on("new-civil-intake", handleRefresh);
+    socket.on("sos-alert", handleRefresh);
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -150,13 +188,14 @@ export default function CasesPage() {
 
   const draftCases = cases.filter(c => c.case_type === "civil" && c.status === "draft");
   const rejectedCases = cases.filter(c => c.status === "rejected");
+  const sosCases = cases.filter(c => c.case_type === "sos" && c.status !== "rejected");
 
   const filteredRejectedCases = rejectedCases.filter(c => {
     if (statusFilter === "all") return true;
     return c.case_type === statusFilter;
   });
 
-  const currentCases = tab === "active" ? filteredActiveCases : tab === "draft" ? draftCases : filteredRejectedCases;
+  const currentCases = tab === "active" ? filteredActiveCases : tab === "draft" ? draftCases : tab === "sos" ? sosCases : filteredRejectedCases;
 
 
   const totalPages = Math.ceil(currentCases.length / ITEMS_PER_PAGE);
@@ -191,30 +230,34 @@ export default function CasesPage() {
           <div className="absolute -left-4 top-0 h-full w-1 bg-action/50 blur-[2px]" />
           <span className="font-mono text-[10px] font-bold uppercase tracking-[0.4em] text-action">Legal Briefcase</span>
           <h1 className="mt-3 font-display text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl">
-            {tab === "active" ? "Active" : tab === "draft" ? "Draft" : "Rejected"} <span className="text-titanium-500">Cases</span>
+            {tab === "active" ? "Active" : tab === "draft" ? "Draft" : tab === "sos" ? "Emergency" : "Rejected"} <span className="text-titanium-500">{tab === "sos" ? "SOS" : "Cases"}</span>
           </h1>
           <p className="mt-4 max-w-2xl text-titanium-400 leading-relaxed">
             {tab === "active" && "These civil intakes have been accepted by an attorney in the Justice Shield network. Reach out directly to your assigned counsel."}
             {tab === "draft" && "These intakes were started but not yet assigned to an attorney. You can complete them at any time."}
+            {tab === "sos" && "Real-time records of emergency encounters and tactical legal responses initiated via the SOS protocol."}
             {tab === "rejected" && "These cases were reviewed by an attorney but could not be accepted at this time. You can review the reason below."}
           </p>
         </header>
 
         <Tabs value={tab} onValueChange={setTab} className="space-y-8">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <TabsList className="bg-titanium-900/50 border border-titanium-800 p-1">
-              <TabsTrigger value="active" onClick={() => setStatusFilter("all")} className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-8 py-2.5 transition-all">
-                Active Case
+            <TabsList className="bg-titanium-900/50 border border-titanium-800 p-1 w-full overflow-x-auto scrollbar-hide overflow-y-hidden justify-start sm:justify-center">
+              <TabsTrigger value="active" onClick={() => setStatusFilter("all")} className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-6 sm:px-8 py-2.5 transition-all shrink-0">
+                Active
               </TabsTrigger>
-              <TabsTrigger value="draft" onClick={() => setStatusFilter("all")} className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-8 py-2.5 transition-all">
+              <TabsTrigger value="sos" onClick={() => setStatusFilter("all")} className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-6 sm:px-8 py-2.5 transition-all shrink-0">
+                SOS
+              </TabsTrigger>
+              <TabsTrigger value="draft" onClick={() => setStatusFilter("all")} className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-6 sm:px-8 py-2.5 transition-all shrink-0">
                 Drafts
               </TabsTrigger>
-              <TabsTrigger value="rejected" onClick={() => setStatusFilter("all")} className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-8 py-2.5 transition-all">
+              <TabsTrigger value="rejected" onClick={() => setStatusFilter("all")} className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-6 sm:px-8 py-2.5 transition-all shrink-0">
                 Rejected
               </TabsTrigger>
             </TabsList>
 
-            {tab === "active" && (
+            {tab === "active" || tab === "sos" && (
               <div className="flex items-center gap-2">
                 <span className="font-mono text-[10px] uppercase tracking-widest text-titanium-600">Filter:</span>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -276,12 +319,22 @@ export default function CasesPage() {
                               }`}>
                               {c.status}
                             </Badge>
-                            <span className="font-mono text-[10px] text-titanium-500 uppercase tracking-widest">
-                              {c.matter_type.replace("_", " ")}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {c.case_type === "sos" ? (
+                                <div className="flex items-center gap-1.5 text-red-400">
+                                  <Phone className="size-3" />
+                                  <span className="font-mono text-[10px] uppercase tracking-widest">SOS</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1.5 text-action">
+                                  <Scale className="size-3" />
+                                  <span className="font-mono text-[10px] uppercase tracking-widest">Civil</span>
+                                </div>
+                              )}
+                            </div>
                             <span className="text-titanium-700">•</span>
                             <span className="font-mono text-[10px] text-titanium-500 uppercase tracking-widest">
-                              {tab === "active" ? "Filed " : tab === "draft" ? "Created " : "Rejected "} {new Date(c.created_at).toLocaleDateString()}
+                              {tab === "active" || tab === "sos" ? "triggered " : tab === "draft" ? "Created " : "Rejected "} {new Date(c.created_at).toLocaleDateString()}
                             </span>
                           </div>
 
@@ -336,41 +389,67 @@ export default function CasesPage() {
                           )}
 
                           {tab === "draft" && (
-                            <Button
-                              className="bg-action hover:bg-action/90 text-action-foreground font-mono text-[10px] uppercase tracking-widest px-6 h-10"
-                              onClick={() => router.push(`/app/civil?draft=${c.id}&step=2`)}
-                            >
-                              Finalize Intake →
-                            </Button>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <Button
+                                variant="outline"
+                                className="border-titanium-700 text-titanium-300 hover:text-white font-mono text-[10px] uppercase tracking-widest px-5 h-10"
+                                onClick={() => setViewingCase(c)}
+                              >
+                                View Details
+                              </Button>
+                              <Button
+                                variant="outline"
+                                className="border-titanium-800 text-titanium-400 hover:text-white h-10 px-5 font-mono text-[10px] uppercase tracking-widest"
+                                onClick={() => router.push(`/app/civil?draft=${c.id}`)}
+                              >
+                                Edit Intake
+                              </Button>
+                              <Button
+                                className="bg-action hover:bg-action/90 text-action-foreground font-mono text-[10px] uppercase tracking-widest px-6 h-10"
+                                onClick={() => router.push(`/app/civil?draft=${c.id}&step=2`)}
+                              >
+                                Finalize Intake →
+                              </Button>
+                            </div>
                           )}
 
                           {tab === "rejected" && c.case_type === "civil" && (
-                            <Button
-                              className="bg-titanium-800 hover:bg-titanium-700 text-titanium-100 font-mono text-[10px] uppercase tracking-widest px-6 h-10 border border-titanium-700"
-                              onClick={() => router.push(`/app/civil?draft=${c.id}&step=2`)}
-                            >
-                              Resubmit Case →
-                            </Button>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <Button
+                                variant="outline"
+                                className="border-titanium-800 text-titanium-400 hover:text-white h-10 px-5 font-mono text-[10px] uppercase tracking-widest"
+                                onClick={() => router.push(`/app/civil?draft=${c.id}`)}
+                              >
+                                Edit Intake
+                              </Button>
+                              <Button
+                                className="bg-titanium-800 hover:bg-titanium-700 text-titanium-100 font-mono text-[10px] uppercase tracking-widest px-6 h-10 border border-titanium-700"
+                                onClick={() => router.push(`/app/civil?draft=${c.id}&step=2`)}
+                              >
+                                Resubmit Case →
+                              </Button>
+                            </div>
                           )}
 
-                          {(c.case_type === "civil" || (tab === "active" && c.case_type === "sos")) && (
+                          {(tab === "active" || tab === "sos") && (
                             <Button
                               variant="outline"
                               size="sm"
-                              className="border-titanium-800 text-titanium-300 hover:text-white h-10 px-4 font-mono text-[10px] uppercase tracking-widest"
-                              onClick={() => {
-                                if (tab === "active") {
-                                  if (c.case_type === "sos") {
-                                    router.push("/app/history");
-                                  } else {
-                                    openEditModal(c);
-                                  }
-                                } else {
-                                  router.push(`/app/civil?draft=${c.id}`);
-                                }
-                              }}
+                              className="border-titanium-700 text-titanium-300 hover:text-white h-10 px-5 font-mono text-[10px] uppercase tracking-widest"
+                              onClick={() => setViewingCase(c)}
                             >
-                              {tab === "active" ? (c.case_type === "sos" ? "View Details" : "Modify") : "Edit Intake"}
+                              View Details
+                            </Button>
+                          )}
+
+                          {tab === "active" && c.case_type === "civil" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-titanium-700 text-titanium-400 hover:text-white h-10 px-4 font-mono text-[10px] uppercase tracking-widest"
+                              onClick={() => openEditModal(c)}
+                            >
+                              Modify
                             </Button>
                           )}
 
@@ -635,6 +714,18 @@ export default function CasesPage() {
           </div>
         )}
       </AnimatePresence>
+      <CaseDetailModal
+        caseData={viewingCase ? {
+          ...viewingCase,
+          type: viewingCase.case_type === "sos" ? "sos" : "civil",
+          user: viewingCase.attorney ? {
+            full_name: viewingCase.attorney.full_name,
+            email: viewingCase.attorney.email,
+            phone: viewingCase.attorney.phone,
+          } : undefined,
+        } : null}
+        onClose={() => setViewingCase(null)}
+      />
     </>
   );
 }

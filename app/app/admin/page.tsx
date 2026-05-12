@@ -191,33 +191,6 @@ export default function AdminDashboard() {
       setCivilIntakes(data.civilIntakes ?? []);
       setEmergencyAlerts(data.emergencyAlerts ?? []);
       setAttorneys(attorneysData.attorneys ?? []);
-
-      // Handle notifications for new alerts
-      if (data.emergencyAlerts && data.emergencyAlerts.length > 0) {
-        if (!hasInitializedAlerts) {
-          const initialIds = new Set<string>(data.emergencyAlerts.map((a: EmergencyAlert) => a.id));
-          setSeenAlertIds(initialIds);
-          setHasInitializedAlerts(true);
-        } else {
-          data.emergencyAlerts.forEach((alert: EmergencyAlert) => {
-            if (!seenAlertIds.has(alert.id)) {
-              if (Notification.permission === "granted") {
-                new Notification("EMERGENCY ALERT", {
-                  body: `${alert.user.full_name || alert.user.email} triggered an SOS: ${alert.message || "No message"}`,
-                  icon: "/favicon.webp"
-                });
-              }
-              setSeenAlertIds(prev => new Set<string>(prev).add(alert.id));
-            }
-          });
-        }
-      }
-
-      const elapsed = Date.now() - start;
-      const minDelay = 1000;
-      if (!silent && elapsed < minDelay) {
-        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
-      }
     } catch (error) {
       console.error("Fetch admin stats error:", error);
     } finally {
@@ -246,6 +219,7 @@ export default function AdminDashboard() {
       setAssigningId(null);
       setAssigningType(null);
       setSelectedAttorney("");
+      setSelectedIntake(null);
     } catch (err: any) {
       alert(err.message || "Assignment failed");
     } finally {
@@ -253,36 +227,8 @@ export default function AdminDashboard() {
       stopLoading();
     }
   };
-
-  const requestPermission = async () => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      const permission = await Notification.requestPermission();
-      setNotificationPermission(permission);
-      if (permission === "granted") {
-        new Notification("Notifications Enabled", {
-          body: "You will now receive alerts for emergency SOS triggers.",
-          icon: "/favicon.webp"
-        });
-      }
-    }
-  };
-
   useEffect(() => {
     fetchData();
-
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setNotificationPermission(Notification.permission);
-      if (Notification.permission === "default") {
-        Notification.requestPermission().then(setNotificationPermission);
-      }
-    }
-
-    // Poll every 15 seconds
-    const interval = setInterval(() => {
-      fetchData(true);
-    }, 15000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const getSortedAttorneys = (matterType: string) => {

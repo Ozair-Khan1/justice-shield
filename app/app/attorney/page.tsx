@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import {
   Shield,
@@ -23,8 +23,6 @@ import {
   Loader2,
   LayoutDashboard
 } from "lucide-react";
-import ChatInterface from "@/components/ChatInterface";
-import ChatDashboard from "@/components/ChatDashboard";
 import Link from "next/link";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { motion, AnimatePresence } from "framer-motion";
@@ -82,6 +80,7 @@ interface CivilIntake {
   created_at: string;
   user: CaseUser;
   metadata?: Record<string, any> | null;
+  assigned_attorney?: any | null;
   is_sos?: boolean;
 }
 
@@ -118,6 +117,16 @@ export default function AttorneyDashboard() {
   const [hasInitializedCases, setHasInitializedCases] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
   const { startLoading, stopLoading } = useLoading();
+  const searchParams = useSearchParams();
+
+  const handleClose = () => {
+    setSelectedIntake(null);
+    setSelectedSos(null);
+    const newUrl = new URLSearchParams(window.location.search);
+    newUrl.delete("caseId");
+    newUrl.delete("type");
+    router.push(`${window.location.pathname}?${newUrl.toString()}`);
+  };
 
   const fetchDashboard = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -145,36 +154,76 @@ export default function AttorneyDashboard() {
     }
   };
 
-  const requestPermission = async () => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      const permission = await Notification.requestPermission();
-      setNotificationPermission(permission);
-      if (permission === "granted") {
-        new Notification("Notifications Enabled", {
-          body: "You will now receive alerts for new emergency SOS triggers.",
-          icon: "/favicon.webp"
-        });
-      }
-    }
-  };
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
 
   useEffect(() => {
-    fetchDashboard();
+    fetchDashboard()
+  }, []);
 
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setNotificationPermission(Notification.permission);
-      if (Notification.permission === "default") {
-        Notification.requestPermission().then(setNotificationPermission);
+  // Handle auto-opening modal from URL parameters
+  useEffect(() => {
+    if (loading) return;
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const caseId = searchParams.get("caseId");
+    const type = searchParams.get("type");
+
+    if (caseId && type) {
+      if (type === "civil") {
+        const found = [...assignedCases, ...pendingCases].find(i => i.id === caseId);
+        if (found) setSelectedIntake(found);
+      } else if (type === "sos") {
+        const found = [...assignedSessions, ...sosSessions].find(s => s.id === caseId);
+        if (found) {
+          setSelectedSos(found);
+          // Also set as intake for common modal usage if needed
+          setSelectedIntake({
+            id: found.id,
+            matter_type: found.encounter_type,
+            urgency: "urgent",
+            subject: `Emergency SOS: ${found.encounter_type.replace('_', ' ')}`,
+            description: (found as any).notes || "No tactical notes provided.",
+            preferred_contact: "phone",
+            status: found.status,
+            created_at: found.started_at,
+            user: found.user,
+            metadata: (found as any).metadata,
+            assigned_attorney: (found as any).assigned_attorney || null,
+            is_sos: true
+          });
+        } else {
+          // Fallback: Fetch specifically if not in local list
+          fetch(`/api/sos/${caseId}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.session) {
+                setSelectedSos(data.session);
+                setSelectedIntake({
+                  id: data.session.id,
+                  matter_type: data.session.encounter_type,
+                  urgency: "urgent",
+                  subject: `Emergency SOS: ${data.session.encounter_type.replace('_', ' ')}`,
+                  description: data.session.notes || "No tactical notes provided.",
+                  preferred_contact: "phone",
+                  status: data.session.status,
+                  created_at: data.session.started_at,
+                  user: data.session.user,
+                  metadata: data.session.metadata,
+                  assigned_attorney: data.session.assigned_attorney || null,
+                  is_sos: true
+                });
+              }
+            }).catch(err => console.error("Auto-open SOS fetch error:", err));
+        }
       }
     }
-
-    // Poll every 15 seconds
-    const interval = setInterval(() => {
-      fetchDashboard(true);
-    }, 15000);
-
-    return () => clearInterval(interval);
-  }, []);
+  }, [loading, assignedCases, pendingCases, assignedSessions, sosSessions]);
 
   const allRelevantUsers = [
     ...sosSessions.map(s => s.user),
@@ -312,6 +361,7 @@ export default function AttorneyDashboard() {
           setSelectedIntake({ ...selectedIntake, status: "active" });
         }
       }
+      setSelectedIntake(null);
     } catch (err: any) {
       alert(err.message || "An error occurred");
     } finally {
@@ -667,12 +717,16 @@ export default function AttorneyDashboard() {
 
       <AnimatePresence>
         {selectedIntake && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md">
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md"
+            onClick={handleClose}
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border border-titanium-800 bg-titanium-950 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] scrollbar-hide"
+              onClick={(e) => e.stopPropagation()}
             >
               {/* Header Banner */}
               <div className="relative h-24 md:h-32 bg-gradient-to-r from-action/20 via-titanium-900 to-titanium-950 border-b border-titanium-800">
@@ -807,7 +861,7 @@ export default function AttorneyDashboard() {
               <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row justify-end gap-3 backdrop-blur-md">
                 <Button
                   variant="outline"
-                  onClick={() => setSelectedIntake(null)}
+                  onClick={handleClose}
                   className="w-full sm:w-auto border-titanium-700 bg-transparent text-titanium-300 hover:bg-titanium-800 h-11 px-8 font-mono text-[10px] uppercase tracking-widest"
                 >
                   Close File

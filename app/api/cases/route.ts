@@ -40,7 +40,7 @@ export async function GET(req: Request) {
       prisma.encounterSession.findMany({
         where: {
           user_id: payload.id as string,
-          status: { in: ["rejected"] },
+          status: { in: ["assigned", "pending", "active", "rejected"] },
         },
         include: {
           assigned_attorney: {

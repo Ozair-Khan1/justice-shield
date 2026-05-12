@@ -34,6 +34,7 @@ model User {
   emergency_contact_name  String?
   emergency_contact_phone String?
   membership_tier         String             @default("basic")
+  seen_notification_ids   String[]           @default([])
   
   created_at              DateTime           @default(now())
   updated_at              DateTime           @updatedAt

@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { useSearchParams, useRouter } from "next/navigation";
+import { io, Socket } from "socket.io-client";
 import { Scale, Phone, Mail, MapPin, User as UserIcon, AlertCircle, Loader2, CheckCircle2, RefreshCw, ChevronRight, X, FileText, Search, ShieldCheck, MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -58,8 +60,21 @@ export default function AttorneyCasesPage() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectingCase, setRejectingCase] = useState<Case | null>(null);
   const [rejectionMessage, setRejectionMessage] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "sos" | "civil">("all");
   const ITEMS_PER_PAGE = 15;
   const { startLoading, stopLoading } = useLoading();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const socketRef = useRef<Socket | null>(null);
+  const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://127.0.0.1:3001";
+
+  const handleClose = () => {
+    setSelectedCase(null);
+    const newUrl = new URLSearchParams(window.location.search);
+    newUrl.delete("caseId");
+    newUrl.delete("type");
+    router.push(`${window.location.pathname}?${newUrl.toString()}`);
+  };
 
   const fetchCases = async (silent = false) => {
     if (!silent) { setLoading(true); startLoading("Loading your cases..."); }
@@ -67,8 +82,22 @@ export default function AttorneyCasesPage() {
       const res = await fetch("/api/attorney/my-cases");
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      const combined = (data.cases || []).map((c: any) => ({ ...c, type: 'civil' }))
-        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      const civil = (data.cases || []).map((c: any) => ({ ...c, type: 'civil' }));
+      const sos = (data.sessions || []).map((s: any) => ({ 
+        ...s, 
+        type: 'sos',
+        matter_type: s.encounter_type,
+        subject: `SOS Emergency: ${s.encounter_type.replace("_", " ")}`,
+        description: s.notes || "Emergency engagement record.",
+        preferred_contact: "Direct Link",
+        urgency: "CRITICAL",
+        created_at: s.started_at
+      }));
+
+      const combined = [...civil, ...sos].sort((a: any, b: any) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
 
       setCases(combined);
     } catch (err: any) {
@@ -80,14 +109,82 @@ export default function AttorneyCasesPage() {
   };
 
   useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
+
+  useEffect(() => {
     if (user) fetchCases();
   }, [user]);
+
+  // Real-time updates
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const socket = io(SOCKET_URL, {
+      transports: ["polling", "websocket"],
+      reconnectionAttempts: 5,
+    });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      console.log("[AttorneyCases] Socket connected:", socket.id);
+      socket.emit("join-personal-room", user.id);
+    });
+
+    const handleRefresh = (data: any) => {
+      console.log("[AttorneyCases] Refresh triggered by event:", data.type);
+      // Only refresh if it's assigned to us or it's a general update we might care about
+      if (data.assigned_attorney_id === user.id || !data.assigned_attorney_id) {
+        fetchCases(true);
+      }
+    };
+
+    socket.on("new-civil-intake", handleRefresh);
+    socket.on("sos-alert", handleRefresh);
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [user?.id]);
+
+  // Handle auto-opening modal from URL parameters
+  useEffect(() => {
+    if (loading) return;
+
+    const caseId = searchParams.get("caseId");
+    const type = searchParams.get("type");
+
+    if (caseId && type) {
+      const found = cases.find(c => c.id === caseId);
+      if (found) {
+        setSelectedCase(found);
+      } else {
+        // Fallback: Fetch specifically if not in local list
+        fetch(`/api/cases/${caseId}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.case) {
+              // Ensure we add a type since our state expects it
+              const caseWithType = { ...data.case, type: type as any };
+              setSelectedCase(caseWithType);
+            }
+          }).catch(err => console.error("Auto-open fetch error:", err));
+      }
+    }
+  }, [loading, cases, searchParams]);
 
   const handleResolveCase = async (id: string) => {
     setResolvingId(id);
     startLoading("Finalizing Legal Record...");
+    const selected = cases.find(c => c.id === id);
+    const apiEndpoint = selected?.type === "sos" ? `/api/sos/${id}` : `/api/cases/${id}/status`;
+    
     try {
-      const res = await fetch(`/api/cases/${id}/status`, {
+      const res = await fetch(apiEndpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "resolved" }),
@@ -97,8 +194,7 @@ export default function AttorneyCasesPage() {
 
       // Update local state
       setCases(prev => prev.map(c => c.id === id ? { ...c, status: "resolved" } : c));
-      setSelectedCase(null);
-      fetchCases(true);
+      handleClose();
     } catch (err: any) {
       alert(err.message || "An error occurred");
     } finally {
@@ -110,8 +206,11 @@ export default function AttorneyCasesPage() {
   const handleAcceptCase = async (id: string) => {
     setAcceptingId(id);
     startLoading("Accepting Case...");
+    const selected = cases.find(c => c.id === id);
+    const apiEndpoint = selected?.type === "sos" ? `/api/sos/${id}` : `/api/cases/${id}/status`;
+
     try {
-      const res = await fetch(`/api/cases/${id}/status`, {
+      const res = await fetch(apiEndpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "active" }),
@@ -123,7 +222,9 @@ export default function AttorneyCasesPage() {
       setCases(prev => prev.map(c => c.id === id ? { ...c, status: "active" } : c));
       if (selectedCase?.id === id) {
         setSelectedCase({ ...selectedCase, status: "active" });
+        handleClose();
       }
+      handleClose();
     } catch (err: any) {
       alert(err.message || "An error occurred");
     } finally {
@@ -139,8 +240,11 @@ export default function AttorneyCasesPage() {
     }
     setRejectingId(id);
     startLoading("Rejecting Case...");
+    const selected = cases.find(c => c.id === id);
+    const apiEndpoint = selected?.type === "sos" ? `/api/sos/${id}` : `/api/cases/${id}/status`;
+
     try {
-      const res = await fetch(`/api/cases/${id}/status`, {
+      const res = await fetch(apiEndpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "rejected", rejection_message: rejectionMessage }),
@@ -152,6 +256,10 @@ export default function AttorneyCasesPage() {
       setCases(prev => prev.filter(c => c.id !== id));
       if (selectedCase?.id === id) {
         setSelectedCase(null);
+        const newUrl = new URLSearchParams(window.location.search);
+        newUrl.delete("caseId");
+        newUrl.delete("type");
+        router.push(`${window.location.pathname}?${newUrl.toString()}`);
       }
       setRejectingCase(null);
       setRejectionMessage("");
@@ -162,8 +270,9 @@ export default function AttorneyCasesPage() {
       stopLoading();
     }
   };
-  const activeCases = cases.filter(c => c.status === "active");
-  const pendingCases = cases.filter(c => c.status === "assigned");
+  const filteredByType = cases.filter(c => typeFilter === "all" || c.type === typeFilter);
+  const activeCases = filteredByType.filter(c => c.status === "active");
+  const pendingCases = filteredByType.filter(c => c.status === "assigned");
   const currentCases = tab === "active" ? activeCases : pendingCases;
 
   const totalPages = Math.ceil(currentCases.length / ITEMS_PER_PAGE);
@@ -217,14 +326,31 @@ export default function AttorneyCasesPage() {
       </header>
 
       <Tabs value={tab} onValueChange={(v) => { setTab(v); setCurrentPage(1); }} className="space-y-8">
-        <TabsList className="bg-titanium-900/50 border border-titanium-800 p-1 flex h-auto items-center xl:justify-start lg:justify-start md:justify-start flex-wrap sm:gap-2">
-          <TabsTrigger value="active" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-8 py-2.5 transition-all">
-            Active Cases ({activeCases.length})
-          </TabsTrigger>
-          <TabsTrigger value="pending" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-8 py-2.5 transition-all">
-            New Assignments ({pendingCases.length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col gap-4">
+          <TabsList className="bg-titanium-900/50 border border-titanium-800 p-1 flex h-auto items-center xl:justify-start lg:justify-start md:justify-start flex-wrap sm:gap-2">
+            <TabsTrigger value="active" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-8 py-2.5 transition-all">
+              Active Cases ({activeCases.length})
+            </TabsTrigger>
+            <TabsTrigger value="pending" className="data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-8 py-2.5 transition-all">
+              New Assignments ({pendingCases.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="flex gap-2">
+            {(["all", "sos", "civil"] as const).map((t) => (
+              <Button
+                key={t}
+                variant="ghost"
+                onClick={() => { setTypeFilter(t); setCurrentPage(1); }}
+                className={`h-8 px-4 font-mono text-[9px] uppercase tracking-widest transition-all ${
+                  typeFilter === t ? "bg-titanium-800 text-action" : "text-titanium-500 hover:text-titanium-300"
+                }`}
+              >
+                {t}
+              </Button>
+            ))}
+          </div>
+        </div>
 
         <Pagination
           currentPage={currentPage}
@@ -247,8 +373,11 @@ export default function AttorneyCasesPage() {
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="space-y-3">
                         <div className="flex items-center gap-3">
-                          <Badge variant={c.urgency === "CRITICAL" ? "destructive" : "outline"} className="font-mono text-[9px] uppercase tracking-widest h-5">
-                            {c.urgency} Priority
+                          <div className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-sm ${c.type === "sos" ? "bg-red-500/10 text-red-500 ring-1 ring-red-500/20" : "bg-titanium-800 text-action ring-1 ring-titanium-700"}`}>
+                            {c.type === "sos" ? <ShieldCheck className="size-4" /> : <FileText className="size-4" />}
+                          </div>
+                          <Badge variant={c.type === "sos" ? "destructive" : (c.urgency === "CRITICAL" ? "destructive" : "outline")} className={`font-mono text-[9px] uppercase tracking-widest h-5 ${c.type === "sos" ? "bg-red-500/20 text-red-500 border-red-500/30" : ""}`}>
+                            {c.type === "sos" ? "SOS EMERGENCY" : `${c.urgency} Priority`}
                           </Badge>
                           <span className="font-mono text-[10px] text-titanium-500 uppercase tracking-widest">{c.matter_type.replace("_", " ")}</span>
                           <Badge variant="secondary" className={`font-mono text-[8px] uppercase tracking-tighter h-5 ${c.status === "pending" ? "text-amber-500 border-amber-500/20 bg-amber-500/5" : "bg-emerald-400/10 text-emerald-400 border-emerald-400/20"}`}>
@@ -315,12 +444,16 @@ export default function AttorneyCasesPage() {
         </TabsContent>
       </Tabs>      <AnimatePresence>
         {selectedCase && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md"
+            onClick={handleClose}
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border border-titanium-800 bg-titanium-950 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] scrollbar-hide"
+              onClick={(e) => e.stopPropagation()}
             >
               {/* Header Banner */}
               <div className="relative h-24 md:h-32 bg-gradient-to-r from-action/20 via-titanium-900 to-titanium-950 border-b border-titanium-800">

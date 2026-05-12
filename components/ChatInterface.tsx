@@ -27,11 +27,18 @@ interface ChatInterfaceProps {
   userId: string;
   receiverName?: string | null;
   receiverRole?: string;
+  onAttorneyClick?: (id: string) => void;
 }
 
 const SOCKET_URL = "http://localhost:3001";
 
-export default function ChatInterface({ receiverId, userId, receiverName, receiverRole }: ChatInterfaceProps) {
+export default function ChatInterface({
+  receiverId,
+  userId,
+  receiverName,
+  receiverRole,
+  onAttorneyClick
+}: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -152,12 +159,15 @@ export default function ChatInterface({ receiverId, userId, receiverName, receiv
     <div className="flex flex-col h-full bg-titanium-950/50 backdrop-blur-xl overflow-hidden">
       {/* Header */}
       <div className="px-6 py-4 border-b border-titanium-800/50 bg-titanium-900/50 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="size-10 rounded-full bg-action/10 flex items-center justify-center border border-action/20">
+        <div
+          className={`flex items-center gap-3 ${receiverRole === "ATTORNEY" && onAttorneyClick ? "cursor-pointer group" : ""}`}
+          onClick={() => receiverRole === "ATTORNEY" && onAttorneyClick ? onAttorneyClick(receiverId) : null}
+        >
+          <div className="size-10 rounded-full bg-action/10 flex items-center justify-center border border-action/20 group-hover:bg-action/20 transition-all">
             <MessageSquare className="size-5 text-action" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-titanium-50 uppercase tracking-wider">{receiverName || "Contact"}</h3>
+            <h3 className="text-sm font-bold text-titanium-50 uppercase tracking-wider group-hover:text-action transition-colors">{receiverName || "Contact"}</h3>
             {receiverRole === "ATTORNEY" && (
               <span className="text-[10px] text-titanium-600 capitalize">{receiverRole.toLowerCase()}</span>
             )}

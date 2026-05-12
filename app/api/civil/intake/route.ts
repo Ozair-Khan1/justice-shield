@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJwt, getAuthToken } from "@/lib/jwt";
+import { emitSocketEvent } from "@/lib/socket-emit";
 
 export async function POST(req: Request) {
+  console.log("!!! CIVIL INTAKE API HIT !!!");
   try {
     const token = await getAuthToken(req);
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -59,6 +61,22 @@ export async function POST(req: Request) {
           opposing_party: opposingParty || null,
           opposing_party_location: opposingPartyLocation || null,
         },
+      });
+    }
+
+    // Trigger Socket Notification for Admins/Attorneys
+    if (intake.status === "pending" || intake.status === "assigned") {
+      console.log("[CIVIL_API] Triggering Civil Intake notification...");
+      await emitSocketEvent("civil-intake-triggered", {
+        type: "CIVIL_INTAKE",
+        id: intake.id,
+        owner_id: intake.user_id,
+        user_name: user.full_name || "Unknown Member",
+        subject: intake.subject,
+        urgency: intake.urgency,
+        assigned_attorney_id: intake.assigned_attorney_id || null,
+        performed_by: payload.id,
+        timestamp: new Date()
       });
     }
 

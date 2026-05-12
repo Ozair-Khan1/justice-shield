@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { MessageSquare, Search, User, Shield, Clock, ChevronRight, Loader2, Scale } from "lucide-react";
+import { createPortal } from "react-dom";
+import { MessageSquare, Search, User, Shield, Clock, ChevronRight, Loader2, Scale, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import ChatInterface from "./ChatInterface";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import CaseDetailModal from "@/components/CaseDetailModal";
 
 interface Participant {
   id: string;
@@ -23,6 +26,20 @@ interface Conversation {
   unreadCount: number;
 }
 
+interface AttorneyInfo {
+  id: string;
+  full_name: string | null;
+  email: string;
+  phone: string | null;
+  firm_name: string | null;
+  specialties: string | null;
+  years_experience: number | null;
+  city: string | null;
+  country: string | null;
+  assigned_intakes: any[];
+  assigned_encounters: any[];
+}
+
 export default function ChatDashboard({ userId }: { userId: string }) {
   const searchParams = useSearchParams();
   const initialUser = searchParams.get("user");
@@ -33,6 +50,16 @@ export default function ChatDashboard({ userId }: { userId: string }) {
   const [selectedId, setSelectedId] = useState<string | null>(initialUser);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+
+  // New modal states
+  const [viewingAttorney, setViewingAttorney] = useState<AttorneyInfo | null>(null);
+  const [fetchingAttorney, setFetchingAttorney] = useState(false);
+  const [viewingCase, setViewingCase] = useState<any | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   // Inject the initial user if they aren't in the fetched conversations yet
   const displayedConversations = [...conversations];
   if (initialUser && !conversations.find(c => c.id === initialUser)) {
@@ -92,6 +119,22 @@ export default function ChatDashboard({ userId }: { userId: string }) {
       const params = new URLSearchParams(searchParams.toString());
       params.set("user", id);
       window.history.replaceState(null, "", `?${params.toString()}`);
+    }
+  };
+
+  const openAttorneyInfo = async (attorneyId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation(); // Don't select the chat
+    setFetchingAttorney(true);
+    try {
+      const res = await fetch(`/api/attorneys/${attorneyId}`);
+      const data = await res.json();
+      if (data.attorney) {
+        setViewingAttorney(data.attorney);
+      }
+    } catch (error) {
+      console.error("Fetch attorney info error:", error);
+    } finally {
+      setFetchingAttorney(false);
     }
   };
 
@@ -199,6 +242,7 @@ export default function ChatDashboard({ userId }: { userId: string }) {
                 userId={userId}
                 receiverName={selectedChat?.participant?.full_name}
                 receiverRole={selectedChat?.participant?.role}
+                onAttorneyClick={(id) => openAttorneyInfo(id)}
               />
             </motion.div>
           ) : (
@@ -219,6 +263,109 @@ export default function ChatDashboard({ userId }: { userId: string }) {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Attorney Info Modal */}
+      {mounted && createPortal(
+        <AnimatePresence>
+          {viewingAttorney && (
+            <div className="fixed inset-0 z-[9997] flex items-center justify-center bg-titanium-950/90 backdrop-blur-md p-4" onClick={() => setViewingAttorney(null)}>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="bg-titanium-900 border border-titanium-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="p-4 sm:p-6 border-b border-titanium-800 flex justify-between items-center bg-titanium-950/50">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="size-10 sm:size-12 rounded-full bg-action/10 flex items-center justify-center border border-action/20">
+                      <Scale className="size-5 sm:size-6 text-action" />
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="text-lg sm:text-xl font-bold text-titanium-50 truncate">{viewingAttorney.full_name}</h2>
+                      <p className="text-[9px] sm:text-[10px] text-action font-mono uppercase tracking-[0.2em] truncate">{viewingAttorney.firm_name || "Independent Counsel"}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setViewingAttorney(null)} className="text-titanium-500 hover:text-white transition-colors p-2 shrink-0">
+                    <X className="size-5 sm:size-6" />
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 sm:space-y-8 scrollbar-hide">
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                    <div className="bg-titanium-950/50 p-3 sm:p-4 rounded-xl border border-titanium-800">
+                      <p className="text-[8px] sm:text-[9px] text-titanium-500 uppercase tracking-widest mb-1">Experience</p>
+                      <p className="text-base sm:text-lg font-bold text-titanium-50">{viewingAttorney.years_experience || 0} Years</p>
+                    </div>
+                    <div className="bg-titanium-950/50 p-3 sm:p-4 rounded-xl border border-titanium-800">
+                      <p className="text-[8px] sm:text-[9px] text-titanium-500 uppercase tracking-widest mb-1">Location</p>
+                      <p className="text-[10px] sm:text-[11px] font-bold text-titanium-50 truncate">{viewingAttorney.city}, {viewingAttorney.country}</p>
+                    </div>
+                    <div className="bg-titanium-950/50 p-3 sm:p-4 rounded-xl border border-titanium-800 col-span-2">
+                      <p className="text-[8px] sm:text-[9px] text-titanium-500 uppercase tracking-widest mb-1">Specialties</p>
+                      <p className="text-[10px] sm:text-[11px] font-bold text-action truncate">{viewingAttorney.specialties || "General Defense"}</p>
+                    </div>
+                  </div>
+
+                  {/* Cases */}
+                  <div className="space-y-4">
+                    <h3 className="text-[10px] sm:text-xs font-bold text-titanium-50 uppercase tracking-[0.2em] flex items-center gap-2">
+                      <Clock className="size-3.5 sm:size-4 text-action" /> Active & History
+                    </h3>
+                    <div className="space-y-2.5 sm:space-y-3">
+                      {[...viewingAttorney.assigned_intakes.map(i => ({ ...i, type: 'civil' })),
+                      ...viewingAttorney.assigned_encounters.map(e => ({ ...e, type: 'sos' }))]
+                        .sort((a, b) => new Date(b.created_at || b.started_at).getTime() - new Date(a.created_at || a.started_at).getTime())
+                        .map((c: any) => (
+                          <div key={c.id} className="flex items-center justify-between p-3 sm:p-4 bg-titanium-950/30 rounded-xl border border-titanium-800/50 hover:border-titanium-700 transition-colors group">
+                            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                              <div className={`size-8 sm:size-9 rounded-lg flex items-center justify-center shrink-0 ${c.type === 'sos' ? 'bg-red-500/10 text-red-400' : 'bg-action/10 text-action'}`}>
+                                {c.type === 'sos' ? <Clock className="size-4 sm:size-4.5" /> : <Scale className="size-4 sm:size-4.5" />}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs sm:text-sm font-bold text-titanium-50 truncate pr-2">{c.subject || `SOS: ${c.encounter_type?.replace('_', ' ')}`}</p>
+                                <div className="flex flex-wrap items-center gap-2 mt-1">
+                                  <span className={`text-[8px] sm:text-[9px] font-mono uppercase px-1.5 py-0.5 rounded ${c.status === 'active' || c.status === 'pending' ? 'bg-amber-500/10 text-amber-500' : c.status === 'rejected' ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                                    {c.status}
+                                  </span>
+                                  <span className="text-[8px] sm:text-[9px] text-titanium-600 font-mono">
+                                    {new Date(c.created_at || c.started_at).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setViewingCase(c)}
+                              className="p-2 rounded-lg bg-titanium-800/50 text-titanium-400 hover:text-action hover:bg-action/10 transition-all shrink-0"
+                            >
+                              <Search className="size-3.5 sm:size-4" />
+                            </button>
+                          </div>
+                        ))}
+                      {viewingAttorney.assigned_intakes.length === 0 && viewingAttorney.assigned_encounters.length === 0 && (
+                        <div className="text-center py-10 border border-dashed border-titanium-800 rounded-xl bg-titanium-950/20">
+                          <p className="text-[9px] sm:text-[10px] text-titanium-600 uppercase font-mono tracking-widest">No shared legal matters found</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      <CaseDetailModal caseData={viewingCase} onClose={() => setViewingCase(null)} />
+
+      {mounted && fetchingAttorney && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-titanium-950/40 backdrop-blur-sm">
+          <Loader2 className="size-10 text-action animate-spin" />
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

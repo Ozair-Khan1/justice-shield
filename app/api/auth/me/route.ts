@@ -31,6 +31,7 @@ export async function GET(req: Request) {
         specialties: true,
         city: true,
         country: true,
+        seen_notification_ids: true,
         emergency_alerts: {
           select: {
             id: true,

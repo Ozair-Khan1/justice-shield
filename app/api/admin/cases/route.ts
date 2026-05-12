@@ -12,7 +12,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const [intakes, sessions] = await Promise.all([
+    const [intakes, sessions, alerts] = await Promise.all([
       prisma.civilIntake.findMany({
         where: {
           status: { in: ["assigned", "pending", "rejected", "active", "resolved"] }
@@ -39,10 +39,36 @@ export async function GET(req: Request) {
           assigned_attorney: { select: { id: true, full_name: true, email: true, phone: true, firm_name: true, role: true, specialties: true } },
         },
         orderBy: { created_at: "desc" },
+      }),
+      prisma.emergencyAlert.findMany({
+        where: { session_id: null },
+        include: {
+          user: { select: { id: true, full_name: true, email: true, phone: true, city: true, country: true, emergency_contact_name: true } }
+        },
+        orderBy: { sent_at: "desc" }
       })
     ]);
 
-    return NextResponse.json({ intakes, sessions });
+    // Map alerts to look like sessions
+    const mappedAlerts = alerts.map(alert => ({
+      id: alert.id,
+      encounter_type: "SOS_ALERT",
+      status: "pending",
+      location_address: alert.message?.split(" at ")?.[1] || "Unknown",
+      started_at: alert.sent_at,
+      created_at: alert.sent_at,
+      user: alert.user,
+      notes: alert.message,
+      assigned_attorney: null,
+      is_preliminary: true
+    }));
+
+    // Combine and sort
+    const allSessions = [...sessions, ...mappedAlerts].sort(
+      (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
+
+    return NextResponse.json({ intakes, sessions: allSessions });
   } catch (error) {
     console.error("Admin fetch cases error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

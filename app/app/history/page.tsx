@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import {
   Shield,
@@ -54,6 +54,7 @@ interface Session {
     email: string | null;
     phone: string | null;
   } | null;
+  rejection_message?: string | null;
 }
 
 interface Intake {
@@ -74,12 +75,14 @@ interface Intake {
   opposing_party: string | null;
   opposing_party_location: string | null;
   metadata?: Record<string, any> | null;
+  rejection_message?: string | null;
 }
 
 export default function HistoryPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [tab, setTab] = useState<string>("sos");
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<string>("all");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [intakes, setIntakes] = useState<Intake[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,13 +113,83 @@ export default function HistoryPage() {
     }
   };
 
+
+  const handleClose = () => {
+    setSelectedIntake(null);
+    const newUrl = new URLSearchParams(window.location.search);
+    newUrl.delete("caseId");
+    newUrl.delete("type");
+    router.push(`/app/history?${newUrl.toString()}`);
+  }
+
   useEffect(() => {
     if (user) fetchHistory();
   }, [user]);
 
+  // Auto-open logic and fresh data fetch on deep-link
+  useEffect(() => {
+    const caseId = searchParams.get("caseId");
+    const type = searchParams.get("type");
+
+    if (caseId && type) {
+      console.log(`[History] Deep-link detected for ${type}:${caseId}. Refreshing data...`);
+      fetchHistory(true); // Silent refresh to get latest status/rejection
+    }
+  }, [searchParams.get("caseId"), searchParams.get("type")]);
+
+  useEffect(() => {
+    if (!loading && (sessions.length > 0 || intakes.length > 0)) {
+      const caseId = searchParams.get("caseId");
+      const type = searchParams.get("type");
+
+      if (caseId && type) {
+        if (type === "sos") {
+          const session = sessions.find(s => s.id === caseId);
+          if (session) {
+            setTab("sos");
+            setSelectedIntake({
+              id: session.id,
+              matter_type: session.encounter_type,
+              urgency: "CRITICAL",
+              subject: `SOS Engagement: ${session.encounter_type.replace("_", " ")}`,
+              description: "Emergency tactical record.",
+              preferred_contact: "Direct Link",
+              status: session.status,
+              created_at: session.started_at,
+              assigned_attorney: session.assigned_attorney ? {
+                id: session.assigned_attorney.id,
+                full_name: session.assigned_attorney.full_name || session.attorney_name,
+                email: session.assigned_attorney.email,
+                phone: session.assigned_attorney.phone
+              } : null,
+              rejection_message: session.rejection_message,
+              opposing_party: null,
+              opposing_party_location: null,
+              is_sos: true
+            } as any);
+          }
+        } else if (type === "civil") {
+          const intake = intakes.find(i => i.id === caseId);
+          if (intake) {
+            setTab("civil");
+            setSelectedIntake(intake);
+          }
+        }
+      }
+    }
+  }, [loading, sessions, intakes, searchParams]);
+
   useEffect(() => {
     setCurrentPage(1);
   }, [tab, search, statusFilter, urgencyFilter]);
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedIntake(null);
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
 
   const filteredSessions = sessions.filter(s => {
     const matchesStatus = statusFilter === "all" || s.status === statusFilter;
@@ -138,7 +211,18 @@ export default function HistoryPage() {
     return matchesStatus && matchesUrgency && matchesSearch;
   });
 
-  const totalPages = Math.ceil((tab === "sos" ? filteredSessions : filteredIntakes).length / ITEMS_PER_PAGE);
+  const filteredAll = [
+    ...filteredSessions.map(s => ({ ...s, historyType: 'sos' as const, date: s.started_at })),
+    ...filteredIntakes.map(i => ({ ...i, historyType: 'civil' as const, date: i.created_at }))
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const totalItems = tab === "all" ? filteredAll.length : (tab === "sos" ? filteredSessions.length : filteredIntakes.length);
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+  const paginatedAll = filteredAll.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
   const paginatedSessions = filteredSessions.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
@@ -256,6 +340,9 @@ export default function HistoryPage() {
       <Tabs value={tab} onValueChange={setTab} className="space-y-6 md:space-y-8">
         <div className="overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
           <TabsList className="inline-flex w-full sm:w-auto bg-titanium-900/50 border border-titanium-800 p-1">
+            <TabsTrigger value="all" className="flex-1 sm:flex-none data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-4 sm:px-8 py-3 transition-all whitespace-nowrap">
+              All Records
+            </TabsTrigger>
             <TabsTrigger value="sos" className="flex-1 sm:flex-none data-[state=active]:bg-titanium-800 data-[state=active]:text-action font-mono text-[10px] uppercase tracking-[0.2em] px-4 sm:px-8 py-3 transition-all whitespace-nowrap">
               SOS
             </TabsTrigger>
@@ -269,9 +356,157 @@ export default function HistoryPage() {
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={setCurrentPage}
-          totalItems={(tab === "sos" ? filteredSessions : filteredIntakes).length}
+          totalItems={totalItems}
           itemsPerPage={ITEMS_PER_PAGE}
         />
+
+        <TabsContent value="all" className="focus-visible:ring-0">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="all-content"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              className="space-y-4"
+            >
+              {filteredAll.length === 0 ? (
+                <Card className="border-dashed border-titanium-800 bg-titanium-900/20">
+                  <CardContent className="p-12 sm:p-16 text-center">
+                    <div className="flex justify-center mb-6 opacity-20">
+                      <History className="size-10 sm:size-12" />
+                    </div>
+                    <div className="font-mono text-[10px] uppercase tracking-widest text-titanium-600">No operational records found</div>
+                    <p className="mt-3 text-sm text-titanium-500">Your engagement history is currently clear.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                paginatedAll.map((item: any) => {
+                  if (item.historyType === 'sos') {
+                    const s = item as Session;
+                    return (
+                      <Card key={s.id} className="border-titanium-800 bg-titanium-900/30 hover:border-titanium-700 transition-all group">
+                        <CardContent className="p-4 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-start sm:items-center gap-4 sm:gap-6">
+                            <div className="shrink-0 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-sm bg-red-500/10 text-red-500 ring-1 ring-red-500/20">
+                              <Shield className="size-5 sm:size-6" />
+                            </div>
+                            <div className="space-y-1.5 sm:space-y-2 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                                <Badge variant="outline" className="font-mono text-[9px] uppercase tracking-widest border-red-500/20 bg-red-500/5 text-red-400 whitespace-nowrap">
+                                  SOS · {s.encounter_type.replace("_", " ")}
+                                </Badge>
+                              </div>
+                              <div className="font-display text-lg sm:text-xl font-bold text-titanium-50 group-hover:text-red-400 transition-colors break-words">
+                                {new Date(s.started_at).toLocaleString()}
+                              </div>
+                              <div className="flex flex-col flex-wrap items-start gap-x-4 gap-y-1.5 text-[10px] sm:text-xs text-titanium-500 font-mono uppercase tracking-tighter">
+                                {s.attorney_name && (
+                                  <div className="flex items-center gap-1.5">
+                                    <UserIcon className="size-3 text-action" />
+                                    <span className="truncate">Attorney: {s.attorney_name}</span>
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-1.5">
+                                  <MapPin className="size-3" />
+                                  <span>{s.location_address ? s.location_address : `${s.location_lat?.toFixed(4)}, ${s.location_lng?.toFixed(4)}`}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col sm:flex-row items-center gap-4 sm:items-end mt-4 sm:mt-0 pt-4 sm:pt-0 border-t border-titanium-800/50 sm:border-0">
+                            <Badge className={`font-mono text-[9px] uppercase tracking-[0.2em] py-1 px-4 w-full sm:w-auto text-center justify-center h-9 items-center ${s.status === "pending" ? "bg-amber-500 text-black" :
+                              s.status === "active" ? "bg-action text-action-foreground" :
+                                "bg-titanium-800 text-titanium-300"
+                              }`}>
+                              {s.status}
+                            </Badge>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedIntake({
+                                  id: s.id,
+                                  matter_type: s.encounter_type,
+                                  urgency: "CRITICAL",
+                                  subject: `SOS Engagement: ${s.encounter_type.replace("_", " ")}`,
+                                  description: "Emergency tactical record.",
+                                  preferred_contact: "Direct Link",
+                                  status: s.status,
+                                  created_at: s.started_at,
+                                  assigned_attorney: s.assigned_attorney ? {
+                                    id: s.assigned_attorney.id,
+                                    full_name: s.assigned_attorney.full_name || s.attorney_name,
+                                    email: s.assigned_attorney.email,
+                                    phone: s.assigned_attorney.phone
+                                  } : null,
+                                  rejection_message: s.rejection_message,
+                                  opposing_party: null,
+                                  opposing_party_location: null,
+                                  is_sos: true
+                                } as any);
+                              }}
+                              className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action hover:text-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all"
+                            >
+                              View Details
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  } else {
+                    const i = item as Intake;
+                    return (
+                      <Card key={i.id} className="border-titanium-800 bg-titanium-900/30 hover:border-titanium-700 transition-all group">
+                        <CardContent className="p-4 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex items-start sm:items-center gap-4 sm:gap-6">
+                            <div className="shrink-0 flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-sm bg-titanium-800 text-action ring-1 ring-titanium-700">
+                              <FileText className="size-5 sm:size-6" />
+                            </div>
+                            <div className="space-y-1.5 sm:space-y-2 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                                <Badge variant="outline" className="font-mono text-[9px] uppercase tracking-widest border-titanium-700 text-titanium-400 whitespace-nowrap">
+                                  CIVIL · {i.matter_type.replace("_", " ")}
+                                </Badge>
+                              </div>
+                              <div className="font-display text-lg sm:text-xl font-bold text-titanium-50 group-hover:text-action transition-colors break-words">
+                                {i.subject}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10px] sm:text-xs text-titanium-500 font-mono uppercase tracking-tighter">
+                                <div className="flex items-center gap-1.5">
+                                  <History className="size-3" />
+                                  <span>{new Date(i.created_at).toLocaleDateString()}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <AlertTriangle className={`size-3 ${i.urgency === "CRITICAL" ? "text-red-500" : "text-amber-500"}`} />
+                                  <span>{i.urgency} PRIORITY</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col sm:flex-row items-center gap-4 sm:items-end mt-4 sm:mt-0 pt-4 sm:pt-0 border-t border-titanium-800/50 sm:border-0">
+                            <Badge className={`font-mono text-[9px] uppercase tracking-[0.2em] py-1 px-4 w-full sm:w-auto text-center justify-center h-9 items-center ${i.status === "pending" ? "bg-red-500 text-white" :
+                              i.status === "active" ? "bg-action text-white"
+                                : "bg-titanium-800 text-titanium-300"
+                              }`}>
+                              {i.status}
+                            </Badge>
+                            <Button
+                              variant="outline"
+                              onClick={() => setSelectedIntake(i)}
+                              className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action hover:text-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all"
+                            >
+                              View Details
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }
+                })
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </TabsContent>
 
         <TabsContent value="sos" className="focus-visible:ring-0">
           <AnimatePresence mode="wait">
@@ -354,6 +589,7 @@ export default function HistoryPage() {
                                 email: s.assigned_attorney.email,
                                 phone: s.assigned_attorney.phone
                               } : null,
+                              rejection_message: s.rejection_message,
                               opposing_party: null,
                               opposing_party_location: null,
                               is_sos: true
@@ -489,12 +725,16 @@ export default function HistoryPage() {
 
       <AnimatePresence>
         {selectedIntake && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md"
+            onClick={() => setSelectedIntake(null)}
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border border-titanium-800 bg-titanium-950 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] scrollbar-hide"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="relative h-24 md:h-32 bg-gradient-to-r from-action/20 via-titanium-900 to-titanium-950 border-b border-titanium-800">
                 <div className="absolute -bottom-10 left-4 md:left-8 rounded-full border-4 border-titanium-950 bg-titanium-900 p-3 md:p-4 text-action shadow-2xl">
@@ -518,12 +758,30 @@ export default function HistoryPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className={`font-mono text-[9px] uppercase tracking-widest h-6 px-3 ${selectedIntake.status === "pending" ? "text-amber-500 border-amber-500/20 bg-amber-500/5" : "text-blue-500 border-blue-500/20 bg-blue-500/5"
+                    <Badge variant="secondary" className={`font-mono text-[9px] uppercase tracking-widest h-6 px-3 ${selectedIntake.status === "pending" ? "text-amber-500 border-amber-500/20 bg-amber-500/5" :
+                      selectedIntake.status === "rejected" ? "text-red-500 border-red-500/20 bg-red-500/5" :
+                        "text-blue-500 border-blue-500/20 bg-blue-500/5"
                       }`}>
                       {selectedIntake.status}
                     </Badge>
                   </div>
                 </div>
+
+                {selectedIntake.status === "rejected" && selectedIntake.rejection_message && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="rounded-lg border border-red-500/30 bg-red-500/5 p-4 md:p-6 space-y-3"
+                  >
+                    <div className="flex items-center gap-2 text-red-400">
+                      <AlertTriangle className="size-4" />
+                      <h4 className="font-mono text-[10px] font-bold uppercase tracking-widest">Rejection Reason</h4>
+                    </div>
+                    <p className="text-[12px] md:text-sm text-red-200/90 italic leading-relaxed md:leading-loose font-medium break-words">
+                      "{selectedIntake.rejection_message}"
+                    </p>
+                  </motion.div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 border-y border-titanium-800/50 py-6 md:py-8">
                   <div className="space-y-4 md:space-y-5">
@@ -585,10 +843,10 @@ export default function HistoryPage() {
               <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex justify-end gap-3 backdrop-blur-md">
                 <Button
                   variant="outline"
-                  onClick={() => setSelectedIntake(null)}
+                  onClick={() => handleClose()}
                   className="w-full sm:w-auto border-titanium-700 bg-transparent text-titanium-300 hover:bg-titanium-800 h-11 px-8 font-mono text-[10px] uppercase tracking-widest"
                 >
-                  Close Record
+                  Close Details
                 </Button>
 
                 {(selectedIntake?.status === "active" || selectedIntake?.status === "resolved") && selectedIntake.assigned_attorney?.id && user?.role !== "ADMIN" && (

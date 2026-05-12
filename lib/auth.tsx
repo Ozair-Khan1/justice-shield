@@ -15,6 +15,7 @@ interface User {
   emergency_contact_phone?: string | null;
   city?: string | null;
   country?: string | null;
+  seen_notification_ids?: string[];
 }
 
 interface AuthContextValue {

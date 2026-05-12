@@ -8,6 +8,7 @@ import { useLoading } from "@/components/LoadingProvider";
 import { ShieldMark } from "@/components/ShieldMark";
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
+import { Loader2 } from "lucide-react";
 
 type AuthMode = "signin" | "signup" | "forgot";
 
@@ -72,7 +73,7 @@ export default function AuthPage() {
 
   const onSendOtp = async () => {
     setError(null);
-    startLoading("Transmitting Verification Code...");
+    setSubmitting(true);
     try {
       const res = await fetch("/api/auth/otp/send", {
         method: "POST",
@@ -87,7 +88,7 @@ export default function AuthPage() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to send OTP");
     } finally {
-      stopLoading();
+      setSubmitting(false);
     }
   };
 
@@ -111,7 +112,7 @@ export default function AuthPage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    startLoading(mode === "signin" ? "Verifying Credentials..." : "Establishing Protection...");
+    setSubmitting(true);
 
     try {
       switch (mode) {
@@ -229,7 +230,7 @@ export default function AuthPage() {
       const message = err instanceof Error ? err.message : "Authentication failed";
       setError(message);
     } finally {
-      stopLoading();
+      setSubmitting(false);
     }
   };
 
@@ -385,9 +386,16 @@ export default function AuthPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full rounded-sm bg-action px-6 py-4 text-sm font-bold uppercase tracking-widest text-action-foreground transition-colors hover:bg-action/90 disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 rounded-sm bg-action px-6 py-4 text-sm font-bold uppercase tracking-widest text-action-foreground transition-colors hover:bg-action/90 disabled:opacity-50"
               >
-                {submitting ? "Sending Link..." : "Send Link ->"}
+                {submitting ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    <span>Sending Link...</span>
+                  </>
+                ) : (
+                  "Send Link ->"
+                )}
               </button>
             )}
 
@@ -395,9 +403,15 @@ export default function AuthPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full rounded-sm bg-action px-6 py-4 text-sm font-bold uppercase tracking-widest text-action-foreground transition-colors hover:bg-action/90 disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 rounded-sm bg-action px-6 py-4 text-sm font-bold uppercase tracking-widest text-action-foreground transition-colors hover:bg-action/90 disabled:opacity-50"
               >
-                {submitting ? "Processing..." : mode === "signin" ? "Sign In ->" : step === "verification" ? "Complete Setup ->" : "Activate Shield ->"}
+                {submitting ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                  </>
+                ) : (
+                  mode === "signin" ? "Sign In ->" : step === "verification" ? "Complete Setup ->" : "Activate Shield ->"
+                )}
               </button>
             )}
           </form>
