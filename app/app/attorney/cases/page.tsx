@@ -21,6 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { CallMethodModal } from "@/components/CallMethodModal";
 interface CaseUser {
   id: string;
   full_name: string | null;
@@ -62,6 +63,7 @@ export default function AttorneyCasesPage() {
   const [rejectionMessage, setRejectionMessage] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "sos" | "civil">("all");
   const ITEMS_PER_PAGE = 15;
+  const [callModal, setCallModal] = useState<{ isOpen: boolean; user: CaseUser | null }>({ isOpen: false, user: null });
   const { startLoading, stopLoading } = useLoading();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -84,8 +86,8 @@ export default function AttorneyCasesPage() {
       if (data.error) throw new Error(data.error);
 
       const civil = (data.cases || []).map((c: any) => ({ ...c, type: 'civil' }));
-      const sos = (data.sessions || []).map((s: any) => ({ 
-        ...s, 
+      const sos = (data.sessions || []).map((s: any) => ({
+        ...s,
         type: 'sos',
         matter_type: s.encounter_type,
         subject: `SOS Emergency: ${s.encounter_type.replace("_", " ")}`,
@@ -95,7 +97,7 @@ export default function AttorneyCasesPage() {
         created_at: s.started_at
       }));
 
-      const combined = [...civil, ...sos].sort((a: any, b: any) => 
+      const combined = [...civil, ...sos].sort((a: any, b: any) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
@@ -182,7 +184,7 @@ export default function AttorneyCasesPage() {
     startLoading("Finalizing Legal Record...");
     const selected = cases.find(c => c.id === id);
     const apiEndpoint = selected?.type === "sos" ? `/api/sos/${id}` : `/api/cases/${id}/status`;
-    
+
     try {
       const res = await fetch(apiEndpoint, {
         method: "PATCH",
@@ -342,9 +344,8 @@ export default function AttorneyCasesPage() {
                 key={t}
                 variant="ghost"
                 onClick={() => { setTypeFilter(t); setCurrentPage(1); }}
-                className={`h-8 px-4 font-mono text-[9px] uppercase tracking-widest transition-all ${
-                  typeFilter === t ? "bg-titanium-800 text-action" : "text-titanium-500 hover:text-titanium-300"
-                }`}
+                className={`h-8 px-4 font-mono text-[9px] uppercase tracking-widest transition-all ${typeFilter === t ? "bg-titanium-800 text-action" : "text-titanium-500 hover:text-titanium-300"
+                  }`}
               >
                 {t}
               </Button>
@@ -483,7 +484,18 @@ export default function AttorneyCasesPage() {
                       {selectedCase.matter_type.replace("_", " ")}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col md:flex-row items-center gap-3">
+                    <Button
+                      onClick={() => {
+                        setSelectedCase(null);
+                        setTimeout(() => setCallModal({ isOpen: true, user: selectedCase.user }), 150);
+                      }}
+                      variant="outline"
+                      className="border-action/30 text-action hover:bg-action hover:text-white font-mono text-[10px] uppercase tracking-widest h-9 px-4"
+                    >
+                      <Phone className="size-3.5 mr-2" />
+                      Call Member
+                    </Button>
                     <Badge variant="secondary" className="font-mono text-[9px] uppercase tracking-widest h-6 text-blue-500 border-blue-500/20 bg-blue-500/5 px-3">
                       {selectedCase.status}
                     </Badge>
@@ -689,6 +701,68 @@ export default function AttorneyCasesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Call Method Modal */}
+      <CallMethodModal
+        isOpen={callModal.isOpen}
+        onClose={() => setCallModal({ isOpen: false, user: null })}
+        userName={callModal.user?.full_name || "Member"}
+        phoneNumber={callModal.user?.phone || undefined}
+        onBrowserCall={async () => {
+          if (!callModal.user || !user) return;
+          const id1 = user.id.replace(/-/g, "");
+          const id2 = callModal.user.id.replace(/-/g, "");
+          const roomId = [id1, id2].sort().join("");
+
+          try {
+            // 1. Create Call Log in DB
+            const res = await fetch("/api/calls", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ room: roomId, receiverId: callModal.user.id, callType: "video" })
+            });
+            const { callLog } = await res.json();
+            // 2. Signal the receiver via Socket.io
+            const signalSocket = socketRef.current || io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001", {
+              transports: ["polling", "websocket"],
+              timeout: 20000,
+              extraHeaders: { "Bypass-Tunnel-Reminder": "true" }
+            });
+
+            const emitCall = () => {
+              if (!callModal.user) return;
+
+              signalSocket.emit("start-video-call", {
+                room: roomId,
+                callId: callLog.id,
+                receiverId: callModal.user.id,
+                callerId: user.id,
+                senderName: user.full_name || "Attorney",
+                callType: "video"
+              });
+              // If we created a new socket just for this, disconnect it later
+              if (!socketRef.current) {
+                setTimeout(() => signalSocket.disconnect(), 2000);
+              }
+            };
+
+            if (signalSocket.connected) {
+              emitCall();
+            } else {
+              signalSocket.once("connect", emitCall);
+            }
+
+
+            // 3. Open Window
+            const url = `/call/${roomId}?name=${encodeURIComponent(user.full_name || user.id || "Attorney")}&type=video&callId=${callLog.id}`;
+            window.open(url, "_blank", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
+          } catch (err) {
+            console.error("Failed to start call:", err);
+            // Fallback
+            const url = `/call/${roomId}?name=${encodeURIComponent(user.full_name || user.id || "Attorney")}&type=video`;
+            window.open(url, "_blank", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
+          }
+        }}
+      />
     </motion.div >
   );
 }

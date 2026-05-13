@@ -49,6 +49,15 @@ export async function POST(req: Request) {
         timestamp: new Date()
       });
 
+      // Notify User
+      await emitSocketEvent("attorney-assigned", {
+        userId: updated.user_id,
+        attorneyName: updated.assigned_attorney?.full_name || "An Attorney",
+        caseSubject: updated.subject,
+        caseId: updated.id,
+        caseType: "civil",
+      });
+
     } else {
       updated = await prisma.encounterSession.update({
         where: { id: sessionId },
@@ -76,6 +85,15 @@ export async function POST(req: Request) {
         status: updated.status,
         performed_by: payload.id,
         timestamp: new Date()
+      });
+
+      // Notify User
+      await emitSocketEvent("attorney-assigned", {
+        userId: updated.user_id,
+        attorneyName: updated.assigned_attorney?.full_name || "An Attorney",
+        caseSubject: updated.encounter_type.replace("_", " "),
+        caseId: updated.id,
+        caseType: "sos",
       });
     }
 

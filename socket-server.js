@@ -3,8 +3,8 @@ const http = require("http");
 
 const server = http.createServer((req, res) => {
   if (req.url === "/ping") {
-    res.writeHead(200, { 
-      "Content-Type": "text/plain", 
+    res.writeHead(200, {
+      "Content-Type": "text/plain",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST"
     });
@@ -16,7 +16,9 @@ const io = new Server(server, {
   cors: {
     origin: "*", // Allow all for development
     methods: ["GET", "POST"]
-  }
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
 io.on("connection", (socket) => {
@@ -68,6 +70,36 @@ io.on("connection", (socket) => {
   socket.on("mark-read", (data) => {
     // data: { room, readByUserId }
     io.to(data.room).emit("messages-read", data.readByUserId);
+  });
+
+  socket.on("start-video-call", (data) => {
+    // data: { room, receiverId, senderName, senderId }
+    console.log(`Video call started in ${data.room} by ${data.senderName} for ${data.receiverId}`);
+    io.to(data.receiverId).emit("incoming-video-call", data);
+  });
+
+  socket.on("decline-video-call", (data) => {
+    // data: { callerId, declinerName }
+    console.log(`Video call declined by ${data.declinerName} for caller ${data.callerId}`);
+    io.to(data.callerId).emit("video-call-declined", data);
+  });
+
+  socket.on("case-accepted", (data) => {
+    // data: { userId, attorneyName, caseSubject, caseId, caseType }
+    console.log(`Case accepted by ${data.attorneyName} — notifying user ${data.userId}`);
+    io.to(data.userId).emit("case-accepted", data);
+  });
+
+  socket.on("attorney-assigned", (data) => {
+    // data: { userId, attorneyName, caseSubject, caseId, caseType }
+    console.log(`Attorney assigned: ${data.attorneyName} — notifying user ${data.userId}`);
+    io.to(data.userId).emit("attorney-assigned", data);
+  });
+
+  socket.on("case-rejected", (data) => {
+    // data: { userId, attorneyName, caseSubject, caseId, caseType, reason }
+    console.log(`Case rejected by ${data.attorneyName} — notifying user ${data.userId}`);
+    io.to(data.userId).emit("case-rejected", data);
   });
 
   socket.on("disconnect", () => {

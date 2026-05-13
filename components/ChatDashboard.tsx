@@ -40,7 +40,8 @@ interface AttorneyInfo {
   assigned_encounters: any[];
 }
 
-export default function ChatDashboard({ userId }: { userId: string }) {
+export default function ChatDashboard({ userId, userName }: { userId: string, userName?: string | null }) {
+
   const searchParams = useSearchParams();
   const initialUser = searchParams.get("user");
   const initialName = searchParams.get("name");
@@ -240,10 +241,12 @@ export default function ChatDashboard({ userId }: { userId: string }) {
               <ChatInterface
                 receiverId={selectedId}
                 userId={userId}
+                userName={userName || undefined}
                 receiverName={selectedChat?.participant?.full_name}
                 receiverRole={selectedChat?.participant?.role}
                 onAttorneyClick={(id) => openAttorneyInfo(id)}
               />
+
             </motion.div>
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-center px-12">

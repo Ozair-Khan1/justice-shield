@@ -145,6 +145,28 @@ export async function PATCH(
       timestamp: new Date()
     });
 
+    if (updatedSession.assigned_attorney_id && (updatedSession.status === "assigned" || updatedSession.status === "active")) {
+      const eventType = payload.role === "ATTORNEY" ? "case-accepted" : "attorney-assigned";
+      await emitSocketEvent(eventType, {
+        userId: updatedSession.user_id,
+        attorneyName: updatedSession.assigned_attorney?.full_name || "An Attorney",
+        caseSubject: updatedSession.encounter_type.replace("_", " "),
+        caseId: updatedSession.id,
+        caseType: "sos",
+      });
+    }
+
+    if (updatedSession.status === "rejected") {
+      await emitSocketEvent("case-rejected", {
+        userId: updatedSession.user_id,
+        attorneyName: updatedSession.assigned_attorney?.full_name || "An Attorney",
+        caseSubject: updatedSession.encounter_type.replace("_", " "),
+        caseId: updatedSession.id,
+        caseType: "sos",
+        reason: updatedSession.rejection_message,
+      });
+    }
+
     return NextResponse.json({ session: updatedSession });
   } catch (error) {
     console.error("SOS PATCH error:", error);

@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@livekit/components-react": "^2.9.21",
+    "@livekit/components-styles": "^1.2.0",
     "@prisma/client": "^6.19.3",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -51,6 +53,8 @@
     "input-otp": "^1.4.2",
     "jose": "^6.2.3",
     "js-cookie": "^3.0.5",
+    "livekit-client": "^2.18.9",
+    "livekit-server-sdk": "^2.15.2",
     "lucide-react": "^1.11.0",
     "next": "16.2.4",
     "nodemailer": "^8.0.7",

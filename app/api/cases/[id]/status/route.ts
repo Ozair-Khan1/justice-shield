@@ -62,9 +62,24 @@ export async function PATCH(
       urgency: updated.urgency,
       assigned_attorney_id: updated.assigned_attorney_id || null,
       status: updated.status,
-      performed_by: payload.id,
       timestamp: new Date()
     });
+
+    if (updated.status === "rejected") {
+      const attorney = await prisma.user.findUnique({
+        where: { id: payload.id as string },
+        select: { full_name: true }
+      });
+
+      await emitSocketEvent("case-rejected", {
+        userId: updated.user_id,
+        attorneyName: attorney?.full_name || "An Attorney",
+        caseSubject: updated.subject,
+        caseId: updated.id,
+        caseType: "civil",
+        reason: updated.rejection_message,
+      });
+    }
 
     return NextResponse.json({ success: true, intake: updated });
   } catch (error) {

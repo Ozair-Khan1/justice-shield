@@ -1,12 +1,13 @@
-"use client";
-import React, { useState, useEffect, useRef } from "react";
-import { Send, Shield, Loader2, MessageSquare } from "lucide-react";
+import { Send, Shield, Loader2, MessageSquare, Video, Phone } from "lucide-react";
+import LiveKitVideoCall from "@/components/LiveKitVideoCall";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { io, Socket } from "socket.io-client";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 interface Message {
   id: string;
@@ -30,30 +31,88 @@ interface ChatInterfaceProps {
   onAttorneyClick?: (id: string) => void;
 }
 
-const SOCKET_URL = "http://localhost:3001";
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+const socketOptions = {
+  transports: ["websocket"],
+  reconnectionAttempts: 10,
+  reconnectionDelay: 1000,
+  connectTimeout: 5000,
+};
 
 export default function ChatInterface({
   receiverId,
   userId,
   receiverName,
   receiverRole,
-  onAttorneyClick
-}: ChatInterfaceProps) {
+  onAttorneyClick,
+  userName // Add this prop to pass current user's name
+}: ChatInterfaceProps & { userName?: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleStartCall = async (type: "audio" | "video") => {
+    if (!roomId) return;
+
+    try {
+      // 1. Create Call Log in DB
+      const res = await fetch("/api/calls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ room: roomId, receiverId, callType: type })
+      });
+      const { callLog } = await res.json();
+
+      // 2. Emit Signal with callId
+      if (socketRef.current) {
+        socketRef.current.emit("start-video-call", {
+          room: roomId,
+          callId: callLog.id,
+          receiverId: receiverId,
+          senderName: userName || "User",
+          callerId: userId,
+          callType: type
+        });
+      }
+
+      // 3. Open Window
+      const url = `/call/${roomId}?name=${encodeURIComponent(userName || userId)}&type=${type}&callId=${callLog.id}`;
+      window.open(url, "_blank", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
+    } catch (err) {
+      console.error("Failed to start call:", err);
+      // Fallback: Open window anyway if API fails
+      const url = `/call/${roomId}?name=${encodeURIComponent(userName || userId)}&type=${type}`;
+      window.open(url, "_blank", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
+    }
+  };
+
   const socketRef = useRef<Socket | null>(null);
 
-  // Unique room key for this conversation (sorted so both users share the same room)
-  const roomId = [userId, receiverId].sort().join("_");
+  // Unique room key for this conversation
+  const roomId = useMemo(() => {
+    if (!userId || !receiverId) return "";
+    // Remove dashes to create a clean, alphanumeric room ID
+    const id1 = userId.toString().replace(/-/g, "");
+    const id2 = receiverId.toString().replace(/-/g, "");
+    return [id1, id2].sort().join("");
+  }, [userId, receiverId]);
 
   useEffect(() => {
     fetchMessages();
     const intervalId = setInterval(fetchMessages, 2000);
 
-    const socket = io(SOCKET_URL);
+    const socket = io(SOCKET_URL, {
+      transports: ["polling", "websocket"],
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      timeout: 20000,
+      extraHeaders: {
+        "Bypass-Tunnel-Reminder": "true"
+      }
+    });
     socketRef.current = socket;
 
     socket.on("connect", () => {
@@ -173,7 +232,29 @@ export default function ChatInterface({
             )}
           </div>
         </div>
+
+        <div className="flex gap-2">
+          <Button
+            onClick={() => handleStartCall("audio")}
+            variant="outline"
+            size="sm"
+            className="border-titanium-800 text-titanium-400 hover:text-white"
+            title="Audio Call"
+          >
+            <Phone className="size-4" />
+          </Button>
+          <Button
+            onClick={() => handleStartCall("video")}
+            variant="outline"
+            size="sm"
+            className="border-titanium-800 text-titanium-400 hover:text-white"
+            title="Video Call"
+          >
+            <Video className="size-4" />
+          </Button>
+        </div>
       </div>
+
 
       {/* Messages */}
       <div
@@ -256,6 +337,8 @@ export default function ChatInterface({
           </Button>
         </div>
       </form>
-    </div>
+    </div >
+
+
   );
 }

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJwt, getAuthToken } from "@/lib/jwt";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   try {
     const token = await getAuthToken(req);
@@ -133,8 +135,59 @@ export async function GET(req: Request) {
       });
     }
 
-    return NextResponse.json({ 
-      unreadNotifications: unreadNotifications.filter(n => !seenIds.has(n.id)) 
+    const recentCalls = await prisma.callLog.findMany({
+      where: {
+        receiver_id: userId,
+        status: { in: ["missed", "initiated"] }
+      },
+      take: 20,
+      orderBy: { started_at: "desc" },
+      include: { caller: { select: { full_name: true, id: true } } }
+    });
+
+    const now = new Date();
+    for (const call of recentCalls) {
+      const callAgeSeconds = (now.getTime() - new Date(call.started_at).getTime()) / 1000;
+
+      if (call.status === "initiated") {
+        if (callAgeSeconds > 60) {
+          // Auto-expire to missed in DB
+          await prisma.callLog.update({
+            where: { id: call.id },
+            data: { status: "missed", ended_at: now }
+          });
+          unreadNotifications.push({
+            type: "MISSED_CALL",
+            id: call.id,
+            caller_name: call.caller.full_name || "Unknown Caller",
+            call_type: call.call_type,
+            timestamp: call.started_at
+          });
+        } else {
+          // Still active! Show as incoming call if not seen
+          unreadNotifications.push({
+            type: "INCOMING_CALL_RECOVERY", // New type for recovery
+            id: call.id,
+            room: call.room,
+            callerId: call.caller.id,
+            senderName: call.caller.full_name || "Member",
+            callType: call.call_type,
+            timestamp: call.started_at
+          });
+        }
+      } else {
+        unreadNotifications.push({
+          type: "MISSED_CALL",
+          id: call.id,
+          caller_name: call.caller.full_name || "Unknown Caller",
+          call_type: call.call_type,
+          timestamp: call.started_at
+        });
+      }
+    }
+
+    return NextResponse.json({
+      unreadNotifications: unreadNotifications.filter(n => n.type === "INCOMING_CALL_RECOVERY" || !seenIds.has(n.id))
     });
   } catch (error) {
     console.error("Unread notifications error:", error);

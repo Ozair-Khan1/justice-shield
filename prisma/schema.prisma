@@ -46,6 +46,8 @@ model User {
   emergency_alerts        EmergencyAlert[]
   sent_messages           ChatMessage[]      @relation("SentMessages")
   received_messages       ChatMessage[]      @relation("ReceivedMessages")
+  sent_calls             CallLog[]          @relation("SentCalls")
+  received_calls         CallLog[]          @relation("ReceivedCalls")
 
   @@index([role])
 }
@@ -179,4 +181,22 @@ model ContactMessage {
   created_at DateTime @default(now())
 
   @@index([status])
+}
+
+model CallLog {
+  id           String   @id @default(uuid())
+  room         String
+  caller_id    String
+  receiver_id  String
+  call_type    String   @default("video") // "video" or "audio"
+  status       String   @default("initiated") // "initiated", "answered", "declined", "missed", "ended"
+  started_at   DateTime @default(now())
+  ended_at     DateTime?
+  
+  caller       User     @relation("SentCalls", fields: [caller_id], references: [id], onDelete: Cascade)
+  receiver     User     @relation("ReceivedCalls", fields: [receiver_id], references: [id], onDelete: Cascade)
+
+  @@index([caller_id])
+  @@index([receiver_id])
+  @@index([room])
 }

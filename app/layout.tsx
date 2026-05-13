@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import "@livekit/components-styles";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 
@@ -37,6 +38,7 @@ export const metadata: Metadata = {
 import { LoadingProvider } from "@/components/LoadingProvider";
 import { Toaster } from "sonner";
 import { GlobalNotificationListener } from "@/components/GlobalNotificationListener";
+import { NotificationProvider } from "@/lib/NotificationProvider";
 
 export default function RootLayout({
   children,
@@ -57,17 +59,19 @@ export default function RootLayout({
       <body className="bg-titanium-950 text-titanium-50">
         <LoadingProvider>
           <AuthProvider>
-            {children}
-            <GlobalNotificationListener />
-            <Toaster
-              position="top-right"
-              theme="dark"
-              expand={false}
-              richColors={true}
-              toastOptions={{
-                className: "border-titanium-800 bg-titanium-900 text-titanium-50",
-              }}
-            />
+            <NotificationProvider>
+              {children}
+              <GlobalNotificationListener />
+              <Toaster
+                position="top-right"
+                theme="dark"
+                expand={false}
+                richColors={true}
+                toastOptions={{
+                  className: "border-titanium-800 bg-titanium-900 text-titanium-50",
+                }}
+              />
+            </NotificationProvider>
           </AuthProvider>
         </LoadingProvider>
       </body>

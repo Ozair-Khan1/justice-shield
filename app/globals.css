@@ -204,3 +204,223 @@
 .PhoneInputCountryIcon {
   @apply filter brightness-90 contrast-125;
 }
+
+/* LiveKit Titanium Theme Overrides */
+[data-lk-theme="default"],
+.lk-theme-default {
+  --lk-bg: #0a0a0a !important;
+  --lk-fg: #f5f5f5 !important;
+  --lk-accent-color: #ef4444 !important;
+  --lk-accent-fg: #ffffff !important;
+  --lk-border-color: #262626 !important;
+  --lk-control-bar-bg: #171717 !important;
+  --lk-participant-bg: #171717 !important;
+  --lk-grid-bg: #0a0a0a !important;
+  --lk-connection-excellent: #22c55e !important;
+  --lk-connection-good: #eab308 !important;
+  --lk-connection-poor: #ef4444 !important;
+  font-family: var(--font-sans) !important;
+}
+
+.lk-video-conference,
+.lk-prejoin {
+  background-color: #0a0a0a !important;
+  font-family: var(--font-sans) !important;
+}
+
+.lk-control-bar {
+  border-top: 1px solid #262626 !important;
+  background-color: #111111 !important;
+  padding: 1rem !important;
+}
+
+.lk-button {
+  border-radius: 4px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+  font-size: 10px !important;
+  border: 1px solid #404040 !important;
+  background-color: #262626 !important;
+  color: #ffffff !important;
+  transition: all 0.2s ease !important;
+}
+
+.lk-button:hover {
+  background-color: #404040 !important;
+  border-color: #525252 !important;
+  color: #ffffff !important;
+}
+
+.lk-button-primary,
+.lk-disconnect-button,
+.lk-start-audio-button,
+.lk-start-video-button {
+  background-color: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #ef4444 !important;
+}
+
+.lk-button-primary:hover,
+.lk-disconnect-button:hover {
+  background-color: #dc2626 !important;
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.4) !important;
+}
+
+.lk-prejoin .lk-card {
+  background-color: #111111 !important;
+  border: 1px solid #262626 !important;
+  border-radius: 4px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+}
+
+.lk-prejoin .lk-card-header {
+  border-bottom: 1px solid #262626 !important;
+  padding-bottom: 1rem !important;
+  margin-bottom: 1rem !important;
+}
+
+.lk-participant-name {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  background-color: rgba(0, 0, 0, 0.6) !important;
+  padding: 4px 8px !important;
+  border-radius: 2px !important;
+}
+
+/* Hide Screen Share and Chat Buttons */
+button[data-lk-source="screen_share"],
+button.lk-chat-toggle,
+.lk-chat-toggle,
+.lk-screen-share-button,
+[data-lk-icon="screen_share"],
+[data-lk-icon="chat"],
+.lk-button-group:has([data-lk-icon="screen_share"]),
+.lk-button-group:has([data-lk-icon="chat"]),
+.lk-button-group:has(.lk-chat-toggle) {
+  display: none !important;
+}
+
+/* ─── LiveKit Mobile Responsive ─────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* Ensure the video conference fills its container but DON'T clip dropdowns */
+  .lk-video-conference {
+    height: 100% !important;
+  }
+
+  /* Control bar always stays visible — never pushed off screen */
+  .lk-control-bar {
+    flex-shrink: 0 !important;
+    position: relative !important;
+    z-index: 10 !important;
+  }
+
+  /* Device selector dropdowns must appear ABOVE the control bar */
+  .lk-media-device-select,
+  .lk-device-select-button,
+  [data-radix-popper-content-wrapper],
+  [role="menu"],
+  [role="listbox"] {
+    z-index: 9999 !important;
+    position: fixed !important;
+  }
+
+  /* Tighter control bar for small screens */
+  .lk-control-bar {
+    padding: 0.5rem 0.75rem !important;
+    gap: 0.5rem !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+  }
+
+  /* Larger touch targets — minimum 44px per Apple HIG */
+  .lk-button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 0 0.75rem !important;
+    font-size: 9px !important;
+    border-radius: 8px !important;
+  }
+
+  /* Hide button labels on very small screens, show only icons */
+  .lk-button > span:not(.lk-icon),
+  .lk-button-group > button > span:not(.lk-icon) {
+    display: none !important;
+  }
+
+  /* Scale icons appropriately */
+  .lk-button svg,
+  .lk-button .lk-icon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  /* Stack video grid vertically in portrait */
+  .lk-grid-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Make participant tiles fill width in portrait */
+  .lk-participant-tile {
+    width: 100% !important;
+    max-height: 60vh !important;
+    border-radius: 0 !important;
+  }
+
+  /* Smaller name badge */
+  .lk-participant-name {
+    font-size: 9px !important;
+    padding: 2px 6px !important;
+  }
+
+  /* Focus view takes full height */
+  .lk-focus-layout {
+    flex-direction: column !important;
+  }
+
+  .lk-focus-layout .lk-participant-tile:first-child {
+    flex: 1 !important;
+    min-height: 50dvh !important;
+  }
+
+  /* Carousel / thumbnail strip at bottom */
+  .lk-focus-layout-track {
+    height: auto !important;
+    max-height: 120px !important;
+  }
+
+  /* Pre-join screen */
+  .lk-prejoin {
+    padding: 1rem !important;
+  }
+
+  .lk-prejoin .lk-card {
+    width: 100% !important;
+    border-radius: 8px !important;
+    padding: 1rem !important;
+  }
+
+  /* Connection quality indicator stays visible */
+  .lk-connection-quality {
+    bottom: 70px !important;
+    right: 8px !important;
+  }
+}
+
+/* Extra small phones (e.g. iPhone SE) */
+@media (max-width: 375px) {
+  .lk-button {
+    min-width: 40px !important;
+    min-height: 40px !important;
+    padding: 0 0.5rem !important;
+  }
+
+  .lk-control-bar {
+    padding: 0.4rem 0.5rem !important;
+    gap: 0.35rem !important;
+  }
+}

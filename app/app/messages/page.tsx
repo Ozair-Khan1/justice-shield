@@ -31,7 +31,7 @@ export default function MessagesPage() {
       className="h-[calc(100vh-160px)]"
     >
       <Suspense fallback={<div className="h-full flex items-center justify-center border border-titanium-800 rounded-3xl"><div className="size-8 rounded-full border-2 border-action border-t-transparent animate-spin" /></div>}>
-        <ChatDashboard userId={user?.id || ""} />
+        <ChatDashboard userId={user?.id || ""} userName={user?.full_name} />
       </Suspense>
     </motion.div>
   );

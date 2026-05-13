@@ -53,6 +53,16 @@ export async function POST(
       }
     });
 
+    // Trigger Notification for User
+    const { emitSocketEvent } = await import("@/lib/socket-emit");
+    await emitSocketEvent("attorney-assigned", {
+      userId: updatedIntake.user_id,
+      attorneyName: updatedIntake.assigned_attorney?.full_name || "An Attorney",
+      caseSubject: updatedIntake.subject,
+      caseId: updatedIntake.id,
+      caseType: "civil",
+    });
+
     return NextResponse.json({ success: true, intake: updatedIntake });
   } catch (error) {
     console.error("Assign attorney error:", error);

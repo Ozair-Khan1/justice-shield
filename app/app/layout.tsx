@@ -4,10 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { ShieldMark } from "@/components/ShieldMark";
+import { Menu } from "lucide-react";
+import { useState } from "react";
+import { MobileSidebar } from "@/components/MobileSidebar";
+import { NotificationCenter } from "@/components/NotificationCenter";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const pathname = usePathname();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const navItems = (user?.role === "ATTORNEY"
     ? [
@@ -43,6 +48,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </span>
           </Link>
           <div className="flex items-center gap-3">
+            <NotificationCenter />
             <span className="hidden font-mono text-[10px] uppercase tracking-widest text-titanium-500 md:inline">
               {user?.email}
             </span>
@@ -56,13 +62,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             )}
             <button
               onClick={() => signOut()}
-              className="font-mono text-[10px] uppercase tracking-widest text-titanium-400 hover:text-titanium-50"
+              className="hidden sm:inline font-mono text-[10px] uppercase tracking-widest text-titanium-400 hover:text-titanium-50"
             >
               Exit
             </button>
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden p-2 text-titanium-400 hover:text-white transition-colors"
+            >
+              <Menu className="size-6" />
+            </button>
           </div>
         </div>
-        <div className="border-t border-titanium-800/60">
+        <div className="hidden md:block border-t border-titanium-800/60">
+
           <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-2 sm:px-4">
             {navItems.map((item) => {
               const active = item.exact
@@ -83,6 +96,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </nav>
+
+      <MobileSidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        navItems={navItems}
+        userEmail={user?.email}
+        onSignOut={signOut}
+        pathname={pathname}
+      />
+
       <main className="mx-auto max-w-7xl px-4 pt-4 sm:px-6">
         {children}
       </main>

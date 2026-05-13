@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { io } from "socket.io-client";
 import {
   Shield,
   Scale,
@@ -28,6 +29,7 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CallMethodModal } from "@/components/CallMethodModal";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLoading } from "@/components/LoadingProvider";
@@ -113,6 +115,7 @@ export default function AttorneyDashboard() {
   const [cityFilter, setCityFilter] = useState("all");
   const [refreshing, setRefreshing] = useState<string | null>(null);
   const [sosPage, setSosPage] = useState(1);
+  const [callModal, setCallModal] = useState<{ isOpen: boolean; user: CaseUser | null }>({ isOpen: false, user: null });
   const [seenCaseIds, setSeenCaseIds] = useState<Set<string>>(new Set());
   const [hasInitializedCases, setHasInitializedCases] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
@@ -140,12 +143,6 @@ export default function AttorneyDashboard() {
       setPendingCases(data.pendingCases || []);
       setAssignedCases(data.assignedCases || []);
       setStats(data.stats);
-
-      const elapsed = Date.now() - start;
-      const minDelay = 1000;
-      if (!silent && elapsed < minDelay) {
-        await new Promise(resolve => setTimeout(resolve, minDelay - elapsed));
-      }
     } catch (err: any) {
       setError(err.message || "Failed to load dashboard");
     } finally {
@@ -246,22 +243,61 @@ export default function AttorneyDashboard() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
 
-  const handleCallMember = (u: CaseUser, id: string) => {
-    const numberToCopy = u.emergency_contact_phone || u.phone;
-    if (!numberToCopy) return;
+  const handleCallMember = (u: CaseUser) => {
+    // Close any open case detail panel first to avoid overlay conflicts
+    handleClose();
+    setTimeout(() => setCallModal({ isOpen: true, user: u }), 150);
+  };
 
-    navigator.clipboard.writeText(numberToCopy);
-    if (numberToCopy === u.emergency_contact_phone) {
-      setCopiedPhone("Copied Emergency Number")
-    } else {
-      setCopiedPhone("Copied Phone Number")
-    }
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+  const triggerBrowserCall = async (u: CaseUser) => {
+    // Generate Room ID consistently
+    const id1 = user?.id?.replace(/-/g, "") || "";
+    const id2 = u.id.replace(/-/g, "");
+    const roomId = [id1, id2].sort().join("");
+    
+    try {
+      // 1. Create Call Log in DB
+      const res = await fetch("/api/calls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ room: roomId, receiverId: u.id, callType: "video" })
+      });
+      const { callLog } = await res.json();
 
-    // Optional: Also trigger dialer if on mobile
-    if (/Android|iPhone/i.test(navigator.userAgent)) {
-      window.location.href = `tel:${numberToCopy}`;
+      // 2. Signal the receiver via Socket.io
+      const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001", {
+        transports: ["polling", "websocket"],
+        timeout: 20000,
+        extraHeaders: { "Bypass-Tunnel-Reminder": "true" }
+      });
+
+      socket.on("connect", () => {
+        console.log("Socket connected for call signaling:", socket.id);
+        socket.emit("start-video-call", {
+          room: roomId,
+          callId: callLog.id,
+          receiverId: u.id,
+          callerId: user?.id,
+          senderName: user?.full_name || "Attorney",
+          callType: "video"
+        });
+        
+        // Close socket after a short delay to ensure emission
+        setTimeout(() => socket.disconnect(), 2000);
+      });
+
+      socket.on("connect_error", (err) => {
+        console.error("Socket connection error during signaling:", err);
+      });
+
+      // 3. Open Window
+      const url = `/call/${roomId}?name=${encodeURIComponent(user?.full_name || user?.id || "Attorney")}&type=video&callId=${callLog.id}`;
+      window.open(url, "_blank", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
+    } catch (err) {
+      console.error("Failed to start call:", err);
+      // Fallback
+      const url = `/call/${roomId}?name=${encodeURIComponent(user?.full_name || user?.id || "Attorney")}&type=video`;
+      window.open(url, "_blank", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
     }
   };
 
@@ -567,20 +603,11 @@ export default function AttorneyDashboard() {
                           </Button>
                           <Button
                             variant="outline"
-                            onClick={() => handleCallMember(s.user, s.id)}
+                            onClick={() => handleCallMember(s.user)}
                             className="w-full md:w-auto border-titanium-700 bg-titanium-900 h-11 md:h-12 px-5 font-mono text-[10px] uppercase tracking-widest transition-colors hover:bg-titanium-800"
                           >
-                            {copiedId === s.id ? (
-                              <span className="flex items-center gap-2 text-emerald-500">
-                                <CheckCircle2 className="size-3.5" />
-                                {copiedPhone}
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-2">
-                                <Phone className="size-3.5" />
-                                Call Member
-                              </span>
-                            )}
+                            <Phone className="size-3.5 mr-2" />
+                            Call Member
                           </Button>
                           {s.status === "assigned" ? (
                             <>
@@ -954,6 +981,14 @@ export default function AttorneyDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Call Method Modal */}
+      <CallMethodModal
+        isOpen={callModal.isOpen}
+        onClose={() => setCallModal({ isOpen: false, user: null })}
+        userName={callModal.user?.full_name || "Member"}
+        phoneNumber={callModal.user?.phone || callModal.user?.emergency_contact_phone || undefined}
+        onBrowserCall={() => callModal.user && triggerBrowserCall(callModal.user)}
+      />
     </motion.div>
   );
 }

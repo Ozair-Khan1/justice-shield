@@ -18,6 +18,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { CallMethodModal } from "@/components/CallMethodModal";
+import { useAuth } from "@/lib/auth";
+import { io } from "socket.io-client";
 
 interface UserRecord {
   id: string;
@@ -50,6 +53,9 @@ export default function AdminUsersPage() {
   const [countryFilter, setCountryFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
+  const { user: currentUser } = useAuth();
+  const [callModal, setCallModal] = useState<{ isOpen: boolean; user: UserRecord | null }>({ isOpen: false, user: null });
+  const [openDialogId, setOpenDialogId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/users")
@@ -173,11 +179,12 @@ export default function AdminUsersPage() {
                   {new Date(u.created_at).toLocaleDateString()}
                 </td>
                 <td className="px-4 py-3">
-                  <Dialog>
+                  <Dialog open={openDialogId === u.id} onOpenChange={(v) => setOpenDialogId(v ? u.id : null)}>
                     <DialogTrigger asChild>
                       <Button
                         variant="outline"
                         size="icon"
+                        onClick={() => setOpenDialogId(u.id)}
                         className="size-[26px] border-titanium-800 bg-titanium-950/50 hover:border-action/50 hover:text-action transition-all min-w-[26px]"
                       >
                         <BadgeInfo className="size-3" />
@@ -205,6 +212,19 @@ export default function AdminUsersPage() {
                             </p>
                           </div>
                           <div className="flex flex-col md:flex-row items-center md:items-end gap-3 md:gap-4">
+                            <Button
+                              onClick={() => {
+                                setOpenDialogId(null); // close user detail dialog first
+                                setTimeout(() => setCallModal({ isOpen: true, user: u }), 150);
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="border-action/30 text-action hover:bg-action hover:text-white font-mono text-[10px] uppercase tracking-widest h-9 px-4"
+                            >
+                              <Phone className="size-3.5 mr-2" />
+                              Call Member
+                            </Button>
+                            <div className="size-1 bg-titanium-800 rounded-full hidden md:block" />
                             <div className="flex flex-col items-center md:items-end">
                               <span className="font-mono text-lg md:text-xl font-bold text-titanium-50 leading-none">{u._count.civil_intakes + u._count.encounter_sessions}</span>
                               <span className="font-mono text-[7px] md:text-[8px] uppercase tracking-widest text-titanium-500 mt-1">Total Cases</span>
@@ -314,6 +334,59 @@ export default function AdminUsersPage() {
           </tbody>
         </table>
       </div>
+      {/* Call Method Modal */}
+      <CallMethodModal
+        isOpen={callModal.isOpen}
+        onClose={() => setCallModal({ isOpen: false, user: null })}
+        userName={callModal.user?.full_name || "Member"}
+        phoneNumber={callModal.user?.phone || undefined}
+        onBrowserCall={async () => {
+          if (!callModal.user || !currentUser) return;
+          const id1 = currentUser.id.replace(/-/g, "");
+          const id2 = callModal.user.id.replace(/-/g, "");
+          const roomId = [id1, id2].sort().join("");
+
+          try {
+            // 1. Create Call Log in DB
+            const res = await fetch("/api/calls", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ room: roomId, receiverId: callModal.user.id, callType: "video" })
+            });
+            const { callLog } = await res.json();
+
+            // 2. Signal the receiver via Socket.io
+            const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001", {
+              transports: ["polling", "websocket"],
+              timeout: 20000,
+              extraHeaders: { "Bypass-Tunnel-Reminder": "true" }
+            });
+
+            socket.on("connect", () => {
+              if (!callModal.user) return;
+
+              socket.emit("start-video-call", {
+                room: roomId,
+                callId: callLog.id,
+                receiverId: callModal.user.id,
+                callerId: currentUser.id,
+                senderName: currentUser.full_name || "Admin",
+                callType: "video"
+              });
+              setTimeout(() => socket.disconnect(), 2000);
+            });
+
+            // 3. Open Window
+            const url = `/call/${roomId}?name=${encodeURIComponent(currentUser.full_name || currentUser.id || "Admin")}&type=video&callId=${callLog.id}`;
+            window.open(url, "_blank", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
+          } catch (err) {
+            console.error("Failed to start call:", err);
+            // Fallback
+            const url = `/call/${roomId}?name=${encodeURIComponent(currentUser.full_name || currentUser.id || "Admin")}&type=video`;
+            window.open(url, "_blank", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
+          }
+        }}
+      />
     </div>
   );
 }

@@ -575,7 +575,7 @@ export default function CivilIntakePage() {
 
         <div>
           <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Urgency</span>
-          <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
             {[
               { id: "urgent", label: "Urgent · 4h" },
               { id: "standard", label: "Standard · 24h" },
@@ -643,7 +643,7 @@ export default function CivilIntakePage() {
 
         <div>
           <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400">Preferred Contact</span>
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
             {[
               { id: "phone", label: "Phone Call" },
               { id: "email", label: "Email" }

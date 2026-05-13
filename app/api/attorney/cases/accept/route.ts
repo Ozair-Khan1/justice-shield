@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyJwt, getAuthToken } from "@/lib/jwt";
+import { emitSocketEvent } from "@/lib/socket-emit";
 
 export async function POST(req: Request) {
   try {
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
     // Verify user is an attorney or admin
     const user = await prisma.user.findUnique({
       where: { id: payload.id as string },
-      select: { id: true, role: true },
+      select: { id: true, role: true, full_name: true },
     });
 
     if (!user || (user.role !== "ATTORNEY" && user.role !== "ADMIN")) {
@@ -42,12 +43,22 @@ export async function POST(req: Request) {
       include: {
         user: {
           select: {
+            id: true,
             full_name: true,
             email: true,
             phone: true,
           }
         }
       }
+    });
+
+    // Notify the case owner via socket
+    await emitSocketEvent("case-accepted", {
+      userId: updatedIntake.user_id,
+      attorneyName: user.full_name || "An Attorney",
+      caseSubject: updatedIntake.subject,
+      caseId: updatedIntake.id,
+      caseType: "civil",
     });
 
     return NextResponse.json({ success: true, intake: updatedIntake });

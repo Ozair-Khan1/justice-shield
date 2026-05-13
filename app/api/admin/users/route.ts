@@ -28,8 +28,6 @@ export async function GET(req: Request) {
         country: true,
         membership_tier: true,
         created_at: true,
-        civil_intakes: { select: { status: true } },
-        encounter_sessions: { select: { status: true } },
         _count: {
           select: {
             encounter_sessions: true,
@@ -40,25 +38,48 @@ export async function GET(req: Request) {
       },
     });
 
+    // Bulk fetch all stats in just 2 queries
+    const [allCivilStats, allSosStats] = await Promise.all([
+      prisma.civilIntake.groupBy({
+        by: ['user_id', 'status'],
+        where: { user_id: { in: users.map(u => u.id) } },
+        _count: true
+      }),
+      prisma.encounterSession.groupBy({
+        by: ['user_id', 'status'],
+        where: { user_id: { in: users.map(u => u.id) } },
+        _count: true
+      })
+    ]);
+
     const enrichedUsers = users.map((u) => {
-      const allCases = [
-        ...u.civil_intakes,
-        ...u.encounter_sessions
-      ];
       const case_stats = {
-        pending: allCases.filter(c => c.status === "pending").length,
-        active: allCases.filter(c => c.status === "active").length,
-        assigned: allCases.filter(c => c.status === "assigned").length,
-        resolved: allCases.filter(c => c.status === "resolved").length,
-        rejected: allCases.filter(c => c.status === "rejected").length,
+        pending: 0,
+        active: 0,
+        assigned: 0,
+        resolved: 0,
+        rejected: 0,
       };
 
-      const {
-        civil_intakes,
-        encounter_sessions,
-        ...userWithoutArrays
-      } = u;
-      return { ...userWithoutArrays, case_stats };
+      // Aggregate civil stats
+      allCivilStats.filter(s => s.user_id === u.id).forEach(s => {
+        if (s.status === "pending") case_stats.pending += s._count;
+        if (s.status === "active") case_stats.active += s._count;
+        if (s.status === "assigned") case_stats.assigned += s._count;
+        if (s.status === "resolved") case_stats.resolved += s._count;
+        if (s.status === "rejected") case_stats.rejected += s._count;
+      });
+
+      // Aggregate SOS stats
+      allSosStats.filter(s => s.user_id === u.id).forEach(s => {
+        if (s.status === "pending") case_stats.pending += s._count;
+        if (s.status === "active") case_stats.active += s._count;
+        if (s.status === "assigned") case_stats.assigned += s._count;
+        if (s.status === "resolved") case_stats.resolved += s._count;
+        if (s.status === "rejected") case_stats.rejected += s._count;
+      });
+
+      return { ...u, case_stats };
     });
 
     return NextResponse.json({ users: enrichedUsers });
