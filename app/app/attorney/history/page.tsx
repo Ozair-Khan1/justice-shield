@@ -18,7 +18,8 @@ import {
   RefreshCw,
   Clock,
   Shield,
-  ShieldCheck
+  ShieldCheck,
+  Video
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { LoadingScreen } from "@/components/LoadingScreen";
@@ -53,6 +54,7 @@ interface SOSSession {
   ended_at: string;
   location_address: string | null;
   user: CaseUser;
+  recording_url?: string | null;
 }
 
 interface CivilIntake {
@@ -68,6 +70,7 @@ interface CivilIntake {
   opposing_party: string | null;
   opposing_party_location: string | null;
   metadata: any;
+  recording_url?: string | null;
 }
 
 export default function AttorneyHistoryPage() {
@@ -312,7 +315,8 @@ export default function AttorneyHistoryPage() {
                             user: s.user,
                             opposing_party: null,
                             opposing_party_location: null,
-                            metadata: (s as any).metadata
+                            metadata: (s as any).metadata,
+                            recording_url: s.recording_url
                           });
                         }}
                         className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action hover:text-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 rounded-smn"
@@ -557,13 +561,22 @@ export default function AttorneyHistoryPage() {
                 )}
               </div>
 
-              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row justify-end gap-3 backdrop-blur-md">
+              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row sm:flex-wrap justify-end gap-3 backdrop-blur-md">
                 <button
                   onClick={() => setSelectedIntake(null)}
                   className="w-full sm:w-auto rounded-sm border border-titanium-700 px-8 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-300 hover:bg-titanium-800 transition-all"
                 >
                   Close Archive
                 </button>
+                {(selectedIntake as any).recording_url && (
+                  <button
+                    onClick={() => window.open((selectedIntake as any).recording_url, '_blank')}
+                    className="w-full sm:w-auto rounded-sm bg-red-600 px-8 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-white hover:bg-red-700 flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(220,38,38,0.3)]"
+                  >
+                    <Video className="size-3" />
+                    Watch Recording
+                  </button>
+                )}
                 {selectedIntake.status === "pending" && (
                   <button
                     onClick={handleAcceptCase}

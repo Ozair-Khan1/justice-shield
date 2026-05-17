@@ -1,0 +1,12 @@
+api_key: "devkey"
+api_secret: "12345678901234567890123456789012"
+ws_url: "ws://127.0.0.1:7800"
+log_level: "info"
+insecure: true
+
+redis:
+  address: "127.0.0.1:6379"
+
+file_output:
+  local:
+    dir: "/recordings"

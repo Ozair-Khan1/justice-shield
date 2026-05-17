@@ -67,20 +67,9 @@ export default function ChatInterface({
       const { callLog } = await res.json();
 
       // 2. Emit Signal with callId
-      if (socketRef.current) {
-        socketRef.current.emit("start-video-call", {
-          room: roomId,
-          callId: callLog.id,
-          receiverId: receiverId,
-          senderName: userName || "User",
-          callerId: userId,
-          callType: type
-        });
-      }
-
-      // 3. Open Window
-      const url = `/call/${roomId}?name=${encodeURIComponent(userName || userId)}&type=${type}&callId=${callLog.id}`;
-      window.open(url, "_blank", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
+      // 3. Navigate to Call
+      const url = `/call/${roomId}?name=${encodeURIComponent(userName || userId)}&type=${type}&callId=${callLog.id}&isCaller=true&receiverId=${receiverId}`;
+      window.location.href = url;
     } catch (err) {
       console.error("Failed to start call:", err);
       // Fallback: Open window anyway if API fails

@@ -64,6 +64,10 @@ model EncounterSession {
   notes            String?
   attorney_name    String?
   recording_url    String?
+  recorded_by_id   String?
+  egress_id        String?
+  recording_started_at DateTime?
+  recording_ended_at   DateTime?
   emergency_contact_phone String?
   rejection_message String?
   started_at       DateTime         @default(now())
@@ -192,6 +196,11 @@ model CallLog {
   status       String   @default("initiated") // "initiated", "answered", "declined", "missed", "ended"
   started_at   DateTime @default(now())
   ended_at     DateTime?
+  recording_started_at DateTime?
+  recording_ended_at   DateTime?
+  egress_id    String?
+  recording_url String?
+  recorded_by_id String?
   
   caller       User     @relation("SentCalls", fields: [caller_id], references: [id], onDelete: Cascade)
   receiver     User     @relation("ReceivedCalls", fields: [receiver_id], references: [id], onDelete: Cascade)

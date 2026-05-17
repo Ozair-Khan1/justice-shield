@@ -40,8 +40,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/lib/auth";
+import { CallMethodModal } from "@/components/CallMethodModal";
 
 interface Attorney {
   id: string;
@@ -109,6 +110,8 @@ export default function AdminCasesPage() {
   const [selectedIntake, setSelectedIntake] = useState<Intake | null>(null);
   const [viewingRejection, setViewingRejection] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const { user: currentUser } = useAuth();
+  const [callModal, setCallModal] = useState<{ isOpen: boolean; user: any | null }>({ isOpen: false, user: null });
   const ITEMS_PER_PAGE = 15;
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -627,7 +630,7 @@ export default function AdminCasesPage() {
 
       <AnimatePresence>
         {selectedIntake && (
-          <div 
+          <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md"
             onClick={handleClose}
           >
@@ -789,6 +792,15 @@ export default function AdminCasesPage() {
                 >
                   Close Briefing
                 </Button>
+                {selectedIntake.user?.id && (
+                  <Button
+                    onClick={() => setCallModal({ isOpen: true, user: selectedIntake.user })}
+                    className="border-emerald-500/30 text-emerald-500 hover:bg-emerald-500 hover:text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest bg-emerald-500/5"
+                  >
+                    <Phone className="size-3 mr-2" />
+                    Call Member
+                  </Button>
+                )}
                 {selectedIntake.status === "pending" && !selectedIntake.assigned_attorney && (
                   assigningId === selectedIntake.id ? (
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-titanium-800 h-11 p-2 rounded-sm bg-titanium-950/50">
@@ -934,6 +946,39 @@ export default function AdminCasesPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Call Method Modal */}
+      <CallMethodModal
+        isOpen={callModal.isOpen}
+        onClose={() => setCallModal({ isOpen: false, user: null })}
+        userName={callModal.user?.full_name || "Member"}
+        phoneNumber={callModal.user?.phone || undefined}
+        onBrowserCall={async () => {
+          if (!callModal.user || !currentUser) return;
+          const id1 = currentUser.id.replace(/-/g, "");
+          const id2 = callModal.user.id.replace(/-/g, "");
+          const roomId = [id1, id2].sort().join("");
+
+          try {
+            // 1. Create Call Log in DB
+            const res = await fetch("/api/calls", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ room: roomId, receiverId: callModal.user.id, callType: "video" })
+            });
+            const { callLog } = await res.json();
+
+            // 2. Navigate to Call
+            const url = `/call/${roomId}?name=${encodeURIComponent(currentUser.full_name || currentUser.id || "Admin")}&type=video&callId=${callLog.id}&isCaller=true&receiverId=${callModal.user.id}`;
+            window.location.href = url;
+          } catch (err) {
+            console.error("Failed to start call:", err);
+            // Fallback
+            const url = `/call/${roomId}?name=${encodeURIComponent(currentUser.full_name || currentUser.id || "Admin")}&type=video&isCaller=true&receiverId=${callModal.user.id}`;
+            window.location.href = url;
+          }
+        }}
+      />
     </>
   );
 }

@@ -16,7 +16,8 @@ import {
   History,
   Lock,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  Video
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,7 @@ interface Session {
     phone: string | null;
   } | null;
   rejection_message?: string | null;
+  recording_url?: string | null;
 }
 
 interface Intake {
@@ -76,6 +78,7 @@ interface Intake {
   opposing_party_location: string | null;
   metadata?: Record<string, any> | null;
   rejection_message?: string | null;
+  recording_url?: string;
 }
 
 export default function HistoryPage() {
@@ -165,7 +168,8 @@ export default function HistoryPage() {
               rejection_message: session.rejection_message,
               opposing_party: null,
               opposing_party_location: null,
-              is_sos: true
+              is_sos: true,
+              recording_url: session.recording_url
             } as any);
           }
         } else if (type === "civil") {
@@ -840,7 +844,7 @@ export default function HistoryPage() {
                 </div>
               </div>
 
-              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex justify-end gap-3 backdrop-blur-md">
+              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row sm:flex-wrap justify-end gap-3 backdrop-blur-md">
                 <Button
                   variant="outline"
                   onClick={() => handleClose()}
@@ -848,6 +852,16 @@ export default function HistoryPage() {
                 >
                   Close Details
                 </Button>
+
+                {selectedIntake.recording_url && (
+                  <Button
+                    onClick={() => window.open(selectedIntake.recording_url, '_blank')}
+                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest flex items-center gap-2"
+                  >
+                    <Video className="size-4" />
+                    Watch Recording
+                  </Button>
+                )}
 
                 {(selectedIntake?.status === "active" || selectedIntake?.status === "resolved") && selectedIntake.assigned_attorney?.id && user?.role !== "ADMIN" && (
                   <Button

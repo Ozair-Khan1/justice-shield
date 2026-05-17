@@ -30,7 +30,7 @@ io.on("connection", (socket) => {
   });
   socket.on("join-personal-room", (userId) => {
     socket.join(userId);
-    console.log(`User ${userId} joined personal room on socket ${socket.id}`);
+    console.log(`[SocketServer] User ${userId} joined personal room. Rooms now:`, Array.from(socket.rooms));
   });
 
   socket.on("send-message", (data) => {
@@ -74,14 +74,30 @@ io.on("connection", (socket) => {
 
   socket.on("start-video-call", (data) => {
     // data: { room, receiverId, senderName, senderId }
-    console.log(`Video call started in ${data.room} by ${data.senderName} for ${data.receiverId}`);
-    io.to(data.receiverId).emit("incoming-video-call", data);
+    console.log(`[SocketServer] Video call request: From ${data.senderName} to ${data.receiverId}`);
+    const targetRoom = data.receiverId;
+    const clients = io.sockets.adapter.rooms.get(targetRoom);
+    console.log(`[SocketServer] Target room ${targetRoom} has ${clients ? clients.size : 0} connected clients`);
+    
+    io.to(targetRoom).emit("incoming-video-call", data);
   });
 
   socket.on("decline-video-call", (data) => {
     // data: { callerId, declinerName }
     console.log(`Video call declined by ${data.declinerName} for caller ${data.callerId}`);
     io.to(data.callerId).emit("video-call-declined", data);
+  });
+
+  socket.on("call-missed", (data) => {
+    // data: { receiverId, callerId, callerName, callId, callType }
+    console.log(`Missed call from ${data.callerName} — notifying receiver ${data.receiverId}`);
+    io.to(data.receiverId).emit("call-missed", data);
+  });
+
+  socket.on("call-cancelled", (data) => {
+    // data: { receiverId, callerId, callerName, callId }
+    console.log(`Call cancelled by ${data.callerName} for receiver ${data.receiverId}`);
+    io.to(data.receiverId).emit("call-cancelled", data);
   });
 
   socket.on("case-accepted", (data) => {

@@ -18,6 +18,12 @@ export function GlobalNotificationListener() {
   const hasFetchedUnread = useRef(false);
   const [sessionSeenIds, setSessionSeenIds] = useState<Set<string>>(new Set());
   const activeNotificationIds = useRef<Set<string>>(new Set());
+  const activeIncomingCall = useRef<{
+    callId: string;
+    toastId: string | number;
+    timeoutId: any;
+  } | null>(null);
+  const declinedCallIds = useRef<Set<string>>(new Set());
 
   // Initialize sessionSeenIds from user data
   useEffect(() => {
@@ -165,7 +171,7 @@ export function GlobalNotificationListener() {
 
   const showNotification = (message: any) => {
     toast.custom((t) => (
-      <div className="animate-in fade-in slide-in-from-top-5 sm:slide-in-from-right-5 flex flex-col gap-2 sm:gap-4 !bg-titanium-900/90 backdrop-blur-xl border border-titanium-800 border-l-2 border-l-action p-3.5 sm:p-6 rounded-lg shadow-2xl w-[calc(100vw-24px)] sm:w-[440px] !min-w-0 !z-[9999] pointer-events-auto mx-auto sm:mx-0 mt-4 sm:mt-0">
+      <div className="animate-in h-fit fade-in slide-in-from-top-5 sm:slide-in-from-right-5 flex flex-col gap-2 sm:gap-4 !bg-titanium-900/90 backdrop-blur-xl border border-titanium-800 border-l-2 border-l-action p-3.5 sm:p-6 rounded-lg shadow-2xl w-[calc(100vw-24px)] sm:w-[440px] !min-w-0 !z-[9999] pointer-events-auto mx-auto sm:mx-0 mt-4 sm:mt-0">
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-2">
@@ -338,11 +344,44 @@ export function GlobalNotificationListener() {
     });
 
     socket.on("incoming-video-call", (data: any) => {
-      if (window.location.pathname.startsWith("/call/")) return;
-      if (data.callId && activeNotificationIds.current.has(data.callId)) return;
+      console.log(`[GlobalNotification] RECEIVED incoming-video-call for callId: ${data.callId || data.id}`);
+      if (window.location.pathname.startsWith("/call/")) {
+        console.log("[GlobalNotification] Ignoring call notif: already in a call page.");
+        return;
+      }
+      if (data.callId && activeNotificationIds.current.has(data.callId)) {
+        console.log("[GlobalNotification] Ignoring call notif: already showing or seen.");
+        return;
+      }
       if (data.callId) activeNotificationIds.current.add(data.callId);
       showIncomingCallNotification(data);
     });
+
+    const handleMissedCall = (data: any) => {
+      const callId = data.callId || data.id;
+      if (declinedCallIds.current.has(callId)) return;
+
+      const key = `missed-call-${callId}`;
+      if (activeNotificationIds.current.has(key)) return;
+      activeNotificationIds.current.add(key);
+
+      // Dismiss active incoming toast if it matches this call
+      if (activeIncomingCall.current && activeIncomingCall.current.callId === callId) {
+        toast.dismiss(activeIncomingCall.current.toastId);
+        clearTimeout(activeIncomingCall.current.timeoutId);
+        activeIncomingCall.current = null;
+      }
+
+      showMissedCallNotification({
+        id: data.callId || data.id,
+        caller_name: data.callerName || data.caller_name || "Unknown",
+        call_type: data.callType || data.call_type || "video",
+        timestamp: data.timestamp || new Date().toISOString()
+      });
+    };
+
+    socket.on("call-missed", handleMissedCall);
+    socket.on("call-cancelled", handleMissedCall);
 
     socket.on("case-accepted", (data: any) => {
       const key = `case-accepted-${data.caseId}`;
@@ -790,6 +829,7 @@ export function GlobalNotificationListener() {
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></svg>;
 
     // Auto-decline timer
+    const timeoutDuration = data.isSos ? 30000 : 45000; // 60s for SOS, 45s for normal
     const timeoutId = setTimeout(async () => {
       if (!handled) {
         handled = true;
@@ -801,15 +841,27 @@ export function GlobalNotificationListener() {
             keepalive: true
           }).catch(err => console.error("Failed to mark call as missed:", err));
         }
-        if (socketRef.current && data.callerId) {
+
+        // IMPORTANT: For SOS, do NOT emit decline signal. 
+        // We want the user's recording to keep running indefinitely even if no one picks up.
+        if (!data.isSos && socketRef.current && data.callerId) {
           socketRef.current.emit("decline-video-call", {
             callerId: data.callerId,
             declinerName: "System (No Answer)"
           });
         }
         toast.dismiss(incomingToastId);
+
+        // Show missed call notification after auto-decline
+        const missedNotif = {
+          id: data.callId,
+          caller_name: data.senderName,
+          call_type: data.callType || "video",
+          timestamp: new Date().toISOString()
+        };
+        showMissedCallNotification(missedNotif);
       }
-    }, 15000);
+    }, timeoutDuration);
 
     const incomingToastId = toast.custom((t) => (
       <div className="animate-in fade-in slide-in-from-top-5 sm:slide-in-from-right-5 flex flex-col gap-2 sm:gap-4 !bg-action/90 backdrop-blur-xl border border-white/20 p-4 sm:p-6 rounded-lg shadow-[0_0_40px_rgba(var(--action-rgb),0.3)] w-[calc(100vw-24px)] sm:w-[440px] !min-w-0 !z-[9999] pointer-events-auto mx-auto sm:mx-0 mt-4 sm:mt-0">
@@ -845,6 +897,7 @@ export function GlobalNotificationListener() {
               handled = true;
               clearTimeout(timeoutId);
               if (data.callId) {
+                declinedCallIds.current.add(data.callId);
                 fetch(`/api/calls/${data.callId}`, {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
@@ -852,7 +905,7 @@ export function GlobalNotificationListener() {
                   keepalive: true
                 }).catch(err => console.error("Failed to mark call as declined:", err));
               }
-              if (socketRef.current && data.callerId) {
+              if (!data.isSos && socketRef.current && data.callerId) {
                 console.log(`[GlobalNotification] Declining call for callerId: ${data.callerId}`);
                 socketRef.current.emit("decline-video-call", {
                   callerId: data.callerId,
@@ -878,7 +931,7 @@ export function GlobalNotificationListener() {
                 }).catch(err => console.error("Failed to mark call as answered:", err));
               }
               const url = `/call/${data.room}?name=${encodeURIComponent(user?.full_name || user?.id || "User")}&type=${data.callType || "video"}&callId=${data.callId || ""}`;
-              window.open(url, "_blank", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
+              window.location.href = url;
               toast.dismiss(t);
             }}
             className="flex-1 bg-white text-action px-4 py-2.5 rounded-sm text-[11px] font-black uppercase tracking-widest transition-all shadow-lg shadow-black/10 flex items-center justify-center gap-2"
@@ -892,6 +945,13 @@ export function GlobalNotificationListener() {
       duration: 15000,
       position: "top-right"
     });
+
+    // Track this call
+    activeIncomingCall.current = {
+      callId: data.callId,
+      toastId: incomingToastId,
+      timeoutId: timeoutId,
+    };
   };
 
   return null;

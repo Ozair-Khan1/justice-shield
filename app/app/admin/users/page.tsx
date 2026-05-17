@@ -355,35 +355,14 @@ export default function AdminUsersPage() {
             });
             const { callLog } = await res.json();
 
-            // 2. Signal the receiver via Socket.io
-            const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001", {
-              transports: ["polling", "websocket"],
-              timeout: 20000,
-              extraHeaders: { "Bypass-Tunnel-Reminder": "true" }
-            });
-
-            socket.on("connect", () => {
-              if (!callModal.user) return;
-
-              socket.emit("start-video-call", {
-                room: roomId,
-                callId: callLog.id,
-                receiverId: callModal.user.id,
-                callerId: currentUser.id,
-                senderName: currentUser.full_name || "Admin",
-                callType: "video"
-              });
-              setTimeout(() => socket.disconnect(), 2000);
-            });
-
-            // 3. Open Window
-            const url = `/call/${roomId}?name=${encodeURIComponent(currentUser.full_name || currentUser.id || "Admin")}&type=video&callId=${callLog.id}`;
-            window.open(url, "_blank", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
+            // 3. Navigate to Call
+            const url = `/call/${roomId}?name=${encodeURIComponent(currentUser.full_name || currentUser.id || "Admin")}&type=video&callId=${callLog.id}&isCaller=true&receiverId=${callModal.user.id}`;
+            window.location.href = url;
           } catch (err) {
             console.error("Failed to start call:", err);
             // Fallback
-            const url = `/call/${roomId}?name=${encodeURIComponent(currentUser.full_name || currentUser.id || "Admin")}&type=video`;
-            window.open(url, "_blank", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
+            const url = `/call/${roomId}?name=${encodeURIComponent(currentUser.full_name || currentUser.id || "Admin")}&type=video&isCaller=true&receiverId=${callModal.user.id}`;
+            window.location.href = url;
           }
         }}
       />

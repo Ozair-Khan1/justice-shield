@@ -128,8 +128,15 @@ export default function SOSPage() {
           alertId: alertId
         }),
       });
-      if (!res.ok) throw new Error("Failed to assign attorney");
-      router.push("/app/history");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to assign attorney");
+      
+      const session = data.session;
+      const roomId = session.id;
+      
+      // Redirect to call page with auto-record enabled
+      const url = `/call/${roomId}?name=${encodeURIComponent(user?.full_name || user?.email || "Member")}&type=video&callId=${roomId}&isCaller=true&isSos=true${attorneyId ? `&receiverId=${attorneyId}` : ""}`;
+      router.push(url);
     } catch (err: any) {
       setError(err.message);
       setAssigning(false);

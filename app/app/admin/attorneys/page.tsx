@@ -13,6 +13,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useAuth } from "@/lib/auth";
+import { CallMethodModal } from "@/components/CallMethodModal";
+import { io } from "socket.io-client";
 
 interface AttorneyRecord {
   id: string;
@@ -46,6 +49,9 @@ export default function AdminAttorneysPage() {
   const [specialtySearch, setSpecialtySearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
+  const { user: currentUser } = useAuth();
+  const [callModal, setCallModal] = useState<{ isOpen: boolean; attorney: AttorneyRecord | null }>({ isOpen: false, attorney: null });
+  const [openDialogId, setOpenDialogId] = useState<string | null>(null);
   useEffect(() => {
     fetch("/api/admin/attorneys")
       .then((res) => res.json())
@@ -170,11 +176,12 @@ export default function AdminAttorneysPage() {
                 </td>
                 <td className="px-4 py-4">
                   <div className="flex items-center gap-2">
-                    <Dialog>
+                    <Dialog open={openDialogId === a.id} onOpenChange={(v) => setOpenDialogId(v ? a.id : null)}>
                       <DialogTrigger asChild>
                         <Button
                           variant="outline"
                           size="icon"
+                          onClick={() => setOpenDialogId(a.id)}
                           className="size-[26px] border-titanium-800 bg-titanium-950/50 hover:border-action/50 hover:text-action transition-all min-w-[26px]"
                         >
                           <BadgeInfo className="size-3" />
@@ -186,6 +193,18 @@ export default function AdminAttorneysPage() {
                             <UserIcon className="size-8 md:size-12" />
                           </div>
                           <div className="absolute top-4 right-4 flex gap-2">
+                            <Button
+                              onClick={() => {
+                                setOpenDialogId(null);
+                                setTimeout(() => setCallModal({ isOpen: true, attorney: a }), 150);
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="border-action/30 text-action hover:bg-action hover:text-white font-mono text-[10px] uppercase tracking-widest h-8 px-3 bg-titanium-950/50"
+                            >
+                              <Phone className="size-3 mr-2" />
+                              Call Attorney
+                            </Button>
                             <div className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-2 md:px-3 py-0.5 md:py-1 font-mono text-[8px] md:text-[9px] font-bold uppercase tracking-widest text-emerald-400 backdrop-blur-sm">
                               Verified Partner
                             </div>
@@ -312,6 +331,39 @@ export default function AdminAttorneysPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Call Method Modal */}
+      <CallMethodModal
+        isOpen={callModal.isOpen}
+        onClose={() => setCallModal({ isOpen: false, attorney: null })}
+        userName={callModal.attorney?.full_name || "Attorney"}
+        phoneNumber={callModal.attorney?.phone || undefined}
+        onBrowserCall={async () => {
+          if (!callModal.attorney || !currentUser) return;
+          const id1 = currentUser.id.replace(/-/g, "");
+          const id2 = callModal.attorney.id.replace(/-/g, "");
+          const roomId = [id1, id2].sort().join("");
+
+          try {
+            // 1. Create Call Log in DB
+            const res = await fetch("/api/calls", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ room: roomId, receiverId: callModal.attorney.id, callType: "video" })
+            });
+            const { callLog } = await res.json();
+
+            // 2. Navigate to Call
+            const url = `/call/${roomId}?name=${encodeURIComponent(currentUser.full_name || currentUser.id || "Admin")}&type=video&callId=${callLog.id}&isCaller=true&receiverId=${callModal.attorney.id}`;
+            window.location.href = url;
+          } catch (err) {
+            console.error("Failed to start call:", err);
+            // Fallback
+            const url = `/call/${roomId}?name=${encodeURIComponent(currentUser.full_name || currentUser.id || "Admin")}&type=video&isCaller=true&receiverId=${callModal.attorney.id}`;
+            window.location.href = url;
+          }
+        }}
+      />
     </div>
   );
 }

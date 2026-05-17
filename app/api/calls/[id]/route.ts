@@ -21,12 +21,25 @@ export async function PATCH(
       updateData.ended_at = new Date();
     }
 
-    const callLog = await prisma.callLog.update({
-      where: { id },
-      data: updateData
-    });
+    let record = null;
+    try {
+      record = await prisma.callLog.update({
+        where: { id },
+        data: updateData
+      });
+    } catch (e: any) {
+      // If P2025 (Record not found), try EncounterSession
+      if (e.code === 'P2025') {
+        record = await prisma.encounterSession.update({
+          where: { id },
+          data: updateData
+        });
+      } else {
+        throw e;
+      }
+    }
 
-    return NextResponse.json({ callLog });
+    return NextResponse.json({ record });
   } catch (error) {
     console.error("Update call log error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

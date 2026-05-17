@@ -39,7 +39,33 @@ export async function GET(req: Request) {
 
     // Security Check: Ensure the user is part of the room
     const cleanUserId = currentUserId.replace(/-/g, "");
-    if (!room.includes(cleanUserId)) {
+    let isAuthorized = room.includes(cleanUserId);
+
+    if (!isAuthorized) {
+      // If not a simple ID-concatenated room, check the database
+      const { prisma } = await import("@/lib/prisma");
+
+      const [call, session] = await Promise.all([
+        prisma.callLog.findFirst({
+          where: {
+            id: room,
+            OR: [{ caller_id: currentUserId }, { receiver_id: currentUserId }]
+          }
+        }),
+        prisma.encounterSession.findFirst({
+          where: {
+            id: room,
+            OR: [{ user_id: currentUserId }, { assigned_attorney_id: currentUserId }]
+          }
+        })
+      ]);
+
+      if (call || session) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
       console.error("[LiveKit API] Unauthorized access attempt", { room, cleanUserId });
       return NextResponse.json({ error: "Unauthorized access to this room" }, { status: 403 });
     }

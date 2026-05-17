@@ -16,6 +16,7 @@ const adminNav = [
   { href: "/app/admin/attorneys", label: "Attorneys" },
   { href: "/app/admin/vendors", label: "Vendors" },
   { href: "/app/admin/cases", label: "Cases" },
+  { href: "/app/admin/recordings", label: "Recordings" },
   { href: "/app/admin/messages", label: "Messages" },
   { href: "/app/admin/account", label: "Account" },
 ];

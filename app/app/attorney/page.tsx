@@ -254,7 +254,7 @@ export default function AttorneyDashboard() {
     const id1 = user?.id?.replace(/-/g, "") || "";
     const id2 = u.id.replace(/-/g, "");
     const roomId = [id1, id2].sort().join("");
-    
+
     try {
       // 1. Create Call Log in DB
       const res = await fetch("/api/calls", {
@@ -264,40 +264,14 @@ export default function AttorneyDashboard() {
       });
       const { callLog } = await res.json();
 
-      // 2. Signal the receiver via Socket.io
-      const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001", {
-        transports: ["polling", "websocket"],
-        timeout: 20000,
-        extraHeaders: { "Bypass-Tunnel-Reminder": "true" }
-      });
-
-      socket.on("connect", () => {
-        console.log("Socket connected for call signaling:", socket.id);
-        socket.emit("start-video-call", {
-          room: roomId,
-          callId: callLog.id,
-          receiverId: u.id,
-          callerId: user?.id,
-          senderName: user?.full_name || "Attorney",
-          callType: "video"
-        });
-        
-        // Close socket after a short delay to ensure emission
-        setTimeout(() => socket.disconnect(), 2000);
-      });
-
-      socket.on("connect_error", (err) => {
-        console.error("Socket connection error during signaling:", err);
-      });
-
-      // 3. Open Window
-      const url = `/call/${roomId}?name=${encodeURIComponent(user?.full_name || user?.id || "Attorney")}&type=video&callId=${callLog.id}`;
-      window.open(url, "_blank", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
+      // 3. Navigate to Call
+      const url = `/call/${roomId}?name=${encodeURIComponent(user?.full_name || user?.id || "Attorney")}&type=video&callId=${callLog.id}&isCaller=true&receiverId=${u.id}`;
+      window.location.href = url;
     } catch (err) {
       console.error("Failed to start call:", err);
       // Fallback
-      const url = `/call/${roomId}?name=${encodeURIComponent(user?.full_name || user?.id || "Attorney")}&type=video`;
-      window.open(url, "_blank", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
+      const url = `/call/${roomId}?name=${encodeURIComponent(user?.full_name || user?.id || "Attorney")}&type=video&isCaller=true&receiverId=${u.id}`;
+      window.location.href = url;
     }
   };
 
@@ -744,7 +718,7 @@ export default function AttorneyDashboard() {
 
       <AnimatePresence>
         {selectedIntake && (
-          <div 
+          <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md"
             onClick={handleClose}
           >
@@ -885,7 +859,7 @@ export default function AttorneyDashboard() {
                 )}
               </div>
 
-              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row justify-end gap-3 backdrop-blur-md">
+              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row sm:flex-wrap justify-end gap-3 backdrop-blur-md">
                 <Button
                   variant="outline"
                   onClick={handleClose}
@@ -899,6 +873,15 @@ export default function AttorneyDashboard() {
                     className="w-full sm:w-auto bg-action hover:bg-action/90 text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest"
                   >
                     Message Client
+                  </Button>
+                )}
+                {selectedIntake?.user?.id && !selectedIntake?.is_sos && (
+                  <Button
+                    onClick={() => setCallModal({ isOpen: true, user: selectedIntake.user })}
+                    className="w-full sm:w-auto border-emerald-500/30 text-emerald-500 hover:bg-emerald-500 hover:text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest bg-emerald-500/5"
+                  >
+                    <Phone className="size-3 mr-2" />
+                    Call Member
                   </Button>
                 )}
                 {(selectedIntake?.status === "active") && (

@@ -16,6 +16,11 @@ export default function CallPage() {
   const userName = searchParams.get("name") || user?.full_name || "Guest";
   const callType = (searchParams.get("type") as "video" | "audio") || "video";
 
+  const callId = searchParams.get("callId");
+  const isCaller = searchParams.get("isCaller") === "true";
+  const isSos = searchParams.get("isSos") === "true";
+  const receiverId = searchParams.get("receiverId");
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -30,7 +35,19 @@ export default function CallPage() {
         room={roomId}
         username={userName}
         type={callType}
-        onLeave={() => window.close()}
+        callId={callId}
+        isCaller={isCaller}
+        isSos={isSos}
+        receiverId={receiverId}
+        onLeave={() => {
+          if (user.role === "ATTORNEY") {
+            window.location.href = "/app/attorney/cases";
+          } else if (user.role === "ADMIN") {
+            window.location.href = "/app/admin/cases";
+          } else {
+            window.location.href = "/app/messages";
+          }
+        }}
       />
     </div>
   );

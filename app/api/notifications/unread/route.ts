@@ -159,6 +159,7 @@ export async function GET(req: Request) {
           unreadNotifications.push({
             type: "MISSED_CALL",
             id: call.id,
+            caller_id: call.caller.id,
             caller_name: call.caller.full_name || "Unknown Caller",
             call_type: call.call_type,
             timestamp: call.started_at
@@ -179,6 +180,7 @@ export async function GET(req: Request) {
         unreadNotifications.push({
           type: "MISSED_CALL",
           id: call.id,
+          caller_id: call.caller.id,
           caller_name: call.caller.full_name || "Unknown Caller",
           call_type: call.call_type,
           timestamp: call.started_at

@@ -18,6 +18,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     ? [
       { href: "/app/attorney", label: "Dashboard", exact: true },
       { href: "/app/attorney/cases", label: "My Cases" },
+      { href: "/app/recordings", label: "Recordings" },
       { href: "/app/attorney/history", label: "All Records" },
       { href: "/app/messages", label: "Messages" },
       { href: "/app/account", label: "Account" },
@@ -28,6 +29,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       { href: "/app/civil", label: "Civil" },
       { href: "/app/cases", label: "Cases" },
       { href: "/app/attorneys", label: "Attorneys" },
+      { href: "/app/recordings", label: "Recordings" },
       { href: "/app/history", label: "History" },
       user?.role !== "ADMIN" && { href: "/app/messages", label: "Messages" },
       { href: "/app/account", label: "Account" },
