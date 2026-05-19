@@ -486,8 +486,7 @@ export function GlobalNotificationListener() {
       });
     });
 
-    socket.on("case-rejected", (data: any) => {
-      // data: { userId, attorneyName, caseSubject, caseId, caseType, reason }
+    socket.on("case-rejected", (data: any) => {      // data: { userId, attorneyName, caseSubject, caseId, caseType, reason }
       const key = `case-rejected-${data.caseId}`;
       if (activeNotificationIds.current.has(key)) return;
       activeNotificationIds.current.add(key);
@@ -504,6 +503,24 @@ export function GlobalNotificationListener() {
           : user.role === "ADMIN"
             ? `/app/admin/cases?caseId=${data.caseId}&type=${data.caseType || "civil"}`
             : `/app/history?caseId=${data.caseId}&type=${data.caseType || "civil"}`
+      });
+    });
+
+    // Vendor application — admin only
+    socket.on("vendor-application", (data: any) => {
+      if (user.role !== "ADMIN") return;
+
+      const key = `vendor-application-${data.id}`;
+      if (activeNotificationIds.current.has(key)) return;
+      activeNotificationIds.current.add(key);
+
+      const vendorLabel = data.vendor_type === "ATTORNEY" ? "Attorney" : "Marketing Specialist";
+
+      addNotification({
+        type: "info",
+        title: "New Vendor Application",
+        message: `${data.full_name}${data.firm_name ? ` (${data.firm_name})` : ""} applied as a ${vendorLabel}.`,
+        link: "/app/admin/vendors",
       });
     });
 

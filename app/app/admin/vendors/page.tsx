@@ -239,7 +239,6 @@ export default function AdminVendorsPage() {
                     }}
                     isActioning={actioningId === app.id}
                     onReview={() => setSelectedApp(app)}
-                    onCall={() => setCallModal({ isOpen: true, app })}
                   />
                 ))}
               </motion.div>
@@ -334,20 +333,6 @@ export default function AdminVendorsPage() {
                     {selectedApp.vendor_type.replace("_", " ")} APPLICATION
                   </p>
                 </div>
-                <div className="flex justify-end px-4 md:px-0">
-                  <Button
-                    onClick={() => {
-                      setSelectedApp(null);
-                      setTimeout(() => setCallModal({ isOpen: true, app: selectedApp }), 150);
-                    }}
-                    variant="outline"
-                    className="border-action/30 text-action hover:bg-action hover:text-white font-mono text-[10px] uppercase tracking-widest h-10 px-6"
-                  >
-                    <Phone className="size-4 mr-2" />
-                    Call Applicant
-                  </Button>
-                </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-y border-titanium-800/50 py-8">
                   <div className="space-y-4">
                     <div className="flex items-center gap-2">
@@ -505,18 +490,7 @@ export default function AdminVendorsPage() {
         </DialogContent>
       </Dialog>
       {/* Call Method Modal */}
-      <CallMethodModal
-        isOpen={callModal.isOpen}
-        onClose={() => setCallModal({ isOpen: false, app: null })}
-        userName={callModal.app?.full_name || "Applicant"}
-        phoneNumber={callModal.app?.phone || undefined}
-        onBrowserCall={() => {
-          // Note: Browser call requires a User ID. If the applicant doesn't have one, we can't do a browser call.
-          // For now, we only enable browser call if they exist as a user.
-          // Since Application doesn't have user_id, we might need to fetch it or only allow phone calls here.
-          alert("Browser calls are currently reserved for registered members. Please use the Phone Call option for applicants.");
-        }}
-      />
+
     </motion.div>
   );
 }
@@ -526,13 +500,11 @@ function ApplicationCard({
   onAction,
   isActioning,
   onReview,
-  onCall
 }: {
   app: Application;
   onAction: (s: "approved" | "rejected") => void;
   isActioning: boolean;
   onReview: () => void;
-  onCall: () => void;
 }) {
   return (
     <div className="group relative overflow-hidden rounded-sm border border-titanium-800 bg-titanium-900/30 p-6 transition-all hover:border-titanium-700 hover:bg-titanium-900/50 shadow-sm hover:shadow-action/5">
@@ -578,12 +550,6 @@ function ApplicationCard({
           >
             <FileSearch className="size-3" />
             Review Details
-          </button>
-          <button
-            onClick={onCall}
-            className="flex items-center justify-center gap-2 rounded-sm border border-action/30 bg-action/5 px-4 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-action transition-all hover:bg-action hover:text-white"
-          >
-            <Phone className="size-3" />
           </button>
           <div className="flex gap-2">
             <button

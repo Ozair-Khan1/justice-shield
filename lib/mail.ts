@@ -182,17 +182,34 @@ export async function sendRejectionEmail(email: string, name: string, rejectionR
     attachments,
     html: wrapEmail(`
       <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Application Status</h2>
-      <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
-        Hello ${name}, we regret to inform you that your application to join the Justice Shield network has been rejected at this time.
-      </p>
+
+      <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
+        <tr>
+          <td style="color: ${THEME.muted}; font-size: clamp(13px, 3vw, 16px); line-height: 1.6; text-align: center; padding: 0 8px; word-break: break-word;">
+            Hello ${name}, we regret to inform you that your application to join the Justice Shield network has been rejected at this time.
+          </td>
+        </tr>
+      </table>
+
       ${rejectionReason ? `
       <div style="background-color: ${THEME.card}; border: 1px solid ${THEME.border}; padding: 24px; border-radius: 4px; margin: 32px 0;">
         <h3 style="color: ${THEME.accent}; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin-top: 0;">Reason for Rejection</h3>
-        <p style="color: ${THEME.muted}; font-size: 14px; margin-bottom: 0;">${rejectionReason}</p>
+        <table width="100%" border="0" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="color: ${THEME.muted}; font-size: clamp(12px, 2.5vw, 14px); line-height: 1.6; margin-bottom: 0; word-break: break-word; white-space: pre-wrap;">
+              ${rejectionReason}
+            </td>
+          </tr>
+        </table>
       </div>` : ''}
-      <p style="color: ${THEME.muted}; font-size: 14px; line-height: 1.6; text-align: center; margin-top: 24px;">
-        Thank you for your interest in our platform.
-      </p>
+
+      <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-top: 24px;">
+        <tr>
+          <td style="color: ${THEME.muted}; font-size: clamp(12px, 2.5vw, 14px); line-height: 1.6; text-align: center; padding: 0 8px; word-break: break-word;">
+            Thank you for your interest in our platform.
+          </td>
+        </tr>
+      </table>
     `),
   };
 

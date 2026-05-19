@@ -1,0 +1,52 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: guardian-redis
+    restart: unless-stopped
+    network_mode: host
+    command: redis-server --appendonly yes --bind 127.0.0.1
+
+  socket:
+    build:
+      context: .
+      dockerfile: Dockerfile.socket
+    container_name: guardian-socket
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: guardian-app
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    depends_on:
+      - redis
+      - socket
+    volumes:
+      - ./recordings:/app/recordings
+
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: guardian-livekit
+    restart: unless-stopped
+    command: --config /etc/livekit.yaml
+    network_mode: host
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml
+
+  egress:
+    image: livekit/egress:latest
+    container_name: guardian-egress
+    restart: unless-stopped
+    cap_add:
+      - SYS_ADMIN
+    network_mode: host
+    environment:
+      - EGRESS_CONFIG_FILE=/etc/egress.yaml
+    volumes:
+      - ./egress.yaml:/etc/egress.yaml
+      - ./recordings:/home/egress/recordings

@@ -123,6 +123,12 @@ io.on("connection", (socket) => {
     io.to(data.userId).emit("case-rejected", data);
   });
 
+  socket.on("vendor-application", (data) => {
+    // Broadcast to all connected clients — admin filter happens on the client
+    console.log(`[SocketServer] New vendor application from: ${data.full_name}`);
+    io.emit("vendor-application", data);
+  });
+
   socket.on("disconnect", () => {
     console.log("Client disconnected:", socket.id);
   });

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, type FormEvent } from "react";
+import React, { useState, useRef, useEffect, type FormEvent } from "react";
 import Link from "next/link";
 import { z } from "zod";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -11,6 +11,7 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import { Country, City } from 'country-state-city';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
+import { Loader2 } from "lucide-react";
 
 
 
@@ -58,6 +59,13 @@ export default function VendorsPage() {
   const [phone, setPhone] = useState<string | undefined>("");
   const [city, setCity] = useState("");
   const [country, setCountry] = useState("");
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (error && errorRef.current) {
+      errorRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [error]);
 
   const handlePhoneChange = (v: string | undefined) => {
     setPhone(v);
@@ -127,13 +135,6 @@ export default function VendorsPage() {
     }
   };
 
-
-  if (submitting) {
-    return (
-      <LoadingScreen />
-    )
-  }
-
   return (
     <TooltipProvider delayDuration={0}>
 
@@ -176,6 +177,14 @@ export default function VendorsPage() {
                       ))}
                     </div>
                   </div>
+                  {error && (
+                    <div ref={errorRef} className="animate-shake rounded-sm border border-red-500/40 bg-red-500/10 p-3 font-mono text-xs text-red-500">
+                      <div className="flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-alert-circle"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></svg>
+                        <span>{error}</span>
+                      </div>
+                    </div>
+                  )}
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field name="full_name" label="Full name" placeholder="Full Name" />
                     <Field name="firm_name" placeholder={vendorType === "attorney" ? "Firm" : "Company"} label={vendorType === "attorney" ? "Firm" : "Company"} />
@@ -244,14 +253,6 @@ export default function VendorsPage() {
                   />
 
                   <TextArea name="message" placeholder="Tell us about yourself" label="Tell us about yourself" rows={5} />
-                  {error && (
-                    <div className="animate-shake rounded-sm border border-red-500/40 bg-red-500/10 p-3 font-mono text-xs text-red-500">
-                      <div className="flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-alert-circle"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></svg>
-                        <span>{error}</span>
-                      </div>
-                    </div>
-                  )}
                   <label className="flex items-start gap-3">
                     <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="mt-0.5 size-4 cursor-pointer accent-action" />
                     <span className="font-mono text-[11px] leading-relaxed text-titanium-400">
@@ -261,8 +262,8 @@ export default function VendorsPage() {
                     </span>
                   </label>
                   <button type="submit" disabled={submitting}
-                    className="w-full rounded-sm bg-action px-6 py-4 text-sm font-bold uppercase tracking-widest text-action-foreground transition-colors hover:bg-action/90 disabled:opacity-50">
-                    {submitting ? "Submitting..." : "Submit Application →"}
+                    className="w-full flex items-center justify-center rounded-sm bg-action px-6 py-4 text-sm font-bold uppercase tracking-widest text-action-foreground transition-colors hover:bg-action/90 disabled:opacity-50">
+                    {submitting ? <Loader2 className="size-4 animate-spin" /> : "Submit Application →"}
                   </button>
                 </form>
               )}

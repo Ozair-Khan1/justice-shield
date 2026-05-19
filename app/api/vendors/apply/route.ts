@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { emitSocketEvent } from "@/lib/socket-emit";
 
 export async function POST(req: Request) {
   try {
@@ -64,6 +65,15 @@ export async function POST(req: Request) {
         },
       }),
     ]);
+
+    // Emit socket notification to admins (fire-and-forget)
+    emitSocketEvent("vendor-application", {
+      id: application.id,
+      vendor_type,
+      full_name,
+      firm_name: firm_name || null,
+      timestamp: new Date(),
+    }).catch(() => {});
 
     return NextResponse.json({
       message: "Application submitted successfully",

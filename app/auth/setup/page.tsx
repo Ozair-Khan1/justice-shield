@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useRef, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ShieldMark } from "@/components/ShieldMark";
 import Link from "next/link";
@@ -19,6 +19,13 @@ function SetupContent() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { startLoading, stopLoading } = useLoading();
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (error && errorRef.current) {
+      errorRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [error]);
 
   const onSetup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,7 +118,7 @@ function SetupContent() {
           </label>
 
           {error && (
-            <div className="rounded-sm border border-red-500/40 bg-red-500/10 p-3 font-mono text-xs text-red-500">
+            <div ref={errorRef} className="rounded-sm border border-red-500/40 bg-red-500/10 p-3 font-mono text-xs text-red-500">
               {error}
             </div>
           )}

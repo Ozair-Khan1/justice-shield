@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, type FormEvent, useEffect } from "react";
+import { useState, type FormEvent, useEffect, useRef } from "react";
 import { useAuth } from "@/lib/auth";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,13 @@ export default function CivilIntakePage() {
   const [preferredContact, setPreferredContact] = useState("phone");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (error && errorRef.current) {
+      errorRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [error]);
   const [metadata, setMetadata] = useState<Record<string, string>>({});
   const [locationError, setLocationError] = useState<boolean>(false);
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -667,7 +674,7 @@ export default function CivilIntakePage() {
         </div>
 
         {error && (
-          <div className="rounded-sm border border-destructive/40 bg-destructive/10 p-4 font-mono text-[11px] text-destructive">
+          <div ref={errorRef} className="rounded-sm border border-destructive/40 bg-destructive/10 p-4 font-mono text-[11px] text-destructive">
             {error}
           </div>
         )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useRef, useEffect, type FormEvent } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { useLoading } from "@/components/LoadingProvider";
@@ -10,6 +10,13 @@ export default function ContactPage() {
   const [loading, setLoading] = useState(false);
   const { startLoading, stopLoading } = useLoading();
   const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (error && errorRef.current) {
+      errorRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [error]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -93,7 +100,7 @@ export default function ContactPage() {
               />
             </label>
             {error && (
-              <div className="rounded-sm border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-500">
+              <div ref={errorRef} className="rounded-sm border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-500">
                 {error}
               </div>
             )}
