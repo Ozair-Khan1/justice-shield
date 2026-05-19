@@ -844,7 +844,7 @@ export default function HistoryPage() {
                 </div>
               </div>
 
-              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 backdrop-blur-md">
+              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row sm:flex-wrap justify-end gap-3 backdrop-blur-md">
                 <Button
                   variant="outline"
                   onClick={() => handleClose()}
@@ -853,16 +853,14 @@ export default function HistoryPage() {
                   Close Details
                 </Button>
 
-                <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full sm:w-auto sm:justify-end">
-                  {(selectedIntake?.status === "active" || selectedIntake?.status === "resolved") && selectedIntake.assigned_attorney?.id && user?.role !== "ADMIN" && (
-                    <Button
-                      onClick={() => router.push(`/app/messages?user=${selectedIntake.assigned_attorney?.id}&name=${encodeURIComponent(selectedIntake.assigned_attorney?.full_name || "Attorney")}&role=ATTORNEY`)}
-                      className="w-full sm:w-auto bg-action hover:bg-action/90 text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest"
-                    >
-                      Message Attorney
-                    </Button>
-                  )}
-                </div>
+                {(selectedIntake?.status === "active" || selectedIntake?.status === "resolved") && selectedIntake.assigned_attorney?.id && user?.role !== "ADMIN" && (
+                  <Button
+                    onClick={() => router.push(`/app/messages?user=${selectedIntake.assigned_attorney?.id}&name=${encodeURIComponent(selectedIntake.assigned_attorney?.full_name || "Attorney")}&role=ATTORNEY`)}
+                    className="w-full sm:w-auto bg-action hover:bg-action/90 text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest"
+                  >
+                    Message Attorney
+                  </Button>
+                )}
               </div>
             </motion.div>
           </div>

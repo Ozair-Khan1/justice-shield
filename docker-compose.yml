@@ -19,3 +19,4 @@ services:
     volumes:
       - ./egress.yaml:/etc/egress.yaml
       - ./recordings:/home/egress/recordings
+
