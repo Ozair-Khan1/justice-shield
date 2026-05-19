@@ -40,7 +40,11 @@ function MediaReadyTracker({ onReady }: { onReady: (ready: boolean) => void }) {
     const hasRemoteMedia = tracks.some(
       (t) => !t.participant.isLocal && t.publication.isSubscribed
     );
-    if (hasRemoteMedia) {
+    const hasLocalMedia = tracks.some(
+      (t) => t.participant.isLocal
+    );
+
+    if (hasRemoteMedia || hasLocalMedia) {
       onReady(true);
     }
   }, [tracks, onReady]);
@@ -130,17 +134,20 @@ export default function LiveKitVideoCall({
   // ── Start recording — only depends on the conditions that gate it ────────────
   // Intentionally excludes isConnectedState to prevent timer cancellation on connect
   useEffect(() => {
+    const canRecord = isSos || participantCount >= 1;
+
     if (
       !isCaller ||
       !callId ||
       !userId ||
       !isMediaReady ||
       !shouldRecord ||
+      !canRecord ||
       egressStarted.current
     ) return;
 
     egressStarted.current = true;
-    console.log("[Egress] Media ready. Starting recording in 2 seconds...");
+    console.log("[Egress] Media ready. Starting recording in 1 second...");
 
     const timer = setTimeout(() => {
       setIsRecording(true);
@@ -153,10 +160,10 @@ export default function LiveKitVideoCall({
         setIsRecording(false);
         egressStarted.current = false;
       });
-    }, 2000);
+    }, 1000);
 
     return () => clearTimeout(timer);
-  }, [isMediaReady, isCaller, callId, room, shouldRecord, userId]);
+  }, [isMediaReady, isCaller, callId, room, shouldRecord, userId, isSos, participantCount]);
 
   // ── Stop recording if user toggles off mid-call ──────────────────────────────
   useEffect(() => {
@@ -244,7 +251,7 @@ export default function LiveKitVideoCall({
           URL: {process.env.NEXT_PUBLIC_LIVEKIT_URL}
         </p>
         <p className="opacity-80 max-w-sm mb-6">
-          Ensure your local LiveKit server is running at ws://localhost:7800
+          Ensure your local LiveKit server is running at {process.env.NEXT_PUBLIC_LIVEKIT_URL || "ws://localhost:7800"}
         </p>
         <button
           onClick={onLeave}

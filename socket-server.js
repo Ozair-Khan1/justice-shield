@@ -88,6 +88,11 @@ io.on("connection", (socket) => {
     io.to(data.callerId).emit("video-call-declined", data);
   });
 
+  socket.on("recording-saved", (data) => {
+    console.log(`[SocketServer] Recording saved for call: ${data.callId} for user ${data.targetUserId}`);
+    if (data.targetUserId) io.to(data.targetUserId).emit("recording-saved", data);
+  });
+
   socket.on("call-missed", (data) => {
     // data: { receiverId, callerId, callerName, callId, callType }
     console.log(`Missed call from ${data.callerName} — notifying receiver ${data.receiverId}`);

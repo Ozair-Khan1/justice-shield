@@ -64,12 +64,12 @@ export default function CivilIntakePage() {
   const [locationError, setLocationError] = useState<boolean>(false);
   const [draftId, setDraftId] = useState<string | null>(null);
 
-  const [availableAttorneys, setAvailableAttorneys] = useState<Attorney[]>([]);
-  const [loadingAttorneys, setLoadingAttorneys] = useState(false);
-  const [loading, setLoading] = useState(false);
-
   const searchParams = useSearchParams();
   const draftIdParam = searchParams.get("draft");
+
+  const [availableAttorneys, setAvailableAttorneys] = useState<Attorney[]>([]);
+  const [loadingAttorneys, setLoadingAttorneys] = useState(false);
+  const [loading, setLoading] = useState(!!draftIdParam);
 
   useEffect(() => {
     refreshUser()
@@ -78,6 +78,7 @@ export default function CivilIntakePage() {
   useEffect(() => {
     if (draftIdParam && !draftId) {
       const fetchDraft = async () => {
+        setLoading(true);
         try {
           const res = await fetch(`/api/civil/intake/${draftIdParam}`);
           const data = await res.json();
@@ -114,6 +115,8 @@ export default function CivilIntakePage() {
           }
         } catch (err) {
           console.error("Failed to load draft:", err);
+        } finally {
+          setLoading(false);
         }
       };
       fetchDraft();

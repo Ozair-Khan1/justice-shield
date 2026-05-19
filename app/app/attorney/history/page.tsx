@@ -568,15 +568,6 @@ export default function AttorneyHistoryPage() {
                 >
                   Close Archive
                 </button>
-                {(selectedIntake as any).recording_url && (
-                  <button
-                    onClick={() => window.open((selectedIntake as any).recording_url, '_blank')}
-                    className="w-full sm:w-auto rounded-sm bg-red-600 px-8 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-white hover:bg-red-700 flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(220,38,38,0.3)]"
-                  >
-                    <Video className="size-3" />
-                    Watch Recording
-                  </button>
-                )}
                 {selectedIntake.status === "pending" && (
                   <button
                     onClick={handleAcceptCase}

@@ -33,6 +33,7 @@ export default function AdminRecordingsPage() {
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState<"All" | "Video Call" | "Voice Call" | "SOS Encounter">("All");
 
   useEffect(() => {
     async function fetchRecordings() {
@@ -51,11 +52,13 @@ export default function AdminRecordingsPage() {
     fetchRecordings();
   }, []);
 
-  const filteredRecordings = recordings.filter(r => 
-    r.participants.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.room.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRecordings = recordings.filter(r => {
+    const matchesSearch = r.participants.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          r.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          r.room.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterType === "All" || r.type === filterType;
+    return matchesSearch && matchesFilter;
+  });
 
   if (loading) {
     return (
@@ -90,16 +93,24 @@ export default function AdminRecordingsPage() {
       </div>
 
       <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-hide">
-        <button className="flex items-center gap-2 whitespace-nowrap rounded-full bg-red-500/10 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-red-500 border border-red-500/20">
+        <button 
+          onClick={() => setFilterType("All")}
+          className={`flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest border transition-all ${filterType === "All" ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-titanium-900/50 text-titanium-400 border-titanium-800 hover:border-titanium-700"}`}>
           All Sessions ({recordings.length})
         </button>
-        <button className="flex items-center gap-2 whitespace-nowrap rounded-full bg-titanium-900/50 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-titanium-400 border border-titanium-800 hover:border-titanium-700">
+        <button 
+          onClick={() => setFilterType("Video Call")}
+          className={`flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest border transition-all ${filterType === "Video Call" ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-titanium-900/50 text-titanium-400 border-titanium-800 hover:border-titanium-700"}`}>
           Video Calls
         </button>
-        <button className="flex items-center gap-2 whitespace-nowrap rounded-full bg-titanium-900/50 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-titanium-400 border border-titanium-800 hover:border-titanium-700">
+        <button 
+          onClick={() => setFilterType("Voice Call")}
+          className={`flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest border transition-all ${filterType === "Voice Call" ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-titanium-900/50 text-titanium-400 border-titanium-800 hover:border-titanium-700"}`}>
           Voice Calls
         </button>
-        <button className="flex items-center gap-2 whitespace-nowrap rounded-full bg-titanium-900/50 px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest text-titanium-400 border border-titanium-800 hover:border-titanium-700">
+        <button 
+          onClick={() => setFilterType("SOS Encounter")}
+          className={`flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest border transition-all ${filterType === "SOS Encounter" ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-titanium-900/50 text-titanium-400 border-titanium-800 hover:border-titanium-700"}`}>
           SOS Encounters
         </button>
       </div>
@@ -111,14 +122,13 @@ export default function AdminRecordingsPage() {
           <p className="mt-2 text-sm text-titanium-500">No sessions match your search criteria.</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-titanium-800 bg-titanium-900/50">
-          <table className="w-full text-left">
+        <div className="overflow-x-auto rounded-xl border border-titanium-800 bg-titanium-900/50">
+          <table className="w-full text-left min-w-[800px]">
             <thead>
               <tr className="border-b border-titanium-800 bg-titanium-950/50">
                 <th className="px-6 py-4 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-400">Session</th>
                 <th className="px-6 py-4 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-400">Participants</th>
                 <th className="px-6 py-4 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-400">Date & Time</th>
-                <th className="px-6 py-4 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-400">Duration</th>
                 <th className="px-6 py-4 text-right font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-400">Actions</th>
               </tr>
             </thead>
@@ -147,12 +157,7 @@ export default function AdminRecordingsPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-xs text-titanium-300">{format(new Date(recording.started_at), "MMM d, yyyy")}</div>
-                    <div className="font-mono text-[10px] text-titanium-500 uppercase tracking-widest">{format(new Date(recording.started_at), "HH:mm")}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="font-mono text-[10px] text-titanium-300 uppercase tracking-widest">
-                      {formatDuration(recording.started_at, recording.ended_at)}
-                    </div>
+                    <div className="font-mono text-[10px] text-titanium-500 uppercase tracking-widest">{format(new Date(recording.started_at), "h:mm a")}</div>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">

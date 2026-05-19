@@ -853,16 +853,6 @@ export default function HistoryPage() {
                   Close Details
                 </Button>
 
-                {selectedIntake.recording_url && (
-                  <Button
-                    onClick={() => window.open(selectedIntake.recording_url, '_blank')}
-                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest flex items-center gap-2"
-                  >
-                    <Video className="size-4" />
-                    Watch Recording
-                  </Button>
-                )}
-
                 {(selectedIntake?.status === "active" || selectedIntake?.status === "resolved") && selectedIntake.assigned_attorney?.id && user?.role !== "ADMIN" && (
                   <Button
                     onClick={() => router.push(`/app/messages?user=${selectedIntake.assigned_attorney?.id}&name=${encodeURIComponent(selectedIntake.assigned_attorney?.full_name || "Attorney")}&role=ATTORNEY`)}

@@ -542,31 +542,56 @@ export default function AdminCasesPage() {
                           <CheckCircle2 className="size-5 text-emerald-500" />
                         </div>
                       ) : assigningId === c.id ? (
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-titanium-800 p-2 rounded-sm bg-titanium-950/50 h-11">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-titanium-800 p-2 rounded-sm bg-titanium-950/50">
                           <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
                             <SelectTrigger className="flex-1 min-w-0 bg-transparent text-[10px] sm:text-[11px] h-10 border-titanium-800 sm:border-none rounded-sm sm:rounded-none font-mono uppercase text-titanium-200">
                               <SelectValue placeholder="Select Counsel..." />
                             </SelectTrigger>
-                            <SelectContent className="bg-titanium-950 border-titanium-800">
+                            <SelectContent className="bg-titanium-950 border-titanium-800 max-h-[200px] overflow-y-auto" side="top">
                               {(() => {
                                 const currentCase = combinedCases.find(cc => cc.id === c.id);
                                 const clientCity = currentCase?.user?.city;
                                 const clientCountry = currentCase?.user?.country;
+                                const isType = currentCase?.matter_type;
 
                                 return [...attorneys].sort((a, b) => {
-                                  const aCityMatch = clientCity && a.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
-                                  const aCountryMatch = clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
-                                  const bCityMatch = clientCity && b.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
-                                  const bCountryMatch = clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
-                                  return (bCityMatch + bCountryMatch) - (aCityMatch + aCountryMatch);
+                                  const aIsLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
+                                    (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase()) ||
+                                    (currentCase?.type === 'sos' && a.country && (
+                                      (currentCase as any).location_address?.toLowerCase().includes(a.country.toLowerCase()) ||
+                                      (currentCase as any).notes?.toLowerCase().includes(a.country.toLowerCase())
+                                    ));
+                                  const aMatchesSpecialty = currentCase?.matter_type && a.specialties?.toLowerCase().includes(currentCase.matter_type.toLowerCase());
+                                  const aShowPin = aIsLocal && aMatchesSpecialty ? 1 : 0;
+
+                                  const bIsLocal = (clientCity && b.city?.toLowerCase() === clientCity.toLowerCase()) ||
+                                    (clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase()) ||
+                                    (currentCase?.type === 'sos' && b.country && (
+                                      (currentCase as any).location_address?.toLowerCase().includes(b.country.toLowerCase()) ||
+                                      (currentCase as any).notes?.toLowerCase().includes(b.country.toLowerCase())
+                                    ));
+                                  const bMatchesSpecialty = currentCase?.matter_type && b.specialties?.toLowerCase().includes(currentCase.matter_type.toLowerCase());
+                                  const bShowPin = bIsLocal && bMatchesSpecialty ? 1 : 0;
+
+                                  if (aShowPin !== bShowPin) return bShowPin - aShowPin;
+
+                                  const aScore = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0) + (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0);
+                                  const bScore = (clientCity && b.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0) + (clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0);
+                                  return bScore - aScore;
                                 }).map(a => {
                                   const isLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
-                                    (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase());
+                                    (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase()) ||
+                                    (currentCase?.type === 'sos' && a.country && (
+                                      (currentCase as any).location_address?.toLowerCase().includes(a.country.toLowerCase()) ||
+                                      (currentCase as any).notes?.toLowerCase().includes(a.country.toLowerCase())
+                                    ));
+                                  const matchesSpecialty = isType && a.specialties?.toLowerCase().includes(isType.toLowerCase());
+                                  const showPin = isLocal && matchesSpecialty;
                                   return (
                                     <SelectItem key={a.id} value={a.id} className="font-mono text-[10px] uppercase">
                                       <div className="flex flex-col gap-0.5">
                                         <div className="flex items-center gap-2">
-                                          {isLocal && <span className="text-action text-[8px]">📍</span>}
+                                          {showPin && <span className="text-action text-[8px]">📍</span>}
                                           <span className="font-bold text-titanium-50">{a.full_name}</span>
                                         </div>
                                         <div className="text-[8px] text-titanium-500 max-w-[200px]">
@@ -785,49 +810,57 @@ export default function AdminCasesPage() {
               </div>
 
               <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row justify-end gap-3 backdrop-blur-md">
-                <Button
-                  variant="outline"
-                  onClick={() => handleClose()}
-                  className="border-titanium-700 bg-transparent text-titanium-300 hover:bg-titanium-800 h-11 px-8 font-mono text-[10px] uppercase tracking-widest"
-                >
-                  Close Briefing
-                </Button>
-                {selectedIntake.user?.id && (
-                  <Button
-                    onClick={() => setCallModal({ isOpen: true, user: selectedIntake.user })}
-                    className="border-emerald-500/30 text-emerald-500 hover:bg-emerald-500 hover:text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest bg-emerald-500/5"
-                  >
-                    <Phone className="size-3 mr-2" />
-                    Call Member
-                  </Button>
-                )}
                 {selectedIntake.status === "pending" && !selectedIntake.assigned_attorney && (
                   assigningId === selectedIntake.id ? (
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-titanium-800 h-11 p-2 rounded-sm bg-titanium-950/50">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-titanium-800 h-auto p-2 rounded-sm bg-titanium-950/50">
                       <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
                         <SelectTrigger className="flex-1 min-w-0 bg-transparent text-[10px] sm:text-[11px] h-10 border-titanium-800 sm:border-none rounded-sm sm:rounded-none font-mono uppercase text-titanium-200">
                           <SelectValue placeholder="Select Counsel..." />
                         </SelectTrigger>
-                        <SelectContent className="bg-titanium-950 border-titanium-800">
+                        <SelectContent className="bg-titanium-950 border-titanium-800 max-h-[200px] overflow-y-auto" side="top">
                           {(() => {
                             const currentCase = combinedCases.find(cc => cc.id === selectedIntake.id);
                             const clientCity = currentCase?.user?.city;
                             const clientCountry = currentCase?.user?.country;
 
                             return [...attorneys].sort((a, b) => {
-                              const aCityMatch = clientCity && a.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
-                              const aCountryMatch = clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
-                              const bCityMatch = clientCity && b.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
-                              const bCountryMatch = clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
-                              return (bCityMatch + bCountryMatch) - (aCityMatch + aCountryMatch);
+                              const aIsLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
+                                (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase()) ||
+                                (currentCase?.type === 'sos' && a.country && (
+                                  (currentCase as any).location_address?.toLowerCase().includes(a.country.toLowerCase()) ||
+                                  (currentCase as any).notes?.toLowerCase().includes(a.country.toLowerCase())
+                                ));
+                              const aMatchesSpecialty = currentCase?.matter_type && a.specialties?.toLowerCase().includes(currentCase.matter_type.toLowerCase());
+                              const aShowPin = aIsLocal && aMatchesSpecialty ? 1 : 0;
+
+                              const bIsLocal = (clientCity && b.city?.toLowerCase() === clientCity.toLowerCase()) ||
+                                (clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase()) ||
+                                (currentCase?.type === 'sos' && b.country && (
+                                  (currentCase as any).location_address?.toLowerCase().includes(b.country.toLowerCase()) ||
+                                  (currentCase as any).notes?.toLowerCase().includes(b.country.toLowerCase())
+                                ));
+                              const bMatchesSpecialty = currentCase?.matter_type && b.specialties?.toLowerCase().includes(currentCase.matter_type.toLowerCase());
+                              const bShowPin = bIsLocal && bMatchesSpecialty ? 1 : 0;
+
+                              if (aShowPin !== bShowPin) return bShowPin - aShowPin;
+
+                              const aScore = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0) + (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0);
+                              const bScore = (clientCity && b.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0) + (clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0);
+                              return bScore - aScore;
                             }).map(a => {
                               const isLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
-                                (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase());
+                                (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase()) ||
+                                (currentCase?.type === 'sos' && a.country && (
+                                  (currentCase as any).location_address?.toLowerCase().includes(a.country.toLowerCase()) ||
+                                  (currentCase as any).notes?.toLowerCase().includes(a.country.toLowerCase())
+                                ));
+                              const matchesSpecialty = currentCase?.matter_type && a.specialties?.toLowerCase().includes(currentCase?.matter_type.toLowerCase());
+                              const showPin = isLocal && matchesSpecialty;
                               return (
                                 <SelectItem key={a.id} value={a.id} className="font-mono text-[10px] uppercase">
                                   <div className="flex flex-col gap-0.5">
                                     <div className="flex items-center gap-2">
-                                      {isLocal && <span className="text-action text-[8px]">📍</span>}
+                                      {showPin && <span className="text-action text-[8px]">📍</span>}
                                       <span className="font-bold text-titanium-50">{a.full_name}</span>
                                     </div>
                                     <div className="text-[8px] text-titanium-500 max-w-[200px]">
@@ -866,6 +899,22 @@ export default function AdminCasesPage() {
                   )
                 )}
 
+                <Button
+                  variant="outline"
+                  onClick={() => handleClose()}
+                  className="border-titanium-700 bg-transparent text-titanium-300 hover:bg-titanium-800 h-11 px-8 font-mono text-[10px] uppercase tracking-widest"
+                >
+                  Close Briefing
+                </Button>
+                {selectedIntake.user?.id && (
+                  <Button
+                    onClick={() => setCallModal({ isOpen: true, user: selectedIntake.user })}
+                    className="border-emerald-500/30 text-emerald-500 hover:bg-emerald-500 hover:text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest bg-emerald-500/5"
+                  >
+                    <Phone className="size-3 mr-2" />
+                    Call Member
+                  </Button>
+                )}
               </div>
             </motion.div>
           </div>

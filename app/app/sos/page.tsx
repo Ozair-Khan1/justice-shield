@@ -130,10 +130,10 @@ export default function SOSPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to assign attorney");
-      
+
       const session = data.session;
       const roomId = session.id;
-      
+
       // Redirect to call page with auto-record enabled
       const url = `/call/${roomId}?name=${encodeURIComponent(user?.full_name || user?.email || "Member")}&type=video&callId=${roomId}&isCaller=true&isSos=true${attorneyId ? `&receiverId=${attorneyId}` : ""}`;
       router.push(url);

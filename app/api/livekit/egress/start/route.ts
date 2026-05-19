@@ -73,8 +73,8 @@ export async function POST(req: NextRequest) {
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     const fileName = `recording_${roomName}_${Date.now()}.mp4`;
-    const dbPath = `/recordings/${fileName}`;
-    const containerPath = `/recordings/${fileName}`;
+    const dbPath = `/api/recordings/serve/${fileName}`;
+    const containerPath = `/home/egress/recordings/${fileName}`;
 
     const fileOutput = new EncodedFileOutput({
       fileType: EncodedFileType.MP4,
@@ -83,16 +83,15 @@ export async function POST(req: NextRequest) {
 
     const info = await egressClient.startRoomCompositeEgress(roomName, fileOutput, {
       layout: "grid",
-      customBaseUrl: "http://127.0.0.1:7800",
     });
 
     console.log("[START] Egress started:", info.egressId);
 
     const updateData = {
       egress_id: info.egressId,
-      recording_url: dbPath,
       recorded_by_id: recordedById,
       recording_started_at: new Date(),
+      recording_url: dbPath,
     };
 
     if (type === "call") {
