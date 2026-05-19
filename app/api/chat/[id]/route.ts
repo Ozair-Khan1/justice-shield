@@ -38,7 +38,7 @@ async function canChat(userId: string, otherId: string, role?: string) {
 // GET: Fetch all messages between current user and [id] (the other user)
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: otherId } = await params;
@@ -78,7 +78,7 @@ export async function GET(
 // POST: Send a message to user [id]
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: receiverId } = await params;
@@ -115,7 +115,7 @@ export async function POST(
 // PATCH: Mark all messages from [id] to current user as read
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: senderId } = await params;

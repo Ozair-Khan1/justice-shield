@@ -229,7 +229,8 @@ export function GlobalNotificationListener() {
       reconnectionDelay: 1000,
       timeout: 20000,
       extraHeaders: {
-        "Bypass-Tunnel-Reminder": "true"
+        "Bypass-Tunnel-Reminder": "true",
+        "ngrok-skip-browser-warning": "true"
       }
     });
     socketRef.current = socket;
@@ -355,6 +356,57 @@ export function GlobalNotificationListener() {
       }
       if (data.callId) activeNotificationIds.current.add(data.callId);
       showIncomingCallNotification(data);
+    });
+
+    socket.on("recording-saved", (data: any) => {
+      console.log(`[GlobalNotification] RECEIVED recording-saved for callId: ${data.callId}`);
+
+      // Prevent duplicate notifications
+      const key = `recording-saved-${data.callId}`;
+      if (activeNotificationIds.current.has(key)) {
+        return;
+      }
+      activeNotificationIds.current.add(key);
+
+      toast.custom((t) => (
+        <div className="animate-in h-fit fade-in slide-in-from-top-5 sm:slide-in-from-right-5 flex flex-col gap-2 sm:gap-4 !bg-titanium-900/90 backdrop-blur-xl border border-titanium-800 border-l-2 border-l-action p-3.5 sm:p-6 rounded-lg shadow-2xl w-[calc(100vw-24px)] sm:w-[440px] !min-w-0 !z-[9999] pointer-events-auto mx-auto sm:mx-0 mt-4 sm:mt-0">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2">
+                <div className="size-1.5 rounded-full bg-action animate-pulse shrink-0" />
+                <span className="font-mono text-[9px] sm:text-[11px] font-bold uppercase tracking-widest text-action truncate">
+                  Recording Saved
+                </span>
+              </div>
+              <span className="font-display text-base sm:text-lg font-bold tracking-tight text-titanium-50 truncate">
+                Call Recording Available
+              </span>
+            </div>
+            <button
+              onClick={() => toast.dismiss(t)}
+              className="text-titanium-600 hover:text-titanium-400 transition-colors p-1"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+            </button>
+          </div>
+
+          <p className="text-xs sm:text-sm text-titanium-400 leading-relaxed">
+            The recording for your recent call is now processed and saved.
+          </p>
+
+          <div className="flex justify-end mt-2">
+            <button
+              onClick={() => {
+                toast.dismiss(t);
+                window.location.href = "/app/recordings";
+              }}
+              className="text-xs font-bold text-action hover:underline"
+            >
+              View Recordings
+            </button>
+          </div>
+        </div>
+      ));
     });
 
     const handleMissedCall = (data: any) => {

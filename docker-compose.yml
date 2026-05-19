@@ -1,0 +1,21 @@
+services:
+  redis:
+    image: redis:7-alpine
+
+  livekit:
+    image: livekit/livekit-server:latest
+    command: --config /etc/livekit.yaml
+    network_mode: host
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml
+
+  egress:
+    image: livekit/egress:latest
+    cap_add:
+      - SYS_ADMIN
+    network_mode: host
+    environment:
+      - EGRESS_CONFIG_FILE=/etc/egress.yaml
+    volumes:
+      - ./egress.yaml:/etc/egress.yaml
+      - ./recordings:/home/egress/recordings

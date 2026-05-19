@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  allowedDevOrigins: ["outage-upon-joining.ngrok-free.dev", "metro-tuner-prague-evans.trycloudflare.com"],
+  allowedDevOrigins: ["coal-underwear-blonde-varied.trycloudflare.com", "affects-symphony-replacing-geological.trycloudflare.com", "192.168.1.51"],
   reactStrictMode: false,
 };
 

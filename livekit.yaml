@@ -3,12 +3,11 @@ bind_addresses:
   - ""
 
 rtc:
+  udp_port: 7882
   tcp_port: 7881
-  port_range_start: 50000
-  port_range_end: 60000
-  use_external_ip: true
+  use_external_ip: false
   enable_loopback_candidate: true
-  node_ip: "192.168.1.51"
+  node_ip: "127.0.0.1"
 
 redis:
   address: 127.0.0.1:6379

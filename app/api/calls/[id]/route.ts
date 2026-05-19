@@ -4,7 +4,7 @@ import { verifyJwt, getAuthToken } from "@/lib/jwt";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const token = await getAuthToken(req);
@@ -30,9 +30,12 @@ export async function PATCH(
     } catch (e: any) {
       // If P2025 (Record not found), try EncounterSession
       if (e.code === 'P2025') {
+        // Do not update status automatically for EncounterSession to let attorney do it manually
         record = await prisma.encounterSession.update({
           where: { id },
-          data: updateData
+          data: {
+            ...(updateData.ended_at ? { ended_at: updateData.ended_at } : {})
+          }
         });
       } else {
         throw e;
