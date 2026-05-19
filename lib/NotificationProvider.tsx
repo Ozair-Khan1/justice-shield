@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from '@/lib/auth';
 
 export interface AppNotification {
   id: string;
@@ -26,10 +27,17 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const { user } = useAuth();
 
-  // Load from localStorage on mount
+  // Load from localStorage on user change
   useEffect(() => {
-    const saved = localStorage.getItem('app_notifications');
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
+    
+    const key = `app_notifications_${user.id}`;
+    const saved = localStorage.getItem(key);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -42,13 +50,18 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       } catch (e) {
         console.error('Failed to parse notifications', e);
       }
+    } else {
+      setNotifications([]);
     }
-  }, []);
+  }, [user?.id]);
 
   // Save to localStorage on change
   useEffect(() => {
-    localStorage.setItem('app_notifications', JSON.stringify(notifications));
-  }, [notifications]);
+    if (user) {
+      const key = `app_notifications_${user.id}`;
+      localStorage.setItem(key, JSON.stringify(notifications));
+    }
+  }, [notifications, user?.id]);
 
   const addNotification = (notif: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => {
     const newNotif: AppNotification = {

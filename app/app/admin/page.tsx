@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Shield, Users, FileText, AlertTriangle, Briefcase, Clock, MapPin, User as UserIcon, RefreshCw, Loader2, ChevronRight, X, Scale, ShieldCheck, AlertCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import Link from "next/link";
+import { CallMethodModal } from "@/components/CallMethodModal";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useLoading } from "@/components/LoadingProvider";
 import { motion, AnimatePresence } from "framer-motion";
@@ -70,6 +71,7 @@ interface SOSSession {
     firm_name: string | null;
   } | null;
   user: {
+    id: string;
     full_name: string | null;
     email: string;
     phone: string | null;
@@ -100,6 +102,7 @@ interface CivilIntake {
     firm_name: string | null;
   } | null;
   user: {
+    id: string;
     full_name: string | null;
     email: string;
     phone: string | null;
@@ -152,6 +155,7 @@ const itemVariants = {
 };
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
   const [stats, setStats] = useState<Stats | null>(null);
   const [recentUsers, setRecentUsers] = useState<RecentUser[]>([]);
   const [recentVendors, setRecentVendors] = useState<RecentVendor[]>([]);
@@ -168,6 +172,10 @@ export default function AdminDashboard() {
   const [processing, setProcessing] = useState(false);
   const [selectedIntake, setSelectedIntake] = useState<CivilIntake | null>(null);
   const [viewingRejection, setViewingRejection] = useState<any | null>(null);
+  const [callModal, setCallModal] = useState<{ isOpen: boolean; user: any }>({
+    isOpen: false,
+    user: null,
+  });
   const [seenAlertIds, setSeenAlertIds] = useState<Set<string>>(new Set());
   const [hasInitializedAlerts, setHasInitializedAlerts] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
@@ -351,8 +359,8 @@ export default function AdminDashboard() {
             </div>
             <div className="grid gap-4">
               {sosSessions.map((s) => (
-                <div key={s.id} className="rounded-sm border border-titanium-800 bg-titanium-900/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="space-y-1">
+                <div key={s.id} className="rounded-sm border border-titanium-800 bg-titanium-900/40 p-4 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all hover:border-titanium-700">
+                  <div className="space-y-3 flex-1">
                     <div className="flex items-center gap-3">
                       <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-red-500">{s.encounter_type.replace("_", " ")}</span>
                       <span className={`text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full border ${s.status === "active" ? "border-red-500/30 text-red-400 bg-red-500/5" : "border-titanium-700 text-titanium-500"}`}>
@@ -367,13 +375,13 @@ export default function AdminDashboard() {
                         </button>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-titanium-200">
+                    <div className="flex items-center gap-2 text-xs text-titanium-200">
                       <UserIcon className="size-3.5 text-titanium-500" />
                       {s.user.full_name || s.user.email}
                       {s.user.phone && <span className="text-titanium-600 ml-1">({s.user.phone})</span>}
                     </div>
 
-                    {(s.user.emergency_contact_name) && (
+                    {s.user.emergency_contact_name && (
                       <div className="flex items-center gap-2 text-[10px] bg-red-500/5 border border-red-500/10 px-2 py-1 rounded-sm w-fit">
                         <span className="font-mono font-bold uppercase text-red-500/70">Emergency Contact:</span>
                         <span className="text-titanium-300">{s.user.emergency_contact_name || "Contact"}</span>
@@ -385,12 +393,12 @@ export default function AdminDashboard() {
                       <MapPin className="size-3" />
                       {s.location_address || "No location info"}
                     </div>
-                    <div className="font-mono text-[10px] text-titanium-600 uppercase tracking-widest">
-                      {new Date(s.started_at).toLocaleString()}
-                    </div>
                   </div>
 
-                  <div className="flex flex-col gap-2 min-w-[200px] items-end">
+                  <div className="flex flex-col gap-3 items-start md:items-end">
+                    <div className="font-mono text-[9px] text-titanium-600 uppercase tracking-[0.2em] bg-titanium-950/50 px-2 py-1 rounded-sm">
+                      {new Date(s.started_at).toLocaleString()}
+                    </div>
                     {s.assigned_attorney ? (
                       <div className="flex items-center gap-2 text-emerald-500 font-mono text-[10px] uppercase tracking-widest">
                         <Shield className="size-3" />
@@ -408,19 +416,37 @@ export default function AdminDashboard() {
                               const clientCountry = s.user.country;
 
                               return [...attorneys].sort((a, b) => {
-                                const aCityMatch = clientCity && a.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
-                                const aCountryMatch = clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
-                                const bCityMatch = clientCity && b.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
-                                const bCountryMatch = clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
-                                return (bCityMatch + bCountryMatch) - (aCityMatch + aCountryMatch);
+                                const aIsLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
+                                  (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase()) ||
+                                  (s.location_address?.toLowerCase().includes(a.country?.toLowerCase() || "") ||
+                                    s.rejection_message?.toLowerCase().includes(a.country?.toLowerCase() || ""));
+                                const aMatchesSpecialty = s.encounter_type && a.specialties?.toLowerCase().includes(s.encounter_type.toLowerCase());
+                                const aShowPin = aIsLocal && aMatchesSpecialty ? 1 : 0;
+
+                                const bIsLocal = (clientCity && b.city?.toLowerCase() === clientCity.toLowerCase()) ||
+                                  (clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase()) ||
+                                  (s.location_address?.toLowerCase().includes(b.country?.toLowerCase() || "") ||
+                                    s.rejection_message?.toLowerCase().includes(b.country?.toLowerCase() || ""));
+                                const bMatchesSpecialty = s.encounter_type && b.specialties?.toLowerCase().includes(s.encounter_type.toLowerCase());
+                                const bShowPin = bIsLocal && bMatchesSpecialty ? 1 : 0;
+
+                                if (aShowPin !== bShowPin) return bShowPin - aShowPin;
+
+                                const aScore = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0) + (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0);
+                                const bScore = (clientCity && b.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0) + (clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0);
+                                return bScore - aScore;
                               }).map(a => {
                                 const isLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
-                                  (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase());
+                                  (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase()) ||
+                                  (s.location_address?.toLowerCase().includes(a.country?.toLowerCase() || "") ||
+                                    s.rejection_message?.toLowerCase().includes(a.country?.toLowerCase() || ""));
+                                const matchesSpecialty = s.encounter_type && a.specialties?.toLowerCase().includes(s.encounter_type.toLowerCase());
+                                const showPin = isLocal && matchesSpecialty;
                                 return (
                                   <SelectItem key={a.id} value={a.id} className="font-mono text-[10px] uppercase">
                                     <div className="flex flex-col gap-0.5 text-left">
                                       <div className="flex items-center gap-2">
-                                        {isLocal && <span className="text-action text-[8px]">📍</span>}
+                                        {showPin && <span className="text-action text-[8px]">📍</span>}
                                         <span className="font-bold text-titanium-50">{a.full_name}</span>
                                       </div>
                                       <div className="text-[8px] text-titanium-500 max-w-[200px]">
@@ -457,27 +483,43 @@ export default function AdminDashboard() {
                         Assign Attorney <ChevronRight className="size-3" />
                       </button>
                     )}
-                    <button
-                      onClick={() => {
-                        setSelectedIntake({
-                          id: s.id,
-                          matter_type: s.encounter_type,
-                          urgency: "urgent",
-                          subject: `Emergency SOS: ${s.encounter_type.replace("_", " ")}`,
-                          description: (s as any).notes || "No tactical notes provided.",
-                          preferred_contact: "phone",
-                          status: s.status,
-                          created_at: s.started_at,
-                          user: s.user,
-                          opposing_party: null,
-                          opposing_party_location: null,
-                          metadata: (s as any).metadata
-                        } as any);
-                      }}
-                      className="w-full md:w-auto font-mono text-[9px] uppercase tracking-widest text-titanium-500 hover:text-action border border-titanium-800/50 px-3 py-1.5 rounded-sm transition-colors text-center"
-                    >
-                      Review Details
-                    </button>
+                    <div className="flex w-full md:w-auto items-center gap-2">
+                      {s.user && (
+                        <button
+                          onClick={() => setCallModal({ isOpen: true, user: s.user })}
+                          className="flex-1 md:flex-none font-mono text-[9px] uppercase tracking-widest text-emerald-500 hover:text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-sm transition-colors text-center"
+                        >
+                          Call Member
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setSelectedIntake({
+                            id: s.id,
+                            matter_type: s.encounter_type,
+                            urgency: "urgent",
+                            subject: `Emergency SOS: ${s.encounter_type.replace("_", " ")}`,
+                            description: (s as any).notes || "No tactical notes provided.",
+                            preferred_contact: "phone",
+                            status: s.status,
+                            created_at: s.started_at,
+                            user: s.user,
+                            opposing_party: null,
+                            opposing_party_location: null,
+                            metadata: (s as any).metadata
+                          } as any);
+                        }}
+                        className="flex-1 md:flex-none font-mono text-[9px] uppercase tracking-widest text-titanium-500 hover:text-action border border-titanium-800/50 px-3 py-1.5 rounded-sm transition-colors text-center"
+                      >
+                        Review Details
+                      </button>
+                      <Link
+                        href="/app/admin/cases"
+                        className="flex-1 md:flex-none text-center font-mono text-[9px] uppercase tracking-widest text-titanium-500 hover:text-action border border-titanium-800/50 px-3 py-1.5 rounded-sm transition-colors"
+                      >
+                        Full Dispatch
+                      </Link>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -548,19 +590,31 @@ export default function AdminDashboard() {
                               const clientCountry = i.user.country;
 
                               return [...attorneys].sort((a, b) => {
-                                const aCityMatch = clientCity && a.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
-                                const aCountryMatch = clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
-                                const bCityMatch = clientCity && b.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0;
-                                const bCountryMatch = clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0;
-                                return (bCityMatch + bCountryMatch) - (aCityMatch + aCountryMatch);
+                                const aIsLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
+                                  (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase());
+                                const aMatchesSpecialty = i.matter_type && a.specialties?.toLowerCase().includes(i.matter_type.toLowerCase());
+                                const aShowPin = aIsLocal && aMatchesSpecialty ? 1 : 0;
+
+                                const bIsLocal = (clientCity && b.city?.toLowerCase() === clientCity.toLowerCase()) ||
+                                  (clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase());
+                                const bMatchesSpecialty = i.matter_type && b.specialties?.toLowerCase().includes(i.matter_type.toLowerCase());
+                                const bShowPin = bIsLocal && bMatchesSpecialty ? 1 : 0;
+
+                                if (aShowPin !== bShowPin) return bShowPin - aShowPin;
+
+                                const aScore = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0) + (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0);
+                                const bScore = (clientCity && b.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0) + (clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0);
+                                return bScore - aScore;
                               }).map(a => {
                                 const isLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
                                   (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase());
+                                const matchesSpecialty = i.matter_type && a.specialties?.toLowerCase().includes(i.matter_type.toLowerCase());
+                                const showPin = isLocal && matchesSpecialty;
                                 return (
                                   <SelectItem key={a.id} value={a.id} className="font-mono text-[10px] uppercase">
                                     <div className="flex flex-col gap-0.5 text-left">
                                       <div className="flex items-center gap-2">
-                                        {isLocal && <span className="text-action text-[8px]">📍</span>}
+                                        {showPin && <span className="text-action text-[8px]">📍</span>}
                                         <span className="font-bold text-titanium-50">{a.full_name}</span>
                                       </div>
                                       <div className="text-[8px] text-titanium-500 max-w-[200px]">
@@ -896,7 +950,20 @@ export default function AdminDashboard() {
                       {selectedIntake.matter_type.replace("_", " ")}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col md:flex-row items-center gap-3">
+                    {selectedIntake.user?.id && (
+                      <Button
+                        onClick={() => {
+                          setSelectedIntake(null);
+                          setTimeout(() => setCallModal({ isOpen: true, user: selectedIntake.user }), 150);
+                        }}
+                        variant="outline"
+                        className="border-action/30 text-action hover:bg-action hover:text-white font-mono text-[10px] uppercase tracking-widest h-9 px-4"
+                      >
+                        <Phone className="size-3.5 mr-2" />
+                        Call Member
+                      </Button>
+                    )}
                     <Badge variant="secondary" className={`font-mono text-[9px] uppercase tracking-widest h-6 px-3 ${selectedIntake.status === "pending" ? "text-amber-500 border-amber-500/20 bg-amber-500/5" : "text-blue-500 border-blue-500/20 bg-blue-500/5"
                       }`}>
                       {selectedIntake.status}
@@ -996,6 +1063,38 @@ export default function AdminDashboard() {
           </div>
         )}
       </AnimatePresence>
+
+      <CallMethodModal
+        isOpen={callModal.isOpen}
+        onClose={() => setCallModal({ isOpen: false, user: null })}
+        userName={callModal.user?.full_name || "Member"}
+        phoneNumber={callModal.user?.phone || undefined}
+        onBrowserCall={async () => {
+          if (!callModal.user || !user) return;
+          const id1 = user.id.replace(/-/g, "");
+          const id2 = callModal.user.id.replace(/-/g, "");
+          const roomId = [id1, id2].sort().join("");
+
+          try {
+            // 1. Create Call Log in DB
+            const res = await fetch("/api/calls", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ room: roomId, receiverId: callModal.user.id, callType: "video" })
+            });
+            const { callLog } = await res.json();
+
+            // 2. Navigate to Call
+            const url = `/call/${roomId}?name=${encodeURIComponent(user.full_name || user.id || "Admin")}&type=video&callId=${callLog.id}&isCaller=true&receiverId=${callModal.user.id}`;
+            window.location.href = url;
+          } catch (err) {
+            console.error("Failed to start call:", err);
+            // Fallback
+            const url = `/call/${roomId}?name=${encodeURIComponent(user.full_name || user.id || "Admin")}&type=video&isCaller=true&receiverId=${callModal.user.id}`;
+            window.location.href = url;
+          }
+        }}
+      />
     </motion.div >
   );
 }

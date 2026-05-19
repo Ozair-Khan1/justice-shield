@@ -29,11 +29,15 @@ export function GlobalNotificationListener() {
   useEffect(() => {
     if (user?.seen_notification_ids) {
       setSessionSeenIds(new Set(user.seen_notification_ids));
+    } else {
+      setSessionSeenIds(new Set());
     }
   }, [user?.id]);
 
   useEffect(() => {
     hasFetchedUnread.current = false;
+    activeNotificationIds.current = new Set();
+    declinedCallIds.current = new Set();
   }, [user?.id]);
 
   useEffect(() => {
@@ -264,6 +268,9 @@ export function GlobalNotificationListener() {
     });
 
     socket.on("sos-alert", (data: any) => {
+      if (user.role === "ADMIN" && data.type === "SOS_UPDATE") {
+        return;
+      }
       const key = data.type === "SOS_UPDATE" ? `sos-update-${data.id}-${data.status}` : `sos-new-${data.id}`;
       if (activeNotificationIds.current.has(key)) return;
       activeNotificationIds.current.add(key);
@@ -282,7 +289,6 @@ export function GlobalNotificationListener() {
         let sosMessage = data.type === "SOS_UPDATE"
           ? `Your SOS session status changed to ${data.status.toUpperCase()}.`
           : `A new SOS alert has been triggered by ${data.user_name || "a user"}.`;
-
         if (isAssignedToMe && data.status === "assigned") {
           sosTitle = "SOS Case Assigned";
           sosMessage = `An SOS case from ${data.user_name || "a user"} has been assigned to you.`;
@@ -296,7 +302,9 @@ export function GlobalNotificationListener() {
           title: sosTitle,
           message: sosMessage,
           link: user.role === "ATTORNEY"
-            ? `/app/attorney/cases?caseId=${data.id}&type=sos`
+            ? (sosMessage === "Your SOS session status changed to RESOLVED."
+              ? `/app/attorney/history?caseId=${data.id}&type=sos`
+              : `/app/attorney/cases?caseId=${data.id}&type=sos`)
             : user.role === "ADMIN"
               ? `/app/admin/cases?caseId=${data.id}&type=sos`
               : `/app/history?caseId=${data.id}&type=sos`
@@ -305,6 +313,9 @@ export function GlobalNotificationListener() {
     });
 
     socket.on("new-civil-intake", (data: any) => {
+      if (user.role === "ADMIN" && data.type === "CIVIL_UPDATE") {
+        return;
+      }
       const key = data.type === "CIVIL_UPDATE" ? `civil-update-${data.id}-${data.status}` : `civil-new-${data.id}`;
       if (activeNotificationIds.current.has(key)) return;
       activeNotificationIds.current.add(key);
@@ -336,7 +347,9 @@ export function GlobalNotificationListener() {
           title: civilTitle,
           message: civilMessage,
           link: user.role === "ATTORNEY"
-            ? `/app/attorney/cases?caseId=${data.id}&type=civil`
+            ? (civilMessage === "Your SOS session status changed to RESOLVED."
+              ? `/app/attorney/history?caseId=${data.id}&type=civil`
+              : `/app/attorney/cases?caseId=${data.id}&type=civil`)
             : user.role === "ADMIN"
               ? `/app/admin/cases?caseId=${data.id}&type=civil`
               : `/app/history?caseId=${data.id}&type=civil`

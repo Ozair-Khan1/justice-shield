@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useAuth } from "@/lib/auth";
 import {
 
@@ -37,7 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface CaseUser {
   id: string;
@@ -74,6 +74,14 @@ interface CivilIntake {
 }
 
 export default function AttorneyHistoryPage() {
+  return (
+    <Suspense fallback={<LoadingScreen message="Decrypting Archive Vault..." />}>
+      <HistoryContent />
+    </Suspense>
+  );
+}
+
+function HistoryContent() {
   const { user } = useAuth();
   const router = useRouter();
   const [sosSessions, setSosSessions] = useState<SOSSession[]>([]);
@@ -88,6 +96,52 @@ export default function AttorneyHistoryPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const ITEMS_PER_PAGE = 5;
   const { startLoading, stopLoading } = useLoading();
+  const searchParams = useSearchParams();
+
+  const handleClose = () => {
+    setSelectedIntake(null);
+    const newUrl = new URLSearchParams(window.location.search);
+    newUrl.delete("caseId");
+    newUrl.delete("type");
+    router.push(`${window.location.pathname}?${newUrl.toString()}`);
+  };
+
+  useEffect(() => {
+    if (loading) return;
+
+    const caseId = searchParams.get("caseId");
+    const type = searchParams.get("type");
+
+    if (caseId && type) {
+      if (type === "sos") {
+        const found = sosSessions.find(s => s.id === caseId);
+        if (found) {
+          setSelectedIntake({
+            id: found.id,
+            matter_type: found.encounter_type,
+            urgency: "urgent",
+            subject: `Emergency SOS: ${found.encounter_type.replace("_", " ")}`,
+            description: (found as any).notes || "No tactical notes provided.",
+            preferred_contact: "phone",
+            status: found.status,
+            created_at: found.started_at,
+            user: found.user,
+            opposing_party: null,
+            opposing_party_location: null,
+            metadata: (found as any).metadata,
+            recording_url: found.recording_url
+          });
+          setTab("sos");
+        }
+      } else {
+        const found = civilIntakes.find(c => c.id === caseId);
+        if (found) {
+          setSelectedIntake(found);
+          setTab("civil");
+        }
+      }
+    }
+  }, [loading, sosSessions, civilIntakes, searchParams]);
 
   async function fetchAllHistory() {
     try {
@@ -131,7 +185,7 @@ export default function AttorneyHistoryPage() {
 
       // Remove the accepted case from the local pending list
       setCivilIntakes(prev => prev.filter(i => i.id !== selectedIntake.id));
-      setSelectedIntake(null);
+      handleClose();
       fetchAllHistory()
     } catch (err: any) {
       alert(err.message || "An error occurred");
@@ -424,12 +478,13 @@ export default function AttorneyHistoryPage() {
 
       <AnimatePresence>
         {selectedIntake && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-titanium-950/90 p-4 backdrop-blur-md" onClick={handleClose}>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border border-titanium-800 bg-titanium-950 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] scrollbar-hide"
+              onClick={(e) => e.stopPropagation()}
             >
               {/* Header Banner */}
               <div className="relative h-24 md:h-32 bg-gradient-to-r from-action/20 via-titanium-900 to-titanium-950 border-b border-titanium-800">
@@ -442,7 +497,7 @@ export default function AttorneyHistoryPage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setSelectedIntake(null)}
+                  onClick={handleClose}
                   className="absolute top-4 left-4 rounded-full p-2 text-titanium-400 hover:bg-titanium-800 hover:text-titanium-50 transition-colors md:hidden"
                 >
                   <X className="size-5" />
@@ -563,7 +618,7 @@ export default function AttorneyHistoryPage() {
 
               <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row sm:flex-wrap justify-end gap-3 backdrop-blur-md">
                 <button
-                  onClick={() => setSelectedIntake(null)}
+                  onClick={handleClose}
                   className="w-full sm:w-auto rounded-sm border border-titanium-700 px-8 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-300 hover:bg-titanium-800 transition-all"
                 >
                   Close Archive

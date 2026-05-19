@@ -694,7 +694,20 @@ export default function AdminCasesPage() {
                       {selectedIntake.matter_type.replace("_", " ")}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col md:flex-row items-center gap-3">
+                    {selectedIntake.user?.id && (
+                      <Button
+                        onClick={() => {
+                          setSelectedIntake(null);
+                          setTimeout(() => setCallModal({ isOpen: true, user: selectedIntake.user }), 150);
+                        }}
+                        variant="outline"
+                        className="border-action/30 text-action hover:bg-action hover:text-white font-mono text-[10px] uppercase tracking-widest h-9 px-4"
+                      >
+                        <Phone className="size-3.5 mr-2" />
+                        Call Member
+                      </Button>
+                    )}
                     <Badge variant="secondary" className={`font-mono text-[9px] uppercase tracking-widest h-6 px-3 ${selectedIntake.status === "pending" ? "text-amber-500 border-amber-500/20 bg-amber-500/5" : "text-blue-500 border-blue-500/20 bg-blue-500/5"
                       }`}>
                       {selectedIntake.status}
@@ -809,112 +822,104 @@ export default function AdminCasesPage() {
                 )}
               </div>
 
-              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row justify-end gap-3 backdrop-blur-md">
-                {selectedIntake.status === "pending" && !selectedIntake.assigned_attorney && (
-                  assigningId === selectedIntake.id ? (
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-titanium-800 h-auto p-2 rounded-sm bg-titanium-950/50">
-                      <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
-                        <SelectTrigger className="flex-1 min-w-0 bg-transparent text-[10px] sm:text-[11px] h-10 border-titanium-800 sm:border-none rounded-sm sm:rounded-none font-mono uppercase text-titanium-200">
-                          <SelectValue placeholder="Select Counsel..." />
-                        </SelectTrigger>
-                        <SelectContent className="bg-titanium-950 border-titanium-800 max-h-[200px] overflow-y-auto" side="top">
-                          {(() => {
-                            const currentCase = combinedCases.find(cc => cc.id === selectedIntake.id);
-                            const clientCity = currentCase?.user?.city;
-                            const clientCountry = currentCase?.user?.country;
-
-                            return [...attorneys].sort((a, b) => {
-                              const aIsLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
-                                (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase()) ||
-                                (currentCase?.type === 'sos' && a.country && (
-                                  (currentCase as any).location_address?.toLowerCase().includes(a.country.toLowerCase()) ||
-                                  (currentCase as any).notes?.toLowerCase().includes(a.country.toLowerCase())
-                                ));
-                              const aMatchesSpecialty = currentCase?.matter_type && a.specialties?.toLowerCase().includes(currentCase.matter_type.toLowerCase());
-                              const aShowPin = aIsLocal && aMatchesSpecialty ? 1 : 0;
-
-                              const bIsLocal = (clientCity && b.city?.toLowerCase() === clientCity.toLowerCase()) ||
-                                (clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase()) ||
-                                (currentCase?.type === 'sos' && b.country && (
-                                  (currentCase as any).location_address?.toLowerCase().includes(b.country.toLowerCase()) ||
-                                  (currentCase as any).notes?.toLowerCase().includes(b.country.toLowerCase())
-                                ));
-                              const bMatchesSpecialty = currentCase?.matter_type && b.specialties?.toLowerCase().includes(currentCase.matter_type.toLowerCase());
-                              const bShowPin = bIsLocal && bMatchesSpecialty ? 1 : 0;
-
-                              if (aShowPin !== bShowPin) return bShowPin - aShowPin;
-
-                              const aScore = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0) + (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0);
-                              const bScore = (clientCity && b.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0) + (clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0);
-                              return bScore - aScore;
-                            }).map(a => {
-                              const isLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
-                                (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase()) ||
-                                (currentCase?.type === 'sos' && a.country && (
-                                  (currentCase as any).location_address?.toLowerCase().includes(a.country.toLowerCase()) ||
-                                  (currentCase as any).notes?.toLowerCase().includes(a.country.toLowerCase())
-                                ));
-                              const matchesSpecialty = currentCase?.matter_type && a.specialties?.toLowerCase().includes(currentCase?.matter_type.toLowerCase());
-                              const showPin = isLocal && matchesSpecialty;
-                              return (
-                                <SelectItem key={a.id} value={a.id} className="font-mono text-[10px] uppercase">
-                                  <div className="flex flex-col gap-0.5">
-                                    <div className="flex items-center gap-2">
-                                      {showPin && <span className="text-action text-[8px]">📍</span>}
-                                      <span className="font-bold text-titanium-50">{a.full_name}</span>
-                                    </div>
-                                    <div className="text-[8px] text-titanium-500 max-w-[200px]">
-                                      {a.specialties || a.email} {a.city ? `(${a.city})` : ""}
-                                    </div>
-                                  </div>
-                                </SelectItem>
-                              );
-                            });
-                          })()}
-                        </SelectContent>
-                      </Select>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => { handleAssign(selectedIntake.id, selectedIntake.type) }}
-                          disabled={!selectedAttorney || processing}
-                          className="flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white text-[11px] px-4 py-2 rounded-sm font-bold uppercase transition-colors"
-                        >
-                          {processing ? <Loader2 className="size-3 animate-spin" /> : "Set"}
-                        </button>
-                        <button
-                          onClick={() => setAssigningId(null)}
-                          className="p-2 text-titanium-500 hover:text-titanium-300 border border-titanium-800 sm:border-none rounded-sm"
-                        >
-                          <X className="size-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <Button
-                      onClick={() => { setAssigningId(selectedIntake.id); setAssigningType(selectedIntake.type); }}
-                      className={`${selectedIntake.type === 'sos' ? 'text-red-500 border-red-500/30 hover:bg-red-500/10 bg-transparent' : 'text-action border-action/30 hover:bg-action/10 bg-transparent'} font-mono text-[10px] uppercase tracking-widest font-bold border px-4 py-2 h-11 flex items-center gap-2 transition-all`}
-                    >
-                      Assign Attorney <ChevronRight className="size-3" />
-                    </Button>
-                  )
-                )}
-
+              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 backdrop-blur-md">
                 <Button
                   variant="outline"
                   onClick={() => handleClose()}
-                  className="border-titanium-700 bg-transparent text-titanium-300 hover:bg-titanium-800 h-11 px-8 font-mono text-[10px] uppercase tracking-widest"
+                  className="border-titanium-700 bg-transparent text-titanium-300 hover:bg-titanium-800 h-11 px-8 font-mono text-[10px] uppercase tracking-widest w-full sm:w-auto"
                 >
                   Close Briefing
                 </Button>
-                {selectedIntake.user?.id && (
-                  <Button
-                    onClick={() => setCallModal({ isOpen: true, user: selectedIntake.user })}
-                    className="border-emerald-500/30 text-emerald-500 hover:bg-emerald-500 hover:text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest bg-emerald-500/5"
-                  >
-                    <Phone className="size-3 mr-2" />
-                    Call Member
-                  </Button>
-                )}
+                <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full sm:w-auto sm:justify-end">
+                  {selectedIntake.status === "pending" && !selectedIntake.assigned_attorney && (
+                    assigningId === selectedIntake.id ? (
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border border-titanium-800 h-auto p-2 rounded-sm bg-titanium-950/50">
+                        <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
+                          <SelectTrigger className="flex-1 min-w-0 bg-transparent text-[10px] sm:text-[11px] h-10 border-titanium-800 sm:border-none rounded-sm sm:rounded-none font-mono uppercase text-titanium-200">
+                            <SelectValue placeholder="Select Counsel..." />
+                          </SelectTrigger>
+                          <SelectContent className="bg-titanium-950 border-titanium-800 max-h-[200px] overflow-y-auto" side="top">
+                            {(() => {
+                              const currentCase = combinedCases.find(cc => cc.id === selectedIntake.id);
+                              const clientCity = currentCase?.user?.city;
+                              const clientCountry = currentCase?.user?.country;
+
+                              return [...attorneys].sort((a, b) => {
+                                const aIsLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
+                                  (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase()) ||
+                                  (currentCase?.type === 'sos' && a.country && (
+                                    (currentCase as any).location_address?.toLowerCase().includes(a.country.toLowerCase()) ||
+                                    (currentCase as any).notes?.toLowerCase().includes(a.country.toLowerCase())
+                                  ));
+                                const aMatchesSpecialty = currentCase?.matter_type && a.specialties?.toLowerCase().includes(currentCase.matter_type.toLowerCase());
+                                const aShowPin = aIsLocal && aMatchesSpecialty ? 1 : 0;
+
+                                const bIsLocal = (clientCity && b.city?.toLowerCase() === clientCity.toLowerCase()) ||
+                                  (clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase()) ||
+                                  (currentCase?.type === 'sos' && b.country && (
+                                    (currentCase as any).location_address?.toLowerCase().includes(b.country.toLowerCase()) ||
+                                    (currentCase as any).notes?.toLowerCase().includes(b.country.toLowerCase())
+                                  ));
+                                const bMatchesSpecialty = currentCase?.matter_type && b.specialties?.toLowerCase().includes(currentCase.matter_type.toLowerCase());
+                                const bShowPin = bIsLocal && bMatchesSpecialty ? 1 : 0;
+
+                                if (aShowPin !== bShowPin) return bShowPin - aShowPin;
+
+                                const aScore = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0) + (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0);
+                                const bScore = (clientCity && b.city?.toLowerCase() === clientCity.toLowerCase() ? 2 : 0) + (clientCountry && b.country?.toLowerCase() === clientCountry.toLowerCase() ? 1 : 0);
+                                return bScore - aScore;
+                              }).map(a => {
+                                const isLocal = (clientCity && a.city?.toLowerCase() === clientCity.toLowerCase()) ||
+                                  (clientCountry && a.country?.toLowerCase() === clientCountry.toLowerCase()) ||
+                                  (currentCase?.type === 'sos' && a.country && (
+                                    (currentCase as any).location_address?.toLowerCase().includes(a.country.toLowerCase()) ||
+                                    (currentCase as any).notes?.toLowerCase().includes(a.country.toLowerCase())
+                                  ));
+                                const matchesSpecialty = currentCase?.matter_type && a.specialties?.toLowerCase().includes(currentCase?.matter_type.toLowerCase());
+                                const showPin = isLocal && matchesSpecialty;
+                                return (
+                                  <SelectItem key={a.id} value={a.id} className="font-mono text-[10px] uppercase">
+                                    <div className="flex flex-col gap-0.5">
+                                      <div className="flex items-center gap-2">
+                                        {showPin && <span className="text-action text-[8px]">📍</span>}
+                                        <span className="font-bold text-titanium-50">{a.full_name}</span>
+                                      </div>
+                                      <div className="text-[8px] text-titanium-500 max-w-[200px]">
+                                        {a.specialties || a.email} {a.city ? `(${a.city})` : ""}
+                                      </div>
+                                    </div>
+                                  </SelectItem>
+                                );
+                              });
+                            })()}
+                          </SelectContent>
+                        </Select>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => { handleAssign(selectedIntake.id, selectedIntake.type) }}
+                            disabled={!selectedAttorney || processing}
+                            className="flex-1 sm:flex-none bg-red-500 hover:bg-red-600 text-white text-[11px] px-4 py-2 rounded-sm font-bold uppercase transition-colors"
+                          >
+                            {processing ? <Loader2 className="size-3 animate-spin" /> : "Set"}
+                          </button>
+                          <button
+                            onClick={() => setAssigningId(null)}
+                            className="p-2 text-titanium-500 hover:text-titanium-300 border border-titanium-800 sm:border-none rounded-sm"
+                          >
+                            <X className="size-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        onClick={() => { setAssigningId(selectedIntake.id); setAssigningType(selectedIntake.type); }}
+                        className={`${selectedIntake.type === 'sos' ? 'text-red-500 border-red-500/30 hover:bg-red-500/10 bg-transparent' : 'text-action border-action/30 hover:bg-action/10 bg-transparent'} font-mono text-[10px] uppercase tracking-widest font-bold border px-4 py-2 h-11 flex items-center gap-2 transition-all w-full sm:w-auto`}
+                      >
+                        Assign Attorney <ChevronRight className="size-3" />
+                      </Button>
+                    )
+                  )}
+                </div>
               </div>
             </motion.div>
           </div>

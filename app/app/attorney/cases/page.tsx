@@ -232,6 +232,7 @@ export default function AttorneyCasesPage() {
     } finally {
       setAcceptingId(null);
       stopLoading();
+      handleClose()
     }
   };
 
@@ -611,51 +612,44 @@ export default function AttorneyCasesPage() {
                 )}
               </div>
 
-              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row justify-end gap-3 backdrop-blur-md">
+              <div className="sticky bottom-0 z-10 border-t border-titanium-800 bg-titanium-950 p-4 md:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 backdrop-blur-md">
                 <button
-                  onClick={() => setSelectedCase(null)}
+                  onClick={() => handleClose()}
                   className="w-full sm:w-auto rounded-sm border border-titanium-700 px-8 py-3 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-300 hover:bg-titanium-800 transition-all"
                 >
                   Close Archive
                 </button>
-                {selectedCase.user?.id && (
-                  <Button
-                    onClick={() => setCallModal({ isOpen: true, user: selectedCase.user })}
-                    className="w-full sm:w-auto border-emerald-500/30 text-emerald-500 hover:bg-emerald-500 hover:text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest bg-emerald-500/5"
-                  >
-                    <Phone className="size-3 mr-2" />
-                    Call Member
-                  </Button>
-                )}
-                {selectedCase.status === "active" && (
-                  <Button
-                    onClick={() => handleResolveCase(selectedCase.id)}
-                    disabled={!!resolvingId}
-                    className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white h-11 px-8 font-bold uppercase text-[10px] tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.2)]"
-                  >
-                    {resolvingId === selectedCase.id ? <Loader2 className="size-3 animate-spin mr-2" /> : <CheckCircle2 className="size-3 mr-2" />}
-                    Resolve Matter
-                  </Button>
-                )}
-                {selectedCase.status === "assigned" && (
-                  <>
+                <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full sm:w-auto sm:justify-end">
+                  {selectedCase.status === "active" && (
                     <Button
-                      onClick={() => setRejectingCase(selectedCase)}
-                      variant="outline"
-                      disabled={!!acceptingId}
-                      className="w-full sm:w-auto border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white h-11 px-8 font-bold uppercase text-[10px] tracking-widest"
+                      onClick={() => handleResolveCase(selectedCase.id)}
+                      disabled={!!resolvingId}
+                      className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white h-11 px-8 font-bold uppercase text-[10px] tracking-widest shadow-[0_0_20px_rgba(16,185,129,0.2)]"
                     >
-                      Reject Case
+                      {resolvingId === selectedCase.id ? <Loader2 className="size-3 animate-spin mr-2" /> : <CheckCircle2 className="size-3 mr-2" />}
+                      Resolve Matter
                     </Button>
-                    <Button
-                      onClick={() => handleAcceptCase(selectedCase.id)}
-                      disabled={!!acceptingId}
-                      className="w-full sm:w-auto bg-action hover:bg-action/90 text-action-foreground h-11 px-8 font-bold uppercase text-[10px] tracking-widest shadow-[0_0_20px_rgba(202,152,73,0.2)]"
-                    >
-                      {acceptingId === selectedCase.id ? <Loader2 className="size-3 animate-spin mr-2" /> : "Accept Case"}
-                    </Button>
-                  </>
-                )}
+                  )}
+                  {selectedCase.status === "assigned" && (
+                    <>
+                      <Button
+                        onClick={() => setRejectingCase(selectedCase)}
+                        variant="outline"
+                        disabled={!!acceptingId}
+                        className="w-full sm:w-auto border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white h-11 px-8 font-bold uppercase text-[10px] tracking-widest"
+                      >
+                        Reject Case
+                      </Button>
+                      <Button
+                        onClick={() => handleAcceptCase(selectedCase.id)}
+                        disabled={!!acceptingId}
+                        className="w-full sm:w-auto bg-action hover:bg-action/90 text-action-foreground h-11 px-8 font-bold uppercase text-[10px] tracking-widest shadow-[0_0_20px_rgba(202,152,73,0.2)]"
+                      >
+                        {acceptingId === selectedCase.id ? <Loader2 className="size-3 animate-spin mr-2" /> : "Accept Case"}
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             </motion.div>
           </div>

@@ -76,9 +76,8 @@ export function NotificationCenter() {
               {notifications.map((notif) => (
                 <div
                   key={notif.id}
-                  className={`relative flex flex-col gap-1.5 p-4 transition-colors hover:bg-titanium-800/30 ${
-                    !notif.read ? "bg-action/5" : ""
-                  }`}
+                  className={`relative flex flex-col gap-1.5 p-4 transition-colors hover:bg-titanium-800/30 ${!notif.read ? "bg-action/5" : ""
+                    }`}
                   onClick={() => markAsRead(notif.id)}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -113,17 +112,17 @@ export function NotificationCenter() {
             </div>
           )}
         </ScrollArea>
-        
+
         {notifications.length > 0 && (
-           <div className="border-t border-titanium-800 p-2 bg-titanium-950/50">
-             <Link 
-               href="/app/history" 
-               onClick={() => setIsOpen(false)}
-               className="flex w-full items-center justify-center py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-500 hover:text-white transition-colors"
-             >
-               View Case History
-             </Link>
-           </div>
+          <div className="border-t border-titanium-800 p-2 bg-titanium-950/50">
+            <Link
+              href="/app/history"
+              onClick={() => setIsOpen(false)}
+              className="flex w-full items-center justify-center py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-500 hover:text-white transition-colors"
+            >
+              View Case History
+            </Link>
+          </div>
         )}
       </PopoverContent>
     </Popover>
