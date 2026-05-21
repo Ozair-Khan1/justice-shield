@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import PhoneInput, { parsePhoneNumber } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
@@ -8,10 +9,8 @@ import { useLoading } from "@/components/LoadingProvider";
 import { Country, City } from 'country-state-city';
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 import * as React from "react";
-
-
-
 
 interface Profile {
   full_name: string;
@@ -25,15 +24,62 @@ interface Profile {
 }
 
 export default function AccountPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [saving, setSaving] = useState(false);
   const { startLoading, stopLoading } = useLoading();
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [managingBilling, setManagingBilling] = useState(false);
+  const [canceling, setCanceling] = useState(false);
+  const [reactivating, setReactivating] = useState(false);
 
   const [specialtiesOpen, setSpecialtiesOpen] = useState(false);
   const specialtiesRef = React.useRef<HTMLTextAreaElement>(null);
+
+  const handleManageBilling = async () => {
+    setManagingBilling(true);
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      const data = await res.json();
+      if (data.url) window.location.href = data.url;
+    } catch (err) {
+      console.error("Failed to open billing portal", err);
+    } finally {
+      setManagingBilling(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!confirm("Are you sure you want to cancel your membership? You will retain access until the end of your current billing period.")) return;
+    setCanceling(true);
+    try {
+      const res = await fetch("/api/stripe/cancel", { method: "POST" });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      toast.success("Membership cancellation scheduled successfully.");
+      await refreshUser();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setCanceling(false);
+    }
+  };
+
+  const handleReactivate = async () => {
+    setReactivating(true);
+    try {
+      const res = await fetch("/api/stripe/reactivate", { method: "POST" });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      toast.success("Membership reactivated successfully.");
+      await refreshUser();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setReactivating(false);
+    }
+  };
 
 
   useEffect(() => {
@@ -160,13 +206,61 @@ export default function AccountPage() {
         </header>
 
         <section className="space-y-6 rounded-lg border border-titanium-800 bg-titanium-900/40 p-6 sm:p-8">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="font-mono text-[10px] uppercase tracking-widest text-titanium-500">Membership</div>
               <div className="mt-1 font-display text-2xl font-bold uppercase">{user.membership_tier}</div>
+              {(!user.stripe_subscription_id && user.role === "USER") && (
+                <Link href="/pricing" className="mt-2.5 inline-flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-widest text-action hover:underline">
+                  {user.stripe_customer_id ? "Reactivate Plan" : "Subscribe to Activate Protection"} →
+                </Link>
+              )}
             </div>
-            <span className="rounded-sm border border-action/40 bg-action/10 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-action">Active</span>
+            {user.stripe_subscription_id && user.role === "USER" && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+                <button
+                  onClick={handleManageBilling}
+                  disabled={managingBilling || canceling || reactivating}
+                  className="w-full sm:w-auto text-center justify-center rounded-sm border border-titanium-700 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-300 transition-colors hover:bg-titanium-800 hover:text-titanium-50 disabled:opacity-50"
+                >
+                  {managingBilling ? "Opening..." : "Manage Billing"}
+                </button>
+                {user.subscription_cancel_at && user.role === "USER" ? (
+                  <button
+                    onClick={handleReactivate}
+                    disabled={reactivating || managingBilling || canceling}
+                    className="w-full sm:w-auto text-center justify-center rounded-sm bg-emerald-600 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    {reactivating ? "Reactivating..." : "Reactivate"}
+                  </button>
+                ) : user.subscription_cancel_at === null && user.role === "USER" && (
+                  <button
+                    onClick={handleCancel}
+                    disabled={canceling || managingBilling || reactivating}
+                    className="w-full sm:w-auto text-center justify-center rounded-sm border border-red-500/30 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+                  >
+                    {canceling ? "Canceling..." : "Cancel Membership"}
+                  </button>
+                )}
+                {user.role === "USER" && (
+                  <Link
+                    href="/pricing"
+                    className="w-full sm:w-auto text-center justify-center rounded-sm border border-action/30 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-action transition-colors hover:bg-action/10 disabled:opacity-50"
+                  >
+                    Change Membership
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
+
+          {user.subscription_cancel_at && (
+            <div className="rounded-sm border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-400">
+                ⚠ Your membership is scheduled to cancel on {new Date(user.subscription_cancel_at).toLocaleDateString()}. You will retain full access until then.
+              </p>
+            </div>
+          )}
 
           <Field label="Full Name" value={profile.full_name ?? ""} onChange={(v) => update("full_name", v)} />
           <label className="block">
@@ -276,12 +370,12 @@ export default function AccountPage() {
             </div>
           )}
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <button onClick={onSave} disabled={saving}
-              className="rounded-sm bg-action px-6 py-3 text-sm font-bold uppercase tracking-widest text-action-foreground hover:bg-action/90 disabled:opacity-50">
+              className="w-full sm:w-auto text-center justify-center rounded-sm bg-action px-6 py-3 text-sm font-bold uppercase tracking-widest text-action-foreground hover:bg-action/90 disabled:opacity-50">
               {saving ? "Saving..." : "Save Changes"}
             </button>
-            {savedAt && <span className="font-mono text-[10px] uppercase tracking-widest text-emerald-500">✓ Saved</span>}
+            {savedAt && <span className="font-mono text-[10px] uppercase tracking-widest text-emerald-500 text-center sm:text-left">✓ Saved</span>}
           </div>
         </section>
       </div>

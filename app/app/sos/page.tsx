@@ -53,6 +53,15 @@ export default function SOSPage() {
   const [locationCoords, setLocationCoords] = useState<{ lat: number | null, lng: number | null }>({ lat: null, lng: null });
   const [alertId, setAlertId] = useState<string | null>(null);
 
+  const isExpired = user?.role === "USER" && user?.stripe_customer_id && !user?.stripe_subscription_id;
+  const isFree = user?.role === "USER" && user?.membership_tier === "free" && user?.stripe_customer_id === null && user?.stripe_subscription_id === null && user?.subscription_cancel_at === null;
+
+  useEffect(() => {
+    if (isExpired || isFree) {
+      router.push("/app");
+    }
+  }, [isExpired, router]);
+
   useEffect(() => {
     refreshUser();
   }, []);

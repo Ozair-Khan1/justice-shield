@@ -16,7 +16,11 @@ export async function GET(req: Request) {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { seen_notification_ids: true }
+      select: {
+        seen_notification_ids: true,
+        stripe_customer_id: true,
+        stripe_subscription_id: true,
+      }
     });
     const seenIds = new Set(user?.seen_notification_ids || []);
 
@@ -100,6 +104,16 @@ export async function GET(req: Request) {
         });
       });
     } else if (role === "USER") {
+      // Synthesize membership expiry notification
+      const hasExpired = user?.stripe_customer_id && !user?.stripe_subscription_id;
+      if (hasExpired) {
+        unreadNotifications.push({
+          type: "MEMBERSHIP_EXPIRED",
+          id: "membership-expired-alert",
+          timestamp: new Date()
+        });
+      }
+
       // Fetch their own pending/active/resolved/rejected civil intakes
       const ownIntakes = await prisma.civilIntake.findMany({
         where: { user_id: userId, status: { in: ["pending", "assigned", "active", "resolved", "rejected"] } },

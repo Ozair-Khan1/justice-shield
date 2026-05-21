@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useRef, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useRef, Suspense, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth";
 import { useLoading } from "@/components/LoadingProvider";
 import { ShieldMark } from "@/components/ShieldMark";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { Loader2 } from "lucide-react";
@@ -13,7 +14,19 @@ import { Loader2 } from "lucide-react";
 type AuthMode = "signin" | "signup" | "forgot";
 
 export default function AuthPage() {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <AuthContent />
+    </Suspense>
+  );
+}
+
+function AuthContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const plan = searchParams.get("plan");
+  const period = searchParams.get("period");
+  const trial = searchParams.get("trial") === "true";
   const { user, loading, refreshUser } = useAuth();
   const { startLoading, stopLoading } = useLoading();
   const [mode, setMode] = useState<AuthMode>("signin");
@@ -224,6 +237,24 @@ export default function AuthPage() {
       }
 
       const updatedUser = await refreshUser();
+
+      // If they selected a plan and are a normal user, redirect to Stripe
+      if (plan && period && updatedUser?.role === "USER") {
+        try {
+          const checkoutRes = await fetch("/api/stripe/checkout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ plan, period, trial }),
+          });
+          const checkoutData = await checkoutRes.json();
+          if (checkoutData.url) {
+            window.location.href = checkoutData.url;
+            return;
+          }
+        } catch (checkoutErr) {
+          console.error("Checkout redirect failed:", checkoutErr);
+        }
+      }
 
       // Navigate based on role
       if (updatedUser?.role === "ADMIN") {

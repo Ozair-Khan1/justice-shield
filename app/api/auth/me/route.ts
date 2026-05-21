@@ -32,6 +32,9 @@ export async function GET(req: Request) {
         city: true,
         country: true,
         seen_notification_ids: true,
+        stripe_customer_id: true,
+        stripe_subscription_id: true,
+        subscription_cancel_at: true,
         emergency_alerts: {
           select: {
             id: true,

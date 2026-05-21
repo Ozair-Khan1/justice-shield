@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 
 type BillingPeriod = "monthly" | "semi-annual" | "annual";
 
@@ -76,6 +78,36 @@ const TIERS = [
 
 export function PricingTable() {
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
+  const { user } = useAuth();
+  const [loadingTier, setLoadingTier] = useState<string | null>(null);
+
+  const handleCheckout = async (e: React.MouseEvent, plan: string, trial: boolean = false) => {
+    if (!user) return;
+    e.preventDefault();
+    setLoadingTier(plan + (trial ? "-trial" : ""));
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: plan.toLowerCase(), period, trial })
+      });
+      const data = await res.json();
+      if (data.upgraded) {
+        // Plan was swapped in-place — no Stripe redirect needed
+        toast.success(`Membership changed to ${data.plan}!`, {
+          description: "Your plan has been updated immediately.",
+        });
+        setTimeout(() => window.location.reload(), 1500);
+      } else if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to start checkout");
+      setLoadingTier(null);
+    }
+  };
 
   const getPrice = (t: typeof TIERS[0]) => {
     if (period === "annual") return t.annualPrice;
@@ -156,18 +188,20 @@ export function PricingTable() {
             <div className="mt-8 flex flex-col gap-3">
               <Link
                 href={`/auth?plan=${t.name.toLowerCase()}&period=${period}`}
+                onClick={(e) => user && handleCheckout(e, t.name, false)}
                 className={`inline-flex items-center justify-center rounded-sm px-6 py-4 text-sm font-bold uppercase tracking-widest transition-colors ${t.accent
                   ? "bg-action text-action-foreground hover:bg-action/90 shadow-[0_0_20px_rgba(var(--action-rgb),0.3)]"
                   : "border border-titanium-700 bg-titanium-900 text-titanium-50 hover:bg-titanium-800"
-                  }`}
+                  } ${loadingTier === t.name ? "opacity-50 cursor-wait" : ""}`}
               >
-                {t.cta} →
+                {loadingTier === t.name ? "Processing..." : `${t.cta} →`}
               </Link>
               <Link
-                href={`/auth?trial=true&plan=${t.name.toLowerCase()}`}
-                className="inline-flex items-center justify-center rounded-sm border border-titanium-800 bg-titanium-950/50 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400 transition-all hover:border-action/50 hover:text-action"
+                href={`/auth?trial=true&plan=${t.name.toLowerCase()}&period=${period}`}
+                onClick={(e) => user && handleCheckout(e, t.name, true)}
+                className={`inline-flex items-center justify-center rounded-sm border border-titanium-800 bg-titanium-950/50 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400 transition-all hover:border-action/50 hover:text-action ${loadingTier === t.name + "-trial" ? "opacity-50 cursor-wait" : ""}`}
               >
-                Start 7-Day Free Trial
+                {loadingTier === t.name + "-trial" ? "Processing..." : "Start 7-Day Free Trial"}
               </Link>
             </div>
           </div>

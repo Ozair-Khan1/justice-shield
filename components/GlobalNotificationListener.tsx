@@ -113,6 +113,22 @@ export function GlobalNotificationListener() {
                     link: civilLink
                   });
                   newToSeen.push(notif.id);
+                } else if (notif.type === "MEMBERSHIP_EXPIRED") {
+                  activeNotificationIds.current.add(notif.id);
+                  addNotification({
+                    type: "error",
+                    title: "Membership Expired",
+                    message: "Your subscription has ended. Access to emergency features is suspended. Reactivate now.",
+                    link: "/pricing"
+                  });
+                  toast.error("Membership Expired", {
+                    description: "Your protection plan has ended. Reactivate now to stay covered.",
+                    action: {
+                      label: "Renew Plan",
+                      onClick: () => router.push("/pricing")
+                    }
+                  });
+                  newToSeen.push(notif.id);
                 } else {
                   activeNotificationIds.current.add(notif.id);
                   if (notif.type !== "MESSAGE" && notif.type !== "CALL") {
@@ -265,6 +281,17 @@ export function GlobalNotificationListener() {
           showNotification(message);
         }
       }
+    });
+
+    socket.on("membership-expired", () => {
+      addNotification({
+        type: "sos",
+        title: "Membership Expired",
+        message: "Your protection plan has ended. Emergency SOS and civil features are locked. Reactivate now.",
+        link: "/pricing"
+      });
+      // Force a full refresh to lock UI elements (like the layout banner & cards)
+      setTimeout(() => window.location.reload(), 2000);
     });
 
     socket.on("sos-alert", (data: any) => {

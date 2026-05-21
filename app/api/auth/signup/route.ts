@@ -38,6 +38,10 @@ export async function POST(req: Request) {
         full_name,
         phone,
         country,
+        membership_tier: "free",
+        stripe_customer_id: null,
+        stripe_subscription_id: null,
+        subscription_cancel_at: null
       },
     });
 

@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
   const isAppRoute = request.nextUrl.pathname.startsWith("/app");
 
   // Define public API routes that don't need auth
-  const publicApiPaths = ["/api/auth", "/api/vendors/apply", "/api/sos/trigger", "/api/attorneys", "/api/contact"]; // added trigger if public
+  const publicApiPaths = ["/api/auth", "/api/vendors/apply", "/api/sos/trigger", "/api/attorneys", "/api/contact", "/api/stripe/webhook"]; // added trigger if public
 
   if (!user) {
     if (isApiRoute && !publicApiPaths.some(p => request.nextUrl.pathname.startsWith(p))) {
@@ -82,6 +82,13 @@ export async function middleware(request: NextRequest) {
       url.pathname = "/app";
       return NextResponse.redirect(url);
     }
+
+    if ((isAppRoute && user.role === "USER" && user.membership_tier === "free" && user.stripe_customer_id === null && user.stripe_subscription_id === null && user.subscription_cancel_at === null)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/app";
+      return NextResponse.redirect(url);
+    }
+
 
     // Redirect admins and attorneys away from the generic /app dashboard
     if (request.nextUrl.pathname === "/app") {

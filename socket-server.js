@@ -11,6 +11,34 @@ const server = http.createServer((req, res) => {
     res.end("PONG");
     return;
   }
+
+  if (req.url === "/emit" && req.method === "POST") {
+    let body = "";
+    req.on("data", chunk => {
+      body += chunk.toString();
+    });
+    req.on("end", () => {
+      try {
+        const data = JSON.parse(body);
+        console.log(`[SocketServer] Received /emit request for room: ${data.room}, event: ${data.event}`);
+        if (data.room && data.event) {
+          io.to(data.room).emit(data.event, data.payload);
+          console.log(`[SocketServer] Emitted ${data.event} to room ${data.room}`);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true }));
+        } else {
+          console.warn("[SocketServer] Missing room or event in /emit payload");
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Missing room or event" }));
+        }
+      } catch (err) {
+        console.error("[SocketServer] Error in /emit:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Invalid JSON" }));
+      }
+    });
+    return;
+  }
 });
 const io = new Server(server, {
   cors: {
@@ -78,7 +106,7 @@ io.on("connection", (socket) => {
     const targetRoom = data.receiverId;
     const clients = io.sockets.adapter.rooms.get(targetRoom);
     console.log(`[SocketServer] Target room ${targetRoom} has ${clients ? clients.size : 0} connected clients`);
-    
+
     io.to(targetRoom).emit("incoming-video-call", data);
   });
 

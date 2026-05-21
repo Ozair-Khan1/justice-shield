@@ -11,6 +11,7 @@ export function SiteHeader() {
   const { user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [attorneyCount, setAttorneyCount] = useState(0);
+  const [showModal, setShowModal] = useState(false)
 
   useEffect(() => {
     const fetchAttorneyCount = async () => {
@@ -30,10 +31,19 @@ export function SiteHeader() {
       return "/app/admin";
     } else if (user?.role === "ATTORNEY") {
       return "/app/attorney";
+    } else if (user?.role === "USER" && user?.membership_tier === "free" && user?.stripe_customer_id === null && user?.stripe_subscription_id === null && user?.subscription_cancel_at === null) {
+      return "#";
     } else {
-      return "/app";
+      return "/app"
     }
   }
+
+  const handleDashboardClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (user?.role === "USER" && user?.membership_tier === "free" && user?.stripe_customer_id === null && user?.stripe_subscription_id === null && user?.subscription_cancel_at === null) {
+      e.preventDefault();
+      setShowModal(true);
+    }
+  };
 
   const navLinks = [
     { href: "/how-it-works", label: "How" },
@@ -52,7 +62,8 @@ export function SiteHeader() {
   ];
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-titanium-800/60 bg-titanium-950/85 backdrop-blur-md h-auto">
+    <>
+      <nav className="sticky top-0 z-50 border-b border-titanium-800/60 bg-titanium-950/85 backdrop-blur-md h-auto">
       <div className="mx-auto flex h-auto py-4 max-w-7xl items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-3 sm:gap-8">
           <Link href="/" className="flex items-center gap-2.5">
@@ -86,6 +97,7 @@ export function SiteHeader() {
             <div className="flex items-center gap-3 max-[446px]:hidden">
               <Link
                 href={handleDashboardRedirect()}
+                onClick={handleDashboardClick}
                 className="rounded-sm bg-action px-4 py-2 text-xs font-bold uppercase tracking-widest text-action-foreground transition-colors hover:bg-action/90"
               >
                 Dashboard
@@ -134,7 +146,7 @@ export function SiteHeader() {
                 <>
                   <Link
                     href={handleDashboardRedirect()}
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={(e) => { handleDashboardClick(e); setMobileMenuOpen(false); }}
                     className="rounded-sm bg-action px-4 py-2 text-xs font-bold uppercase tracking-widest text-action-foreground transition-colors hover:bg-action/90 min-[446px]:hidden"
                   >
                     Dashboard
@@ -164,6 +176,40 @@ export function SiteHeader() {
           </motion.div>
         </AnimatePresence>
       )}
-    </nav>
+      </nav>
+      {/* Dashboard Access Modal */}
+      <AnimatePresence>
+        {showModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-titanium-950/80 p-4 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md rounded-lg border border-titanium-800 bg-titanium-900 p-6 shadow-2xl"
+            >
+              <h3 className="font-display text-xl font-bold tracking-tight text-titanium-50">Dashboard Access Restricted</h3>
+              <p className="mt-2 text-sm text-titanium-300">
+                You must have an active membership to access the dashboard and use our premium features. Please select a plan to continue.
+              </p>
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="rounded-sm border border-titanium-700 px-4 py-2 text-xs font-bold uppercase tracking-widest text-titanium-300 transition-colors hover:bg-titanium-800 hover:text-titanium-50"
+                >
+                  Close
+                </button>
+                <Link
+                  href="/pricing"
+                  onClick={() => setShowModal(false)}
+                  className="rounded-sm bg-action px-4 py-2 text-xs font-bold uppercase tracking-widest text-action-foreground transition-colors hover:bg-action/90 shadow-lg shadow-action/20"
+                >
+                  View Pricing
+                </Link>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

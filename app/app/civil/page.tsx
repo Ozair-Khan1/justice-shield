@@ -78,6 +78,14 @@ export default function CivilIntakePage() {
   const [loadingAttorneys, setLoadingAttorneys] = useState(false);
   const [loading, setLoading] = useState(!!draftIdParam);
 
+  const isExpired = user?.role === "USER" && user?.stripe_customer_id && !user?.stripe_subscription_id;
+
+  useEffect(() => {
+    if (isExpired) {
+      router.push("/app");
+    }
+  }, [isExpired, router]);
+
   useEffect(() => {
     refreshUser()
   }, [])
