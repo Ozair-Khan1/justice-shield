@@ -11,6 +11,7 @@ interface User {
   full_name: string;
   phone: string;
   membership_tier: string;
+  billing_period?: string | null;
   emergency_contact_name?: string | null;
   emergency_contact_phone?: string | null;
   city?: string | null;
@@ -19,6 +20,8 @@ interface User {
   stripe_customer_id?: string | null;
   stripe_subscription_id?: string | null;
   subscription_cancel_at?: string | null;
+  trial_started_at?: string | null;
+  used_trial_tiers?: string[] | null;
 }
 
 interface AuthContextValue {

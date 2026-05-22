@@ -11,6 +11,8 @@ import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover"
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import * as React from "react";
+import { useRouter } from "next/navigation";
+import { SubscriptionRequiredModal } from "@/components/SubscriptionRequiredModal";
 
 interface Profile {
   full_name: string;
@@ -33,9 +35,22 @@ export default function AccountPage() {
   const [managingBilling, setManagingBilling] = useState(false);
   const [canceling, setCanceling] = useState(false);
   const [reactivating, setReactivating] = useState(false);
+  const router = useRouter()
 
   const [specialtiesOpen, setSpecialtiesOpen] = useState(false);
   const specialtiesRef = React.useRef<HTMLTextAreaElement>(null);
+  const isExpired = user?.role === "USER" && user?.stripe_customer_id && !user?.stripe_subscription_id;
+  const isFree = user?.role === "USER" && user?.membership_tier === "free" && user?.stripe_customer_id === null && user?.stripe_subscription_id === null && user?.subscription_cancel_at === null;
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const isLocked = isExpired || isFree;
+
+  useEffect(() => {
+        if(isFree) {
+          router.push('/pricing')
+        }
+        refreshUser()
+      }, [isFree, router]);
+  
 
   const handleManageBilling = async () => {
     setManagingBilling(true);
@@ -58,7 +73,7 @@ export default function AccountPage() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       toast.success("Membership cancellation scheduled successfully.");
-      await refreshUser();
+      window.location.reload()
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -136,6 +151,10 @@ export default function AccountPage() {
 
   const onSave = async () => {
     if (!profile) return;
+    if(isLocked) {
+      setShowSubscriptionModal(true)
+      return
+    }
     setSaving(true);
     startLoading("Syncing Profile Data...");
     setError(null);
@@ -200,6 +219,13 @@ export default function AccountPage() {
     <TooltipProvider delayDuration={0}>
       <div className="space-y-12 max-w-3xl">
 
+        <SubscriptionRequiredModal
+          open={showSubscriptionModal}
+          onOpenChange={setShowSubscriptionModal}
+          title="Saving Locked"
+          message="Saving account details requires an active Justice Shield membership. Subscribe now to connect with our legal network."
+        />
+
         <header>
           <span className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-action">Member Profile</span>
           <h1 className="mt-3 font-display text-4xl font-bold tracking-tight">Account</h1>
@@ -225,7 +251,7 @@ export default function AccountPage() {
                 >
                   {managingBilling ? "Opening..." : "Manage Billing"}
                 </button>
-                {user.subscription_cancel_at && user.role === "USER" ? (
+                {user.subscription_cancel_at && !user.trial_started_at && user.role === "USER" ? (
                   <button
                     onClick={handleReactivate}
                     disabled={reactivating || managingBilling || canceling}
@@ -252,12 +278,33 @@ export default function AccountPage() {
                 )}
               </div>
             )}
+            {!user.stripe_subscription_id && user.role === "USER" && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+                <Link
+                    href="/pricing"
+                    className="w-full sm:w-auto text-center justify-center rounded-sm border border-action/30 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-action transition-colors hover:bg-action/10 disabled:opacity-50"
+                  >
+                    Change Membership
+                  </Link>
+                  <button
+                  onClick={handleManageBilling}
+                  disabled={managingBilling || canceling || reactivating}
+                  className="w-full sm:w-auto text-center justify-center rounded-sm border border-titanium-700 px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-widest text-titanium-300 transition-colors hover:bg-titanium-800 hover:text-titanium-50 disabled:opacity-50"
+                >
+                  {managingBilling ? "Opening..." : "Manage Billing"}
+                </button>
+              </div>
+            )}
           </div>
 
           {user.subscription_cancel_at && (
             <div className="rounded-sm border border-amber-500/30 bg-amber-500/10 px-4 py-3">
               <p className="font-mono text-[10px] font-bold uppercase tracking-widest text-amber-400">
-                ⚠ Your membership is scheduled to cancel on {new Date(user.subscription_cancel_at).toLocaleDateString()}. You will retain full access until then.
+                {user.trial_started_at ? (
+                  `⚠ Your trial will end in ${Math.max(0, Math.ceil((new Date(user.subscription_cancel_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} days. You will retain full access until then.`
+                ) : (
+                  `⚠ Your membership is scheduled to cancel on ${new Date(user.subscription_cancel_at).toLocaleDateString()}. You will retain full access until then.`
+                )}
               </p>
             </div>
           )}

@@ -98,31 +98,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   ? pathname === "/"
                   : pathname.startsWith(item.href);
 
-              // 2. Clear, centralized access control logic
-              const isLockedOut = (isFree || isExpired) && user.role !== "ATTORNEY" && user.role !== "ADMIN";
-
-              const dontLock = item.label === "Account"
-
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={(e) => {
-                    if (isLockedOut && !dontLock) {
-                      e.preventDefault();
-                    }
-                  }}
                   className={`relative flex whitespace-nowrap px-4 py-3 font-mono text-[11px] font-bold uppercase tracking-widest transition-colors ${active ? "text-action" : "text-titanium-400 hover:text-titanium-50"
                     }`}
                 >
                   {item.label}
-
-                  {/* 3. Clean lock rendering */}
-                  {isLockedOut && !dontLock && (
-                    <span className="ml-2">
-                      <Lock className="size-4" />
-                    </span>
-                  )}
 
                   {active && <span className="absolute inset-x-2 bottom-0 h-0.5 bg-action" />}
                 </Link>
@@ -142,7 +125,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       />
 
       {user?.role === "USER" && user?.stripe_customer_id && !user?.stripe_subscription_id && (
-        <div className="fixed left-0 right-0 bg-red-500/10 border-b border-red-500/20 py-3 px-4 text-center">
+        <div className="fixed z-9989 left-0 right-0 bg-red-500/15 border-b backdrop-blur-2xl border-red-500/20 py-3 px-4 text-center">
           <p className="text-xs font-mono font-bold uppercase tracking-widest text-red-400">
             ⚠️ Warning: Your membership has expired. Emergency SOS and civil callback features are suspended.{" "}
             <Link href="/pricing" className="underline hover:text-white transition-colors">

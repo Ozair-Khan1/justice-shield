@@ -43,6 +43,9 @@ export default function AttorneyDirectoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
 
+  const isFree = user?.role === "USER" && user?.membership_tier === "free" && user?.stripe_customer_id === null && user?.stripe_subscription_id === null && user?.subscription_cancel_at === null;
+
+
   useEffect(() => {
     fetch("/api/attorneys")
       .then((res) => res.json())
@@ -241,7 +244,7 @@ export default function AttorneyDirectoryPage() {
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto border-titanium-800 bg-titanium-950 p-0 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] scrollbar-hide">
-                      <div className="relative h-24 md:h-32 bg-gradient-to-r from-action/20 via-titanium-900 to-titanium-950 border-b border-titanium-800">
+                      <div className="relative h-24 md:h-32 bg-linear-to-r from-action/20 via-titanium-900 to-titanium-950 border-b border-titanium-800">
                         <div className="absolute -bottom-10 left-4 md:left-8 rounded-full border-4 border-titanium-950 bg-titanium-900 p-3 md:p-4 text-action shadow-2xl">
                           <UserIcon className="size-8 md:size-12" />
                         </div>

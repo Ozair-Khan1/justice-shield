@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     const payload = await verifyJwt(token);
     if (!payload || !payload.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const userId = payload.id;
+    const userId = payload.id as string;
 
     // Fetch all messages involving this user (sent or received)
     const messages = await prisma.chatMessage.findMany({

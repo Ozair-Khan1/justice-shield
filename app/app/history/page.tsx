@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { SubscriptionRequiredModal } from "@/components/SubscriptionRequiredModal";
 
 interface Session {
   id: string;
@@ -82,7 +83,7 @@ interface Intake {
 }
 
 export default function HistoryPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<string>("all");
@@ -97,6 +98,11 @@ export default function HistoryPage() {
   const [urgencyFilter, setUrgencyFilter] = useState("all");
   const [selectedIntake, setSelectedIntake] = useState<Intake | null>(null);
   const ITEMS_PER_PAGE = 10;
+
+  const isExpired = user?.role === "USER" && user?.stripe_customer_id && !user?.stripe_subscription_id;
+  const isFree = user?.role === "USER" && user?.membership_tier === "free" && user?.stripe_customer_id === null && user?.stripe_subscription_id === null && user?.subscription_cancel_at === null;
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const isLocked = isExpired || isFree;
 
   const fetchHistory = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -127,7 +133,8 @@ export default function HistoryPage() {
 
   useEffect(() => {
     if (user) fetchHistory();
-  }, [user]);
+    if(isFree) router.push("/pricing")
+  }, [user, isFree]);
 
   // Auto-open logic and fresh data fetch on deep-link
   useEffect(() => {
@@ -247,6 +254,12 @@ export default function HistoryPage() {
       transition={{ duration: 0.6 }}
       className="space-y-8 md:space-y-12 pb-20"
     >
+      <SubscriptionRequiredModal
+        open={showSubscriptionModal}
+        onOpenChange={setShowSubscriptionModal}
+        title="History Access Locked"
+        message="Viewing your operational history requires an active Justice Shield membership. Subscribe now to access your encrypted vault records."
+      />
       <header className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div className="relative">
           <div className="absolute -left-4 top-0 h-full w-1 bg-action/50 blur-[2px]" />
@@ -496,7 +509,9 @@ export default function HistoryPage() {
                             </Badge>
                             <Button
                               variant="outline"
-                              onClick={() => setSelectedIntake(i)}
+                              onClick={() => {
+                                setSelectedIntake(i);
+                              }}
                               className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action hover:text-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all"
                             >
                               View Details
@@ -577,7 +592,6 @@ export default function HistoryPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            // Convert session to intake-like object for details view
                             setSelectedIntake({
                               id: s.id,
                               matter_type: s.encounter_type,
@@ -697,7 +711,7 @@ export default function HistoryPage() {
                         </Badge>
                         <Button
                           variant="outline"
-                          onClick={() => setSelectedIntake(i)}
+                          onClick={() => {setSelectedIntake(i)}}
                           className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action hover:text-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all"
                         >
                           View Details
@@ -705,7 +719,7 @@ export default function HistoryPage() {
                         {(i.status === "active" || i.status === "resolved") && (
                           <Button
                             variant="outline"
-                            onClick={() => router.push(`/app/messages?user=${i.assigned_attorney?.id}&name=${encodeURIComponent(i.assigned_attorney?.full_name || "Attorney")}&role=ATTORNEY`)}
+                            onClick={() => {router.push(`/app/messages?user=${i.assigned_attorney?.id}&name=${encodeURIComponent(i.assigned_attorney?.full_name || "Attorney")}&role=ATTORNEY`)}}
                             className="w-full sm:w-auto border-titanium-700 bg-titanium-800 text-titanium-300 hover:border-action hover:text-action h-9 px-4 font-mono text-[9px] font-bold uppercase tracking-widest transition-all"
                           >
                             Message Attorney
@@ -855,7 +869,7 @@ export default function HistoryPage() {
 
                 {(selectedIntake?.status === "active" || selectedIntake?.status === "resolved") && selectedIntake.assigned_attorney?.id && user?.role !== "ADMIN" && (
                   <Button
-                    onClick={() => router.push(`/app/messages?user=${selectedIntake.assigned_attorney?.id}&name=${encodeURIComponent(selectedIntake.assigned_attorney?.full_name || "Attorney")}&role=ATTORNEY`)}
+                    onClick={() => {router.push(`/app/messages?user=${selectedIntake.assigned_attorney?.id}&name=${encodeURIComponent(selectedIntake.assigned_attorney?.full_name || "Attorney")}&role=ATTORNEY`)}}
                     className="w-full sm:w-auto bg-action hover:bg-action/90 text-white h-11 px-8 font-mono text-[10px] font-bold uppercase tracking-widest"
                   >
                     Message Attorney

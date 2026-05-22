@@ -26,6 +26,7 @@ export async function GET(req: Request) {
         full_name: true,
         phone: true,
         membership_tier: true,
+        billing_period: true,
         emergency_contact_name: true,
         emergency_contact_phone: true,
         specialties: true,
@@ -35,6 +36,8 @@ export async function GET(req: Request) {
         stripe_customer_id: true,
         stripe_subscription_id: true,
         subscription_cancel_at: true,
+        trial_started_at: true,
+        used_trial_tiers: true,
         emergency_alerts: {
           select: {
             id: true,

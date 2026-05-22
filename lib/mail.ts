@@ -319,4 +319,3 @@ export async function sendContactReplyEmail(email: string, name: string, origina
 
   return transporter.sendMail(mailOptions);
 }
-

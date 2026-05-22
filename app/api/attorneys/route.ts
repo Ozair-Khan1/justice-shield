@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getAuthToken, verifyJwt } from "@/lib/jwt";
 
 export async function GET(req: Request) {
   try {
+    // Auth check — required for all callers
+    const token = await getAuthToken(req);
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const payload = await verifyJwt(token);
+    if (!payload || !payload.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const { searchParams } = new URL(req.url);
     const specialty = searchParams.get("specialty");
     const city = searchParams.get("city");

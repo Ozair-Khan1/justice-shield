@@ -4,10 +4,10 @@ services:
 
   livekit:
     image: livekit/livekit-server:latest
-    command: --config /etc/livekit.yaml
+    command: --config /etc/local.livekit.yaml
     network_mode: host
     volumes:
-      - ./livekit.yaml:/etc/livekit.yaml
+      - ./local.livekit.yaml:/etc/local.livekit.yaml
 
   egress:
     image: livekit/egress:latest
@@ -15,8 +15,8 @@ services:
       - SYS_ADMIN
     network_mode: host
     environment:
-      - EGRESS_CONFIG_FILE=/etc/egress.yaml
+      - EGRESS_CONFIG_FILE=/etc/local.egress.yaml
     volumes:
-      - ./egress.yaml:/etc/egress.yaml
+      - ./local.egress.yaml:/etc/local.egress.yaml
       - ./recordings:/home/egress/recordings
 

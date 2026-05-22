@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import { Play, Download, Video, Shield, Search, Mic } from "lucide-react";
 import { format } from "date-fns";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { useRouter } from "next/navigation";
 
 interface Recording {
   id: string;
@@ -16,25 +18,23 @@ interface Recording {
   room: string;
 }
 
-const formatDuration = (start: string, end?: string) => {
-  if (!end) return "Ongoing";
-  const durationMs = new Date(end).getTime() - new Date(start).getTime();
-  const seconds = Math.floor((durationMs / 1000) % 60);
-  const minutes = Math.floor((durationMs / (1000 * 60)) % 60);
-  const hours = Math.floor(durationMs / (1000 * 60 * 60));
-
-  const parts = [];
-  if (hours > 0) parts.push(`${hours}h`);
-  if (minutes > 0) parts.push(`${minutes}m`);
-  parts.push(`${seconds}s`);
-  return parts.join(" ");
-};
-
 export default function RecordingsPage() {
+  const { user, refreshUser } = useAuth();
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"All" | "Video Call" | "Voice Call" | "SOS Encounter">("All");
+  const router = useRouter()
+
+  const isFree = user?.role === "USER" && user?.membership_tier === "free" && user?.stripe_customer_id === null && user?.stripe_subscription_id === null && user?.subscription_cancel_at === null;
+
+   useEffect(() => {
+    if(isFree) {
+      router.push('/pricing')
+    }
+    refreshUser()
+  }, [isFree, router]);
 
   useEffect(() => {
     async function fetchRecordings() {
@@ -160,23 +160,24 @@ export default function RecordingsPage() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
-                      <a
-                        href={recording.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={() => {
+                          window.open(recording.url, '_blank');
+                        }}
                         className="flex h-8 w-8 items-center justify-center rounded-lg border border-titanium-700 bg-titanium-800/50 text-titanium-400 hover:border-action/50 hover:text-action transition-colors"
                         title="Play"
                       >
                         <Play className="h-3.5 w-3.5 fill-current" />
-                      </a>
-                      <a
-                        href={recording.url}
-                        download
+                      </button>
+                      <button
+                        onClick={() => {
+                          window.location.href = recording.url;
+                        }}
                         className="flex h-8 w-8 items-center justify-center rounded-lg border border-titanium-700 bg-titanium-800/50 text-titanium-400 hover:border-titanium-500 hover:text-white transition-colors"
                         title="Download"
                       >
                         <Download className="h-3.5 w-3.5" />
-                      </a>
+                      </button>
                     </div>
                   </td>
                 </motion.tr>

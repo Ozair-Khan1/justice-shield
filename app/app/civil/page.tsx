@@ -21,6 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { SubscriptionRequiredModal } from "@/components/SubscriptionRequiredModal";
 
 const MATTER_TYPES = [
   { id: "landlord_tenant", label: "Landlord / Tenant" },
@@ -77,18 +78,19 @@ export default function CivilIntakePage() {
   const [availableAttorneys, setAvailableAttorneys] = useState<Attorney[]>([]);
   const [loadingAttorneys, setLoadingAttorneys] = useState(false);
   const [loading, setLoading] = useState(!!draftIdParam);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  
 
   const isExpired = user?.role === "USER" && user?.stripe_customer_id && !user?.stripe_subscription_id;
+  const isFree = user?.role === "USER" && user?.membership_tier === "free" && user?.stripe_customer_id === null && user?.stripe_subscription_id === null && user?.subscription_cancel_at === null;
+  const isLocked = isExpired || isFree;
 
-  useEffect(() => {
-    if (isExpired) {
-      router.push("/app");
+   useEffect(() => {
+    if(isFree) {
+      router.push('/pricing')
     }
-  }, [isExpired, router]);
-
-  useEffect(() => {
     refreshUser()
-  }, [])
+  }, [isFree, router]);
 
   useEffect(() => {
     if (draftIdParam && !draftId) {
@@ -143,6 +145,11 @@ export default function CivilIntakePage() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    if (isLocked) {
+      setShowSubscriptionModal(true);
+      return;
+    }
 
     try {
       if (!subject) {
@@ -509,6 +516,12 @@ export default function CivilIntakePage() {
 
   return (
     <div className="space-y-12 pb-20">
+      <SubscriptionRequiredModal
+        open={showSubscriptionModal}
+        onOpenChange={setShowSubscriptionModal}
+        title="Civil Intake Locked"
+        message="Filing civil matters requires an active Justice Shield membership. Subscribe now to access attorney callback services."
+      />
       <header className="space-y-6">
         <div>
           <span className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-action">Resource Center</span>

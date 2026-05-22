@@ -40,6 +40,30 @@ export async function POST(req: Request) {
         // Metadata contains the plan they subscribed to
         const plan = session.metadata?.plan || 'basic';
 
+        // Extract billing period from subscription
+        let billingPeriod = 'monthly';
+        if (subscriptionId) {
+          try {
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            const price = subscription.items?.data?.[0]?.price;
+            if (price && price.lookup_key) {
+              // Extract period from lookup_key like "pro_monthly", "pro_semi_annual", "pro_annual"
+              const parts = price.lookup_key.split('_');
+              if (parts.length >= 2) {
+                if (parts[parts.length - 1] === 'annual' && parts[parts.length - 2] === 'semi') {
+                  billingPeriod = 'semi-annual';
+                } else if (parts[parts.length - 1] === 'annual') {
+                  billingPeriod = 'annual';
+                } else {
+                  billingPeriod = 'monthly';
+                }
+              }
+            }
+          } catch (err: any) {
+            console.error(`[Webhook] Failed to retrieve subscription details: ${err.message}`);
+          }
+        }
+
         if (userId) {
           const user = await prisma.user.findUnique({ where: { id: userId } });
 
@@ -57,12 +81,13 @@ export async function POST(req: Request) {
             where: { id: userId },
             data: {
               membership_tier: plan,
+              billing_period: billingPeriod,
               stripe_customer_id: customerId,
               stripe_subscription_id: subscriptionId,
               subscription_cancel_at: null, // clear any stale cancel date
             },
           });
-          console.log(`Updated user ${userId} to plan ${plan}`);
+          console.log(`Updated user ${userId} to plan ${plan} with billing period ${billingPeriod}`);
         }
         break;
       }
@@ -77,9 +102,21 @@ export async function POST(req: Request) {
         if (user) {
           // Determine plan from lookup_key
           let plan = subscription.metadata?.plan || user.membership_tier;
+          let billingPeriod = 'monthly';
           const price = subscription.items?.data?.[0]?.price;
           if (price && price.lookup_key) {
             plan = price.lookup_key.split('_')[0]; // e.g. "pro_monthly" -> "pro"
+            // Extract billing period
+            const parts = price.lookup_key.split('_');
+            if (parts.length >= 2) {
+              if (parts[parts.length - 1] === 'annual' && parts[parts.length - 2] === 'semi') {
+                billingPeriod = 'semi-annual';
+              } else if (parts[parts.length - 1] === 'annual') {
+                billingPeriod = 'annual';
+              } else {
+                billingPeriod = 'monthly';
+              }
+            }
           }
 
           if (subscription.status === 'active' || subscription.status === 'trialing') {
@@ -88,12 +125,19 @@ export async function POST(req: Request) {
               ? new Date(subscription.cancel_at * 1000)
               : null;
 
+            const isTrial = subscription.status === 'trialing';
+
             await prisma.user.update({
               where: { id: user.id },
               data: {
                 membership_tier: plan,
+                billing_period: billingPeriod,
                 stripe_subscription_id: subscription.id,
                 subscription_cancel_at: cancelAt,
+                trial_started_at: isTrial && subscription.trial_start ? new Date(subscription.trial_start * 1000) : null,
+                ...(isTrial && !((user as any).used_trial_tiers || []).includes(plan) ? {
+                  used_trial_tiers: { push: plan }
+                } : {}),
               },
             });
 
@@ -109,7 +153,11 @@ export async function POST(req: Request) {
                 where: { id: user.id },
                 data: {
                   stripe_subscription_id: null,
-                  subscription_cancel_at: null,
+                  // Preserve the cancellation time as the message cutoff date
+                  // Use the subscription's ended_at if available, otherwise now
+                  subscription_cancel_at: subscription.ended_at
+                    ? new Date(subscription.ended_at * 1000)
+                    : new Date(),
                 },
               });
               console.log(`Removed active subscription for user ${user.id} due to status ${subscription.status}`);
@@ -139,7 +187,10 @@ export async function POST(req: Request) {
               where: { id: user.id },
               data: {
                 stripe_subscription_id: null,
-                subscription_cancel_at: null,
+                // Preserve the cancellation time — use ended_at from Stripe or now
+                subscription_cancel_at: subscription.ended_at
+                  ? new Date(subscription.ended_at * 1000)
+                  : new Date(),
               },
             });
             console.log(`Removed active subscription for user ${user.id} due to subscription deletion`);

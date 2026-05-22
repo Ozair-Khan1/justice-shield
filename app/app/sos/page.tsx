@@ -3,9 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
-import { User, Shield, ChevronRight, Loader2, Scale, AlertTriangle, BadgeInfo, MapPin, Award, Mail, Phone, ShieldCheck, User as UserIcon } from "lucide-react";
+import { motion } from "framer-motion";
+import { User, Shield, ChevronRight, Loader2, Scale, BadgeInfo, MapPin, Award, Mail, Phone, ShieldCheck, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -15,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { SubscriptionRequiredModal } from "@/components/SubscriptionRequiredModal";
 
 const ENCOUNTER_TYPES = [
   { id: "traffic_stop", label: "Traffic Stop" },
@@ -52,22 +52,28 @@ export default function SOSPage() {
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
   const [locationCoords, setLocationCoords] = useState<{ lat: number | null, lng: number | null }>({ lat: null, lng: null });
   const [alertId, setAlertId] = useState<string | null>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   const isExpired = user?.role === "USER" && user?.stripe_customer_id && !user?.stripe_subscription_id;
   const isFree = user?.role === "USER" && user?.membership_tier === "free" && user?.stripe_customer_id === null && user?.stripe_subscription_id === null && user?.subscription_cancel_at === null;
+  const isLocked = isExpired || isFree;
 
   useEffect(() => {
-    if (isExpired || isFree) {
-      router.push("/app");
+    if(isFree) {
+      router.push('/pricing')
     }
-  }, [isExpired, router]);
-
-  useEffect(() => {
-    refreshUser();
-  }, []);
+    refreshUser()
+  }, [isFree, router]);
 
   const onTrigger = async (type: string) => {
     if (!user) return;
+    
+    // Check if user is locked out
+    if (isLocked) {
+      setShowSubscriptionModal(true);
+      return;
+    }
+    
     setEncounterType(type);
     setStage("armed");
     setError(null);
@@ -250,7 +256,7 @@ export default function SOSPage() {
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto border-titanium-800 bg-titanium-950 p-0 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] scrollbar-hide text-left">
-                        <div className="relative h-24 md:h-32 bg-gradient-to-r from-action/20 via-titanium-900 to-titanium-950 border-b border-titanium-800">
+                        <div className="relative h-24 md:h-32 bg-linear-to-r from-action/20 via-titanium-900 to-titanium-950 border-b border-titanium-800">
                           <div className="absolute -bottom-10 left-4 md:left-8 rounded-full border-4 border-titanium-950 bg-titanium-900 p-3 md:p-4 text-action shadow-2xl">
                             <UserIcon className="size-8 md:size-12" />
                           </div>
@@ -392,6 +398,13 @@ export default function SOSPage() {
 
   return (
     <div className="space-y-12">
+      <SubscriptionRequiredModal
+        open={showSubscriptionModal}
+        onOpenChange={setShowSubscriptionModal}
+        title="SOS Feature Locked"
+        message="Emergency SOS requires an active Justice Shield membership. Subscribe now to unlock 24/7 attorney dispatch and protection services."
+      />
+      
       <header>
         <span className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-action">Tier 1 — Emergency Response</span>
         <h1 className="mt-3 font-display text-4xl font-bold tracking-tight md:text-5xl">Select encounter type.</h1>

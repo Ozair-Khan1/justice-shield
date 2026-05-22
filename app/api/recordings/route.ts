@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     // Fetch user from DB to check role
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true }
+      select: { role: true, membership_tier: true, stripe_subscription_id: true, stripe_customer_id: true }
     });
 
     const isAdmin = user?.role === "ADMIN";

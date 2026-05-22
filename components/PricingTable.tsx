@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { MembershipChangeModal } from "@/components/MembershipChangeModal";
 
 type BillingPeriod = "monthly" | "semi-annual" | "annual";
 
@@ -80,10 +81,35 @@ export function PricingTable() {
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
   const { user } = useAuth();
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
+  const [showChangeModal, setShowChangeModal] = useState(false);
+  const [pendingChange, setPendingChange] = useState<{
+    plan: string;
+    trial: boolean;
+    event: React.MouseEvent;
+  } | null>(null);
 
   const handleCheckout = async (e: React.MouseEvent, plan: string, trial: boolean = false) => {
     if (!user) return;
     e.preventDefault();
+
+    // Check if user has an active membership and is trying to change it
+    const hasActiveMembership = user.membership_tier && 
+                                 user.membership_tier !== 'none' && 
+                                 user.membership_tier !== 'free';
+    const isDifferentPlan = user.membership_tier?.toLowerCase() !== plan.toLowerCase() || user.membership_tier.toLowerCase() === plan.toLowerCase() && user.stripe_subscription_id !== null;
+
+    if (hasActiveMembership && isDifferentPlan) {
+      // Show confirmation modal
+      setPendingChange({ plan, trial, event: e });
+      setShowChangeModal(true);
+      return;
+    }
+
+    // Proceed with checkout
+    await proceedWithCheckout(plan, trial);
+  };
+
+  const proceedWithCheckout = async (plan: string, trial: boolean = false) => {
     setLoadingTier(plan + (trial ? "-trial" : ""));
     try {
       const res = await fetch("/api/stripe/checkout", {
@@ -109,6 +135,13 @@ export function PricingTable() {
     }
   };
 
+  const handleConfirmChange = async () => {
+    if (!pendingChange) return;
+    setShowChangeModal(false);
+    await proceedWithCheckout(pendingChange.plan, pendingChange.trial);
+    setPendingChange(null);
+  };
+
   const getPrice = (t: typeof TIERS[0]) => {
     if (period === "annual") return t.annualPrice;
     if (period === "semi-annual") return t.semiAnnualPrice;
@@ -121,8 +154,29 @@ export function PricingTable() {
     return "billed monthly";
   };
 
+  const isCurrentPlan = (planName: string) => {
+    if (!user?.membership_tier || !user?.billing_period || !user?.stripe_subscription_id) return false;
+    
+    // Normalize the billing period for comparison
+    const userPeriod = user?.billing_period.replace('_', '-'); // Convert "semi_annual" to "semi-annual"
+    
+    return (
+      user.membership_tier.toLowerCase() === planName.toLowerCase() &&
+      userPeriod === period
+    );
+  };
+
   return (
     <div className="space-y-12">
+      <MembershipChangeModal
+        open={showChangeModal}
+        onOpenChange={setShowChangeModal}
+        currentTier={user?.membership_tier || ""}
+        newTier={pendingChange?.plan || ""}
+        onConfirm={handleConfirmChange}
+        loading={loadingTier !== null}
+      />
+
       <div className="flex justify-center">
         <div className="flex text-wrap rounded-sm bg-titanium-900/50 p-1 border border-titanium-800">
           {(["monthly", "semi-annual", "annual"] as BillingPeriod[]).map((p) => (
@@ -147,7 +201,7 @@ export function PricingTable() {
           <div
             key={t.name}
             className={`relative flex flex-col rounded-lg border p-8 transition-all duration-500 ${t.accent
-              ? "border-action bg-gradient-to-b from-action/10 to-titanium-900"
+              ? "border-action bg-linear-to-b from-action/10 to-titanium-900"
               : "border-titanium-800 bg-titanium-900/40"
               }`}
           >
@@ -186,23 +240,33 @@ export function PricingTable() {
             </ul>
 
             <div className="mt-8 flex flex-col gap-3">
-              <Link
-                href={`/auth?plan=${t.name.toLowerCase()}&period=${period}`}
-                onClick={(e) => user && handleCheckout(e, t.name, false)}
-                className={`inline-flex items-center justify-center rounded-sm px-6 py-4 text-sm font-bold uppercase tracking-widest transition-colors ${t.accent
-                  ? "bg-action text-action-foreground hover:bg-action/90 shadow-[0_0_20px_rgba(var(--action-rgb),0.3)]"
-                  : "border border-titanium-700 bg-titanium-900 text-titanium-50 hover:bg-titanium-800"
-                  } ${loadingTier === t.name ? "opacity-50 cursor-wait" : ""}`}
-              >
-                {loadingTier === t.name ? "Processing..." : `${t.cta} →`}
-              </Link>
-              <Link
-                href={`/auth?trial=true&plan=${t.name.toLowerCase()}&period=${period}`}
-                onClick={(e) => user && handleCheckout(e, t.name, true)}
-                className={`inline-flex items-center justify-center rounded-sm border border-titanium-800 bg-titanium-950/50 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400 transition-all hover:border-action/50 hover:text-action ${loadingTier === t.name + "-trial" ? "opacity-50 cursor-wait" : ""}`}
-              >
-                {loadingTier === t.name + "-trial" ? "Processing..." : "Start 7-Day Free Trial"}
-              </Link>
+              {isCurrentPlan(t.name) ? (
+                <div className="inline-flex items-center justify-center rounded-sm border-2 border-action bg-action/10 px-6 py-4 text-sm font-bold uppercase tracking-widest text-action">
+                  ✓ Current Plan
+                </div>
+              ) : (
+                <>
+                  <Link
+                    href={`/auth?plan=${t.name.toLowerCase()}&period=${period}`}
+                    onClick={(e) => user && handleCheckout(e, t.name, false)}
+                    className={`inline-flex items-center justify-center rounded-sm px-6 py-4 text-sm font-bold uppercase tracking-widest transition-colors ${t.accent
+                      ? "bg-action text-action-foreground hover:bg-action/90 shadow-[0_0_20px_rgba(var(--action-rgb),0.3)]"
+                      : "border border-titanium-700 bg-titanium-900 text-titanium-50 hover:bg-titanium-800"
+                      } ${loadingTier === t.name ? "opacity-50 cursor-wait" : ""}`}
+                  >
+                    {loadingTier === t.name ? "Processing..." : `${t.cta} →`}
+                  </Link>
+                  {!user || !(user as any).used_trial_tiers?.includes(t.name.toLowerCase()) ? (
+                    <Link
+                      href={`/auth?trial=true&plan=${t.name.toLowerCase()}&period=${period}`}
+                      onClick={(e) => user && handleCheckout(e, t.name, true)}
+                      className={`inline-flex items-center justify-center rounded-sm border border-titanium-800 bg-titanium-950/50 py-3 text-[10px] font-bold uppercase tracking-[0.2em] text-titanium-400 transition-all hover:border-action/50 hover:text-action ${loadingTier === t.name + "-trial" ? "opacity-50 cursor-wait" : ""}`}
+                    >
+                      {loadingTier === t.name + "-trial" ? "Processing..." : "Start 7-Day Free Trial"}
+                    </Link>
+                  ) : null}
+                </>
+              )}
             </div>
           </div>
         ))}

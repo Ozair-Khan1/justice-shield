@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import CaseDetailModal from "@/components/CaseDetailModal";
+import { SubscriptionRequiredModal } from "@/components/SubscriptionRequiredModal";
 
 interface AttorneyInfo {
   id: string;
@@ -53,7 +54,7 @@ interface Case {
 
 
 export default function CasesPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const router = useRouter();
   const [cases, setCases] = useState<Case[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +76,15 @@ export default function CasesPage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [viewingRejection, setViewingRejection] = useState<Case | null>(null);
   const [viewingCase, setViewingCase] = useState<Case | null>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+
+  const isExpired = user?.role === "USER" && user?.stripe_customer_id && !user?.stripe_subscription_id;
+  const isFree = user?.role === "USER" && user?.membership_tier === "free" && user?.stripe_customer_id === null && user?.stripe_subscription_id === null && user?.subscription_cancel_at === null;
+  const isLocked = isExpired || isFree;
+
+  useEffect(() => {
+    refreshUser()
+  }, []);
 
   const openEditModal = (c: Case) => {
     setEditingCase(c);
@@ -208,18 +218,14 @@ export default function CasesPage() {
     return <LoadingScreen message="Decrypting Case Files..." />;
   }
 
-  if (error) {
-    return (
-      <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-12 text-center">
-        <AlertCircle className="mx-auto size-12 text-red-500 opacity-50" />
-        <h2 className="mt-6 font-display text-2xl font-bold text-titanium-50">Decryption Failed</h2>
-        <p className="mt-2 text-titanium-400 max-w-md mx-auto">{error}</p>
-      </div>
-    );
-  }
-
   return (
     <>
+      <SubscriptionRequiredModal
+        open={showSubscriptionModal}
+        onOpenChange={setShowSubscriptionModal}
+        title="Cases Access Locked"
+        message="Viewing and managing cases requires an active Justice Shield membership. Subscribe now to access your legal case management."
+      />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -352,7 +358,9 @@ export default function CasesPage() {
                             <Button
                               variant="outline"
                               className="w-full sm:w-auto border-red-500/20 bg-red-500/5 text-red-400 font-mono text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all"
-                              onClick={() => setViewingRejection(c)}
+                              onClick={(e) => {
+                                setViewingRejection(c)
+                              }}
                             >
                               View Rejection Reason
                             </Button>
@@ -372,7 +380,8 @@ export default function CasesPage() {
                               </div>
                               {c.status === "active" || c.status === "resolved" && c.attorney.id && user?.role !== "ADMIN" && (
                                 <Button
-                                  onClick={() => router.push(`/app/messages?user=${c.attorney?.id}&name=${encodeURIComponent(c.attorney?.full_name || "Attorney")}&role=ATTORNEY`)}
+                                  onClick={() => {                                    router.push(`/app/messages?user=${c.attorney?.id}&name=${encodeURIComponent(c.attorney?.full_name || "Attorney")}&role=ATTORNEY`);
+                                  }}
                                   className="bg-action hover:bg-action/90 text-white h-10 sm:h-[50px] px-6 font-mono text-[10px] font-bold uppercase tracking-widest"
                                 >
                                   Message
@@ -393,7 +402,9 @@ export default function CasesPage() {
                               <Button
                                 variant="outline"
                                 className="border-titanium-700 text-titanium-300 hover:text-white font-mono text-[10px] uppercase tracking-widest px-5 h-10"
-                                onClick={() => setViewingCase(c)}
+                                onClick={() => {
+                                  setViewingCase(c);
+                                }}
                               >
                                 View Details
                               </Button>
@@ -424,7 +435,7 @@ export default function CasesPage() {
                               </Button>
                               <Button
                                 className="bg-titanium-800 hover:bg-titanium-700 text-titanium-100 font-mono text-[10px] uppercase tracking-widest px-6 h-10 border border-titanium-700"
-                                onClick={() => router.push(`/app/civil?draft=${c.id}&step=2`)}
+                                onClick={() => {if(isLocked) {setShowSubscriptionModal(true); return} router.push(`/app/civil?draft=${c.id}&step=2`)}}
                               >
                                 Resubmit Case →
                               </Button>
@@ -436,7 +447,9 @@ export default function CasesPage() {
                               variant="outline"
                               size="sm"
                               className="border-titanium-700 text-titanium-300 hover:text-white h-10 px-5 font-mono text-[10px] uppercase tracking-widest"
-                              onClick={() => setViewingCase(c)}
+                              onClick={() => {
+                                setViewingCase(c);
+                              }}
                             >
                               View Details
                             </Button>
@@ -447,7 +460,9 @@ export default function CasesPage() {
                               variant="outline"
                               size="sm"
                               className="border-titanium-700 text-titanium-400 hover:text-white h-10 px-4 font-mono text-[10px] uppercase tracking-widest"
-                              onClick={() => openEditModal(c)}
+                              onClick={() => {
+                                openEditModal(c);
+                              }}
                             >
                               Modify
                             </Button>
@@ -693,6 +708,10 @@ export default function CasesPage() {
                     <Button
                       className="w-full bg-action hover:bg-action/90 text-action-foreground font-mono text-[10px] uppercase tracking-widest py-6"
                       onClick={() => {
+                        if(isLocked) {
+                          setShowSubscriptionModal(true)
+                          return
+                        }
                         setViewingRejection(null);
                         router.push(`/app/civil?draft=${viewingRejection.id}&step=2`);
                       }}

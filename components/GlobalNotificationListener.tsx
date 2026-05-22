@@ -14,7 +14,7 @@ export function GlobalNotificationListener() {
   const socketRef = useRef<Socket | null>(null);
   const pathname = usePathname();
   const router = useRouter();
-
+  
   const hasFetchedUnread = useRef(false);
   const [sessionSeenIds, setSessionSeenIds] = useState<Set<string>>(new Set());
   const activeNotificationIds = useRef<Set<string>>(new Set());

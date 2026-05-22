@@ -33,14 +33,18 @@ model User {
   country                 String?
   emergency_contact_name  String?
   emergency_contact_phone String?
-  membership_tier         String             @default("basic")
+  membership_tier         String             @default("free")
+  billing_period          String?
   seen_notification_ids   String[]           @default([])
   stripe_customer_id      String?          @unique
   stripe_subscription_id  String?          @unique
-  subscription_cancel_at  DateTime?
+  trial_started_at        DateTime?
+  used_trial_tiers        String[]         @default([])
   
   created_at              DateTime           @default(now())
   updated_at              DateTime           @updatedAt
+
+  subscription_cancel_at  DateTime?
 
   encounter_sessions      EncounterSession[]
   civil_intakes           CivilIntake[]      @relation("UserIntakes")

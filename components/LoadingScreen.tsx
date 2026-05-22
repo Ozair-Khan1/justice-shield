@@ -5,7 +5,7 @@ import { ShieldMark } from "./ShieldMark";
 
 export function LoadingScreen({ message = "Establishing Secure Uplink..." }: { message?: string }) {
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center px-6 h-screen w-screen bg-titanium-950">
+    <div className="fixed inset-0 z-9999 flex flex-col items-center justify-center px-6 h-screen w-screen bg-titanium-950">
       {/* Background Glow */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 size-[500px] rounded-full" />

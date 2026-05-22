@@ -1,15 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { MessageSquare, Search, User, Shield, Clock, ChevronRight, Loader2, Scale, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSearchParams } from "next/navigation";
+import { io, Socket } from "socket.io-client";
 import ChatInterface from "./ChatInterface";
-import { LoadingScreen } from "@/components/LoadingScreen";
 import CaseDetailModal from "@/components/CaseDetailModal";
+
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
 
 interface Participant {
   id: string;
@@ -40,7 +42,10 @@ interface AttorneyInfo {
   assigned_encounters: any[];
 }
 
-export default function ChatDashboard({ userId, userName }: { userId: string, userName?: string | null }) {
+export default function ChatDashboard({ userId, userName }: {
+  userId: string;
+  userName?: string | null;
+}) {
 
   const searchParams = useSearchParams();
   const initialUser = searchParams.get("user");
@@ -51,6 +56,7 @@ export default function ChatDashboard({ userId, userName }: { userId: string, us
   const [selectedId, setSelectedId] = useState<string | null>(initialUser);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const socketRef = useRef<Socket | null>(null);
 
   // New modal states
   const [viewingAttorney, setViewingAttorney] = useState<AttorneyInfo | null>(null);
@@ -96,9 +102,31 @@ export default function ChatDashboard({ userId, userName }: { userId: string, us
 
   useEffect(() => {
     fetchConversations();
-    const interval = setInterval(fetchConversations, 2000);
-    return () => clearInterval(interval);
-  }, []);
+
+    // Connect socket to listen for new messages and update conversation list in real-time
+    const socket = io(SOCKET_URL, {
+      transports: ["polling", "websocket"],
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      timeout: 20000,
+      extraHeaders: { "Bypass-Tunnel-Reminder": "true" }
+    });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      // Join personal room to receive notifications for this user
+      socket.emit("join-personal-room", userId);
+    });
+
+    // When a new message arrives in any conversation, refresh the conversation list
+    socket.on("new-message", () => {
+      fetchConversations();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [userId]);
 
   const markAsRead = async (id: string) => {
     try {
@@ -124,7 +152,7 @@ export default function ChatDashboard({ userId, userName }: { userId: string, us
   };
 
   const openAttorneyInfo = async (attorneyId: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation(); // Don't select the chat
+ // Don't select the chat
     setFetchingAttorney(true);
     try {
       const res = await fetch(`/api/attorneys/${attorneyId}`);
