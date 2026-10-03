@@ -13,7 +13,8 @@ import { X, PhoneOff, ShieldCheck } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import { useAuth } from "@/lib/auth";
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
+const SOCKET_URL =
+  process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
 
 interface LiveKitVideoCallProps {
   room: string;
@@ -26,7 +27,11 @@ interface LiveKitVideoCallProps {
   receiverId?: string | null;
 }
 
-function ParticipantTracker({ onUpdate }: { onUpdate: (count: number) => void }) {
+function ParticipantTracker({
+  onUpdate,
+}: {
+  onUpdate: (count: number) => void;
+}) {
   const participants = useRemoteParticipants();
   useEffect(() => {
     onUpdate(participants.length);
@@ -38,11 +43,9 @@ function MediaReadyTracker({ onReady }: { onReady: (ready: boolean) => void }) {
   const tracks = useTracks([Track.Source.Camera, Track.Source.Microphone]);
   useEffect(() => {
     const hasRemoteMedia = tracks.some(
-      (t) => !t.participant.isLocal && t.publication.isSubscribed
+      (t) => !t.participant.isLocal && t.publication.isSubscribed,
     );
-    const hasLocalMedia = tracks.some(
-      (t) => t.participant.isLocal
-    );
+    const hasLocalMedia = tracks.some((t) => t.participant.isLocal);
 
     if (hasRemoteMedia || hasLocalMedia) {
       onReady(true);
@@ -71,7 +74,9 @@ export default function LiveKitVideoCall({
   const [isConnectedState, setIsConnectedState] = useState(false);
   const [participantCount, setParticipantCount] = useState(0);
   const [shouldRecord, setShouldRecord] = useState(isSos ?? false);
-  const [showRecordingPrompt, setShowRecordingPrompt] = useState(isCaller && !isSos);
+  const [showRecordingPrompt, setShowRecordingPrompt] = useState(
+    isCaller && !isSos,
+  );
   const [isRecording, setIsRecording] = useState(false);
   const [isMediaReady, setIsMediaReady] = useState(false);
   const egressStarted = useRef(false);
@@ -99,10 +104,20 @@ export default function LiveKitVideoCall({
       setDeclinerName(data.declinerName);
     });
 
+    socket.on("call-ended", () => {
+      console.log("[LiveKit] Remote party ended the call");
+      onLeave();
+    });
+
+    socket.on("call-cancelled", () => {
+      console.log("[LiveKit] Caller cancelled the call");
+      onLeave();
+    });
+
     return () => {
       socket.disconnect();
     };
-  }, [userId]);
+  }, [userId, onLeave]);
 
   // ── Token fetch ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -144,7 +159,8 @@ export default function LiveKitVideoCall({
       !shouldRecord ||
       !canRecord ||
       egressStarted.current
-    ) return;
+    )
+      return;
 
     egressStarted.current = true;
     console.log("[Egress] Media ready. Starting recording in 1 second...");
@@ -163,7 +179,16 @@ export default function LiveKitVideoCall({
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [isMediaReady, isCaller, callId, room, shouldRecord, userId, isSos, participantCount]);
+  }, [
+    isMediaReady,
+    isCaller,
+    callId,
+    room,
+    shouldRecord,
+    userId,
+    isSos,
+    participantCount,
+  ]);
 
   // ── Stop recording if user toggles off mid-call ──────────────────────────────
   useEffect(() => {
@@ -173,47 +198,87 @@ export default function LiveKitVideoCall({
     }
   }, [shouldRecord, stopRecording]);
 
-  // ── beforeunload cleanup ─────────────────────────────────────────────────────
-  useEffect(() => {
-    const endCall = () => {
-      if (!callId) return;
+  // ── Handlers ─────────────────────────────────────────────────────────────────
+  const hadRemoteParticipant = useRef(false);
 
-      if (egressStarted.current) stopRecording();
+  const handleEndCall = useCallback(() => {
+    if (egressStarted.current) stopRecording();
 
-      if (isCaller && !isConnected.current && socketRef.current && receiverId) {
+    // Notify other party over socket
+    if (socketRef.current) {
+      if (isCaller && !isConnected.current && receiverId) {
         socketRef.current.emit("call-cancelled", {
           receiverId,
           callerId: userId,
           callerName: username,
           callId,
         });
+      } else {
+        socketRef.current.emit("end-video-call", {
+          room,
+          callId,
+          receiverId,
+          callerId: userId,
+        });
       }
+    }
 
+    // Update database call record status
+    if (callId) {
       fetch(`/api/calls/${callId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: isConnectedState ? "ended" : "missed" }),
         keepalive: true,
       }).catch((err) => console.error("Failed to end call log:", err));
-    };
+    }
 
-    window.addEventListener("beforeunload", endCall);
-    return () => window.removeEventListener("beforeunload", endCall);
-  }, [callId, isCaller, receiverId, username, userId, isConnectedState, stopRecording]);
+    // Delete/close the room immediately on LiveKit Cloud dashboard
+    if (room) {
+      fetch("/api/livekit/room/end", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ room }),
+        keepalive: true,
+      }).catch((err) => console.error("Failed to delete LiveKit room:", err));
+    }
 
-  // ── Handlers ─────────────────────────────────────────────────────────────────
-  const handleEndCall = useCallback(() => {
-    if (egressStarted.current) stopRecording();
     onLeave();
-  }, [stopRecording, onLeave]);
+  }, [
+    stopRecording,
+    onLeave,
+    isCaller,
+    receiverId,
+    userId,
+    username,
+    callId,
+    room,
+    isConnectedState,
+  ]);
+
+  // ── beforeunload cleanup ─────────────────────────────────────────────────────
+  useEffect(() => {
+    window.addEventListener("beforeunload", handleEndCall);
+    return () => window.removeEventListener("beforeunload", handleEndCall);
+  }, [handleEndCall]);
 
   const handleMediaReady = useCallback((ready: boolean) => {
     setIsMediaReady(ready);
   }, []);
 
-  const handleParticipantUpdate = useCallback((count: number) => {
-    setParticipantCount(count);
-  }, []);
+  const handleParticipantUpdate = useCallback(
+    (count: number) => {
+      setParticipantCount(count);
+      if (count > 0) {
+        hadRemoteParticipant.current = true;
+      } else if (hadRemoteParticipant.current && count === 0) {
+        // The other participant has hung up / left the room
+        console.log("[LiveKit] Remote participant left, ending call");
+        handleEndCall();
+      }
+    },
+    [handleEndCall],
+  );
 
   const handleConnected = useCallback(() => {
     isConnected.current = true;
@@ -243,7 +308,9 @@ export default function LiveKitVideoCall({
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center p-8 bg-red-500/10 border border-red-500/50 rounded-xl text-red-500 text-center">
-        <p className="font-bold mb-2 text-xl tracking-tight">Configuration Error</p>
+        <p className="font-bold mb-2 text-xl tracking-tight">
+          Configuration Error
+        </p>
         <p className="text-red-300 font-mono text-sm mb-2 font-bold bg-black p-2 rounded">
           Error: {error}
         </p>
@@ -251,7 +318,8 @@ export default function LiveKitVideoCall({
           URL: {process.env.NEXT_PUBLIC_LIVEKIT_URL}
         </p>
         <p className="opacity-80 max-w-sm mb-6">
-          Ensure your local LiveKit server is running at {process.env.NEXT_PUBLIC_LIVEKIT_URL || "ws://localhost:7800"}
+          Ensure your local LiveKit server is running at{" "}
+          {process.env.NEXT_PUBLIC_LIVEKIT_URL || "ws://localhost:7800"}
         </p>
         <button
           onClick={onLeave}
@@ -314,20 +382,23 @@ export default function LiveKitVideoCall({
             </div>
           </div>
         </div>
-        {isConnectedState && (
-          <button
-            onClick={handleEndCall}
-            className="p-2 hover:bg-titanium-800 rounded-full transition-colors text-titanium-400"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
+        <button
+          onClick={handleEndCall}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 active:scale-95 text-white rounded-lg text-xs font-bold transition-all shadow-md"
+          title="End Call"
+        >
+          <PhoneOff className="w-3.5 h-3.5" />
+          <span>End Call</span>
+        </button>
       </div>
 
       {/* Main content */}
       <div
         className="absolute inset-0"
-        style={{ top: "48px", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        style={{
+          top: "48px",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        }}
       >
         {showRecordingPrompt ? (
           <div className="absolute inset-0 z-[100] flex items-center justify-center bg-titanium-950">
@@ -339,8 +410,8 @@ export default function LiveKitVideoCall({
                 Call Recording
               </h3>
               <p className="text-titanium-400 text-sm mb-10 leading-relaxed">
-                Would you like to record this session? The recording will be stored
-                locally on your server for case documentation.
+                Would you like to record this session? The recording will be
+                stored locally on your server for case documentation.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <button
@@ -369,7 +440,9 @@ export default function LiveKitVideoCall({
             video={type === "video"}
             audio={true}
             token={token}
-            serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL || "ws://localhost:7800"}
+            serverUrl={
+              process.env.NEXT_PUBLIC_LIVEKIT_URL || "ws://localhost:7800"
+            }
             onDisconnected={handleEndCall}
             onError={handleError}
             onConnected={handleConnected}

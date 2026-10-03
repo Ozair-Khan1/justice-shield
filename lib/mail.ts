@@ -1,18 +1,5 @@
-import nodemailer from "nodemailer";
+import fs from "fs";
 import path from "path";
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT || "587"),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-});
 
 const THEME = {
   bg: "#0a0a0a",
@@ -24,22 +11,34 @@ const THEME = {
   footer: "#64748b"
 };
 
-const attachments = [
-  {
-    filename: "shield-logo.webp",
-    path: path.join(process.cwd(), "public", "shield-logo.webp"),
-    cid: "shield-logo",
-  },
-];
+// Cache base64 logo once to embed in emails reliably without needing public hosting
+let cachedLogoSrc = "";
+try {
+  const logoPath = path.join(process.cwd(), "public", "shield-logo.webp");
+  if (fs.existsSync(logoPath)) {
+    const buffer = fs.readFileSync(logoPath);
+    cachedLogoSrc = `data:image/webp;base64,${buffer.toString("base64")}`;
+  }
+} catch {
+  cachedLogoSrc = "";
+}
+
+function getLogoUrl() {
+  if (cachedLogoSrc) return cachedLogoSrc;
+  const webUrl = process.env.WEB_URL || "http://localhost:3000";
+  return `${webUrl}/shield-logo.webp`;
+}
 
 function wrapEmail(content: string) {
+  const logoSrc = getLogoUrl();
+
   return `
     <div style="background-color: ${THEME.bg}; font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px; border-radius: 8px; color: ${THEME.text};">
       <div style="text-align: center; margin-bottom: 32px;">
          <table align="center" border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
            <tr>
              <td style="vertical-align: middle; padding-right: 12px;">
-               <img src="cid:shield-logo" alt="Justice Shield" style="width: 32px; height: auto; display: block;" />
+               <img src="${logoSrc}" alt="Justice Shield" style="width: 32px; height: auto; display: block;" />
              </td>
              <td style="vertical-align: middle;">
                <h1 style="color: #ffffff; font-size: 24px; font-weight: bold; margin: 0; text-transform: uppercase; letter-spacing: 2px; line-height: 1;">
@@ -64,13 +63,66 @@ function wrapEmail(content: string) {
   `;
 }
 
+interface SendMailParams {
+  to: string;
+  subject: string;
+  htmlContent: string;
+}
+
+/**
+ * Sends transactional email via Brevo REST API (https://api.brevo.com/v3/smtp/email).
+ * Avoids all SMTP port blocking, server config, and firewall issues.
+ */
+async function sendEmail({ to, subject, htmlContent }: SendMailParams) {
+  const apiKey = process.env.BREVO_API_KEY;
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.SMTP_USER || "no-reply@justiceshield.com";
+  const senderName = process.env.BREVO_SENDER_NAME || "Justice Shield";
+
+  if (!apiKey) {
+    console.warn(`[Brevo Mailer] ⚠️ BREVO_API_KEY is not configured in .env. Email to "${to}" was skipped.`);
+    return { success: false, error: "BREVO_API_KEY not configured" };
+  }
+
+  const payload = {
+    sender: {
+      name: senderName,
+      email: senderEmail,
+    },
+    to: [
+      {
+        email: to,
+      },
+    ],
+    subject,
+    htmlContent,
+  };
+
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "accept": "application/json",
+      "content-type": "application/json",
+      "api-key": apiKey,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[Brevo Mailer Error] Status ${response.status}:`, errorText);
+    throw new Error(`Brevo mail error (${response.status}): ${errorText}`);
+  }
+
+  const result = await response.json();
+  console.log(`[Brevo Mailer] ✅ Email sent to ${to}:`, result.messageId || "Success");
+  return result;
+}
+
 export async function sendOtpEmail(email: string, otp: string) {
-  const mailOptions = {
-    from: `"Justice Shield" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+  return sendEmail({
     to: email,
     subject: "Your Verification Code - Justice Shield",
-    attachments,
-    html: wrapEmail(`
+    htmlContent: wrapEmail(`
       <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Verification Code</h2>
       <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
         Your verification code for Justice Shield is:
@@ -82,18 +134,14 @@ export async function sendOtpEmail(email: string, otp: string) {
         This code will expire in 10 minutes. If you did not request this code, please ignore this email.
       </p>
     `),
-  };
-
-  return transporter.sendMail(mailOptions);
+  });
 }
 
 export async function sendUserWelcomeEmail(email: string, name: string) {
-  const mailOptions = {
-    from: `"Justice Shield" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+  return sendEmail({
     to: email,
     subject: "Welcome to Justice Shield",
-    attachments,
-    html: wrapEmail(`
+    htmlContent: wrapEmail(`
       <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Welcome to the Network, ${name}</h2>
       
       <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
@@ -110,23 +158,19 @@ export async function sendUserWelcomeEmail(email: string, name: string) {
       </div>
       
       <div style="text-align: center; margin: 40px 0;">
-        <a href="${process.env.WEB_URL}/app" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Access Dashboard</a>
+        <a href="${process.env.WEB_URL || 'http://localhost:3000'}/app" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Access Dashboard</a>
       </div>
     `),
-  };
-
-  return transporter.sendMail(mailOptions);
+  });
 }
 
 export async function sendVendorWelcomeEmail(email: string, name: string, token: string) {
-  const setupUrl = `${process.env.WEB_URL}/auth/setup?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`;
+  const setupUrl = `${process.env.WEB_URL || 'http://localhost:3000'}/auth/setup?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`;
 
-  const mailOptions = {
-    from: `"Justice Shield" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+  return sendEmail({
     to: email,
     subject: "Welcome to Justice Shield Attorney Network",
-    attachments,
-    html: wrapEmail(`
+    htmlContent: wrapEmail(`
       <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Counsel Account Approved</h2>
       <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
         Hello ${name}, your application to join the Justice Shield Attorney Network has been approved. You now have access to our secure response platform.
@@ -141,20 +185,16 @@ export async function sendVendorWelcomeEmail(email: string, name: string, token:
         <a href="${setupUrl}" style="color: ${THEME.accent}; text-decoration: none;">${setupUrl}</a>
       </p>
     `),
-  };
-
-  return transporter.sendMail(mailOptions);
+  });
 }
 
 export async function sendMarketingWelcomeEmail(email: string, name: string, token: string) {
-  const setupUrl = `${process.env.WEB_URL}/auth/setup?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`;
+  const setupUrl = `${process.env.WEB_URL || 'http://localhost:3000'}/auth/setup?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`;
 
-  const mailOptions = {
-    from: `"Justice Shield" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+  return sendEmail({
     to: email,
     subject: "Welcome to Justice Shield - Marketing Partner",
-    attachments,
-    html: wrapEmail(`
+    htmlContent: wrapEmail(`
       <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Partner Account Approved</h2>
       <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
         Hello ${name}, your application to join Justice Shield as a Marketing Specialist has been approved. We look forward to collaborating with you.
@@ -169,18 +209,14 @@ export async function sendMarketingWelcomeEmail(email: string, name: string, tok
         <a href="${setupUrl}" style="color: ${THEME.accent}; text-decoration: none;">${setupUrl}</a>
       </p>
     `),
-  };
-
-  return transporter.sendMail(mailOptions);
+  });
 }
 
 export async function sendRejectionEmail(email: string, name: string, rejectionReason?: string) {
-  const mailOptions = {
-    from: `"Justice Shield" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+  return sendEmail({
     to: email,
     subject: "Application Update - Justice Shield",
-    attachments,
-    html: wrapEmail(`
+    htmlContent: wrapEmail(`
       <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Application Status</h2>
 
       <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
@@ -211,20 +247,16 @@ export async function sendRejectionEmail(email: string, name: string, rejectionR
         </tr>
       </table>
     `),
-  };
-
-  return transporter.sendMail(mailOptions);
+  });
 }
 
 export async function sendPasswordResetEmail(email: string, token: string) {
-  const resetUrl = `${process.env.WEB_URL}/auth/setup?email=${encodeURIComponent(email)}&token=${token}`;
+  const resetUrl = `${process.env.WEB_URL || 'http://localhost:3000'}/auth/setup?email=${encodeURIComponent(email)}&token=${token}`;
 
-  const mailOptions = {
-    from: `"Justice Shield" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+  return sendEmail({
     to: email,
     subject: "Reset Your Password - Justice Shield",
-    attachments,
-    html: wrapEmail(`
+    htmlContent: wrapEmail(`
       <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Password Reset Request</h2>
       <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
         We received a request to reset the password for your Justice Shield account.
@@ -239,60 +271,48 @@ export async function sendPasswordResetEmail(email: string, token: string) {
         <a href="${resetUrl}" style="color: ${THEME.accent}; text-decoration: none;">${resetUrl}</a>
       </p>
     `),
-  };
-
-  return transporter.sendMail(mailOptions);
+  });
 }
 
 export async function sendVendorProfileSetupCompleteEmail(email: string, name: string) {
-  const mailOptions = {
-    from: `"Justice Shield" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+  return sendEmail({
     to: email,
     subject: "Profile Setup Complete - Justice Shield",
-    attachments,
-    html: wrapEmail(`
+    htmlContent: wrapEmail(`
       <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Setup Complete</h2>
       <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
         Hello ${name}, your attorney profile has been successfully created. You are now active in our network and ready to receive referrals.
       </p>
       
       <div style="text-align: center; margin: 40px 0;">
-        <a href="${process.env.WEB_URL}/auth" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Login</a>
+        <a href="${process.env.WEB_URL || 'http://localhost:3000'}/auth" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Login</a>
       </div>
     `),
-  };
-
-  return transporter.sendMail(mailOptions);
+  });
 }
 
 export async function sendMarketingProfileSetupCompleteEmail(email: string, name: string) {
-  const mailOptions = {
-    from: `"Justice Shield" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+  return sendEmail({
     to: email,
     subject: "Profile Setup Complete - Justice Shield",
-    attachments,
-    html: wrapEmail(`
+    htmlContent: wrapEmail(`
       <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Setup Complete</h2>
       <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
         Hello ${name}, your marketing partner profile has been successfully created. We are excited to have you as part of our strategic growth network.
       </p>
       
       <div style="text-align: center; margin: 40px 0;">
-        <a href="${process.env.WEB_URL}/auth" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Login</a>
+        <a href="${process.env.WEB_URL || 'http://localhost:3000'}/auth" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Login</a>
       </div>
     `),
-  };
-
-  return transporter.sendMail(mailOptions);
+  });
 }
 
 export async function sendContactReplyEmail(email: string, name: string, originalMessage: string, adminReply: string) {
-  const mailOptions = {
-    from: `"Justice Shield" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+  return sendEmail({
     to: email,
     subject: "Response to Your Inquiry - Justice Shield",
-    attachments,
-    html: wrapEmail(`
+    htmlContent: wrapEmail(`
       <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Message Response</h2>
       <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: left;">
         Hello ${name},
@@ -312,10 +332,8 @@ export async function sendContactReplyEmail(email: string, name: string, origina
       </div>
       
       <div style="text-align: center; margin: 40px 0;">
-        <a href="${process.env.WEB_URL}" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Visit Justice Shield</a>
+        <a href="${process.env.WEB_URL || 'http://localhost:3000'}" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Visit Justice Shield</a>
       </div>
     `),
-  };
-
-  return transporter.sendMail(mailOptions);
+  });
 }

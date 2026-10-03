@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Handle preflight OPTIONS requests for CORS
   if (request.method === "OPTIONS") {
     return new NextResponse(null, {

@@ -472,8 +472,18 @@ export function GlobalNotificationListener() {
       });
     };
 
+    const handleCallEnded = (data: any) => {
+      const callId = data.callId || data.id;
+      if (activeIncomingCall.current && (!callId || activeIncomingCall.current.callId === callId)) {
+        toast.dismiss(activeIncomingCall.current.toastId);
+        clearTimeout(activeIncomingCall.current.timeoutId);
+        activeIncomingCall.current = null;
+      }
+    };
+
     socket.on("call-missed", handleMissedCall);
     socket.on("call-cancelled", handleMissedCall);
+    socket.on("call-ended", handleCallEnded);
 
     socket.on("case-accepted", (data: any) => {
       const key = `case-accepted-${data.caseId}`;

@@ -121,6 +121,19 @@ io.on("connection", (socket) => {
     if (data.targetUserId) io.to(data.targetUserId).emit("recording-saved", data);
   });
 
+  socket.on("end-video-call", (data) => {
+    console.log(`[SocketServer] Video call ended for room ${data.room || data.callId}`);
+    if (data.receiverId) {
+      io.to(data.receiverId).emit("call-ended", data);
+    }
+    if (data.callerId) {
+      io.to(data.callerId).emit("call-ended", data);
+    }
+    if (data.room) {
+      io.to(data.room).emit("call-ended", data);
+    }
+  });
+
   socket.on("call-missed", (data) => {
     // data: { receiverId, callerId, callerName, callId, callType }
     console.log(`Missed call from ${data.callerName} — notifying receiver ${data.receiverId}`);
