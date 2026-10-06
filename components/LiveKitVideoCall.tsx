@@ -80,6 +80,7 @@ export default function LiveKitVideoCall({
   const [isRecording, setIsRecording] = useState(false);
   const [isMediaReady, setIsMediaReady] = useState(false);
   const egressStarted = useRef(false);
+  const isEndingCall = useRef(false);
   const userId = user?.id;
 
   // ── Socket setup ────────────────────────────────────────────────────────────
@@ -106,11 +107,13 @@ export default function LiveKitVideoCall({
 
     socket.on("call-ended", () => {
       console.log("[LiveKit] Remote party ended the call");
+      isEndingCall.current = true;
       onLeave();
     });
 
     socket.on("call-cancelled", () => {
       console.log("[LiveKit] Caller cancelled the call");
+      isEndingCall.current = true;
       onLeave();
     });
 
@@ -202,6 +205,8 @@ export default function LiveKitVideoCall({
   const hadRemoteParticipant = useRef(false);
 
   const handleEndCall = useCallback(() => {
+    if (isEndingCall.current) return;
+    isEndingCall.current = true;
     if (egressStarted.current) stopRecording();
 
     // Notify other party over socket
@@ -459,3 +464,4 @@ export default function LiveKitVideoCall({
     </div>
   );
 }
+

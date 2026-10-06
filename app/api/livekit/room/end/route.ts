@@ -27,10 +27,13 @@ export async function POST(req: Request) {
     
     try {
       await roomService.deleteRoom(room);
-      console.log(`[LiveKit API] Room deleted successfully on dashboard: ${room}`);
+      console.log(`[LiveKit API] Room closed on dashboard: ${room}`);
     } catch (e: any) {
-      // Room may already be closed or empty
-      console.log(`[LiveKit API] Notice when closing room ${room}:`, e.message || e);
+      const msg = e.message || String(e);
+      // If room was already closed/deleted, it is expected and clean
+      if (!msg.toLowerCase().includes("does not exist") && !msg.toLowerCase().includes("not found")) {
+        console.log(`[LiveKit API] Notice when closing room ${room}:`, msg);
+      }
     }
 
     return NextResponse.json({ success: true });
