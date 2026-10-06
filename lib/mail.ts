@@ -1,65 +1,69 @@
-import fs from "fs";
-import path from "path";
-
 const THEME = {
-  bg: "#0a0a0a",
-  card: "#111111",
+  bg: "#0f172a",
+  card: "#1e293b",
   accent: "#ff5722",
   text: "#f8fafc",
   muted: "#94a3b8",
-  border: "#1f2937",
+  border: "#334155",
   footer: "#64748b"
 };
 
-// Cache base64 logo once to embed in emails reliably without needing public hosting
-let cachedLogoSrc = "";
-try {
-  const logoPath = path.join(process.cwd(), "public", "shield-logo.webp");
-  if (fs.existsSync(logoPath)) {
-    const buffer = fs.readFileSync(logoPath);
-    cachedLogoSrc = `data:image/webp;base64,${buffer.toString("base64")}`;
-  }
-} catch {
-  cachedLogoSrc = "";
-}
-
-function getLogoUrl() {
-  if (cachedLogoSrc) return cachedLogoSrc;
-  const webUrl = process.env.WEB_URL || "http://localhost:3000";
-  return `${webUrl}/shield-logo.webp`;
-}
-
 function wrapEmail(content: string) {
-  const logoSrc = getLogoUrl();
-
   return `
-    <div style="background-color: ${THEME.bg}; font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 40px; border-radius: 8px; color: ${THEME.text};">
-      <div style="text-align: center; margin-bottom: 32px;">
-         <table align="center" border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
-           <tr>
-             <td style="vertical-align: middle; padding-right: 12px;">
-               <img src="${logoSrc}" alt="Justice Shield" style="width: 32px; height: auto; display: block;" />
-             </td>
-             <td style="vertical-align: middle;">
-               <h1 style="color: #ffffff; font-size: 24px; font-weight: bold; margin: 0; text-transform: uppercase; letter-spacing: 2px; line-height: 1;">
-                 JUSTICE <span style="color: ${THEME.accent};">SHIELD</span>
-               </h1>
-             </td>
-           </tr>
-         </table>
-         <p style="color: ${THEME.muted}; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 3px; margin-top: 12px;">
-           Tactical Law On Demand
-         </p>
-      </div>
-      
-      ${content}
-      
-      <hr style="border: 0; border-top: 1px solid ${THEME.border}; margin: 32px 0;" />
-      
-      <p style="color: ${THEME.footer}; font-size: 11px; text-align: center; font-family: monospace; text-transform: uppercase; letter-spacing: 1px;">
-        &copy; ${new Date().getFullYear()} Justice Shield. All rights reserved.
-      </p>
-    </div>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Justice Shield</title>
+    </head>
+    <body style="margin: 0; padding: 24px 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+      <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; margin: 0 auto; padding: 0 16px;">
+        <tr>
+          <td>
+            <div style="background-color: ${THEME.card}; border: 1px solid ${THEME.border}; border-radius: 12px; padding: 40px 32px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4); color: ${THEME.text};">
+              
+              <!-- Header -->
+              <div style="text-align: center; margin-bottom: 32px;">
+                <table align="center" border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+                  <tr>
+                    <td style="vertical-align: middle; text-align: center;">
+                      <div style="display: inline-block; width: 44px; height: 44px; line-height: 44px; border-radius: 10px; background: linear-gradient(135deg, #ff5722, #ea580c); color: #ffffff; font-size: 22px; font-weight: bold; text-align: center; margin-bottom: 12px;">&#9878;</div>
+                      <h1 style="color: #ffffff; font-size: 22px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: 2.5px; line-height: 1.2;">
+                        JUSTICE <span style="color: ${THEME.accent};">SHIELD</span>
+                      </h1>
+                      <p style="color: ${THEME.muted}; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 2.5px; margin: 6px 0 0 0;">
+                        Tactical Law On Demand
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </div>
+              
+              <!-- Body Content -->
+              <div style="font-size: 15px; line-height: 1.6; color: ${THEME.text};">
+                ${content}
+              </div>
+              
+              <!-- Divider -->
+              <div style="border-top: 1px solid ${THEME.border}; margin: 36px 0 24px 0;"></div>
+              
+              <!-- Footer -->
+              <div style="text-align: center;">
+                <p style="color: ${THEME.footer}; font-size: 11px; margin: 0 0 6px 0; font-family: monospace; text-transform: uppercase; letter-spacing: 1px;">
+                  &copy; ${new Date().getFullYear()} Justice Shield. All rights reserved.
+                </p>
+                <p style="color: #475569; font-size: 11px; margin: 0;">
+                  Confidential legal communications network.
+                </p>
+              </div>
+
+            </div>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
   `;
 }
 
@@ -79,7 +83,7 @@ async function sendEmail({ to, subject, htmlContent }: SendMailParams) {
   const senderName = process.env.BREVO_SENDER_NAME || "Justice Shield";
 
   if (!apiKey) {
-    console.warn(`[Brevo Mailer] ⚠️ BREVO_API_KEY is not configured in .env. Email to "${to}" was skipped.`);
+    console.warn(`[Brevo Mailer] ?? BREVO_API_KEY is not configured in .env. Email to "${to}" was skipped.`);
     return { success: false, error: "BREVO_API_KEY not configured" };
   }
 
@@ -114,7 +118,7 @@ async function sendEmail({ to, subject, htmlContent }: SendMailParams) {
   }
 
   const result = await response.json();
-  console.log(`[Brevo Mailer] ✅ Email sent to ${to}:`, result.messageId || "Success");
+  console.log(`[Brevo Mailer] ? Email sent to ${to}:`, result.messageId || "Success");
   return result;
 }
 
@@ -123,15 +127,19 @@ export async function sendOtpEmail(email: string, otp: string) {
     to: email,
     subject: "Your Verification Code - Justice Shield",
     htmlContent: wrapEmail(`
-      <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Verification Code</h2>
-      <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
-        Your verification code for Justice Shield is:
-      </p>
-      <div style="background-color: ${THEME.card}; border: 1px solid ${THEME.border}; padding: 30px; text-align: center; border-radius: 4px; margin: 24px 0;">
-        <span style="font-size: 36px; font-weight: bold; letter-spacing: 12px; color: ${THEME.accent}; font-family: monospace;">${otp}</span>
+      <div style="text-align: center; margin-bottom: 24px;">
+        <h2 style="color: #ffffff; font-size: 20px; font-weight: 700; margin: 0 0 10px 0;">Security Verification</h2>
+        <p style="color: ${THEME.muted}; font-size: 14px; margin: 0;">
+          Use the one-time code below to verify your identity.
+        </p>
       </div>
-      <p style="color: ${THEME.muted}; font-size: 14px; line-height: 1.6; text-align: center;">
-        This code will expire in 10 minutes. If you did not request this code, please ignore this email.
+
+      <div style="background-color: #0b0f19; border: 1px solid #334155; padding: 24px 20px; text-align: center; border-radius: 8px; margin: 24px 0;">
+        <span style="font-size: 34px; font-weight: 800; letter-spacing: 10px; color: ${THEME.accent}; font-family: 'Courier New', Courier, monospace; display: inline-block;">${otp}</span>
+      </div>
+
+      <p style="color: ${THEME.muted}; font-size: 13px; line-height: 1.5; text-align: center; margin: 20px 0 0 0;">
+        This code expires in <strong>10 minutes</strong>. If you did not request this verification, you can safely ignore this email.
       </p>
     `),
   });
@@ -144,11 +152,11 @@ export async function sendUserWelcomeEmail(email: string, name: string) {
     htmlContent: wrapEmail(`
       <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Welcome to the Network, ${name}</h2>
       
-      <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
+      <p style="color: ${THEME.muted}; font-size: 15px; line-height: 1.6; text-align: center;">
         Your account has been successfully created. You now have immediate access to our Tier 1 Emergency Response and Strategic Civil Counsel network.
       </p>
       
-      <div style="background-color: ${THEME.card}; border: 1px solid ${THEME.border}; padding: 24px; border-radius: 4px; margin: 32px 0;">
+      <div style="background-color: #0b0f19; border: 1px solid ${THEME.border}; padding: 20px; border-radius: 8px; margin: 28px 0;">
         <h3 style="color: ${THEME.accent}; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin-top: 0;">Next Steps</h3>
         <ul style="color: ${THEME.muted}; font-size: 14px; padding-left: 20px; margin-bottom: 0;">
           <li style="margin-bottom: 8px;">Complete your member profile in the Account tab.</li>
@@ -157,27 +165,27 @@ export async function sendUserWelcomeEmail(email: string, name: string) {
         </ul>
       </div>
       
-      <div style="text-align: center; margin: 40px 0;">
-        <a href="${process.env.WEB_URL || 'http://localhost:3000'}/app" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Access Dashboard</a>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${process.env.WEB_URL || 'http://localhost:3000'}/app" style="background-color: ${THEME.accent}; color: #ffffff; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; display: inline-block;">Access Dashboard</a>
       </div>
     `),
   });
 }
 
 export async function sendVendorWelcomeEmail(email: string, name: string, token: string) {
-  const setupUrl = `${process.env.WEB_URL || 'http://localhost:3000'}/auth/setup?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`;
+  const setupUrl = `${process.env.WEB_URL || 'http://localhost:3000'}/auth/setup?email=${encodeURIComponent(email)}&token=${token}`;
 
   return sendEmail({
     to: email,
-    subject: "Welcome to Justice Shield Attorney Network",
+    subject: "Welcome to Justice Shield - Set Up Your Attorney Profile",
     htmlContent: wrapEmail(`
-      <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Counsel Account Approved</h2>
-      <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
-        Hello ${name}, your application to join the Justice Shield Attorney Network has been approved. You now have access to our secure response platform.
+      <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Welcome to the Network, ${name}</h2>
+      <p style="color: ${THEME.muted}; font-size: 15px; line-height: 1.6; text-align: center;">
+        Your attorney application has been approved. You are now invited to join the Justice Shield legal panel.
       </p>
       
-      <div style="text-align: center; margin: 40px 0;">
-        <a href="${setupUrl}" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Complete Your Profile</a>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${setupUrl}" style="background-color: ${THEME.accent}; color: #ffffff; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; display: inline-block;">Set Up Your Attorney Profile</a>
       </div>
       
       <p style="color: ${THEME.footer}; font-size: 12px; line-height: 1.6; text-align: center;">
@@ -189,19 +197,19 @@ export async function sendVendorWelcomeEmail(email: string, name: string, token:
 }
 
 export async function sendMarketingWelcomeEmail(email: string, name: string, token: string) {
-  const setupUrl = `${process.env.WEB_URL || 'http://localhost:3000'}/auth/setup?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`;
+  const setupUrl = `${process.env.WEB_URL || 'http://localhost:3000'}/auth/setup?email=${encodeURIComponent(email)}&token=${token}`;
 
   return sendEmail({
     to: email,
-    subject: "Welcome to Justice Shield - Marketing Partner",
+    subject: "Welcome to Justice Shield - Set Up Your Partner Account",
     htmlContent: wrapEmail(`
-      <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Partner Account Approved</h2>
-      <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
-        Hello ${name}, your application to join Justice Shield as a Marketing Specialist has been approved. We look forward to collaborating with you.
+      <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Welcome to the Network, ${name}</h2>
+      <p style="color: ${THEME.muted}; font-size: 15px; line-height: 1.6; text-align: center;">
+        Your marketing partner application has been approved. You are now invited to join the Justice Shield growth network.
       </p>
       
-      <div style="text-align: center; margin: 40px 0;">
-        <a href="${setupUrl}" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Set Up Your Partner Account</a>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${setupUrl}" style="background-color: ${THEME.accent}; color: #ffffff; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; display: inline-block;">Set Up Your Partner Account</a>
       </div>
       
       <p style="color: ${THEME.footer}; font-size: 12px; line-height: 1.6; text-align: center;">
@@ -221,31 +229,21 @@ export async function sendRejectionEmail(email: string, name: string, rejectionR
 
       <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
         <tr>
-          <td style="color: ${THEME.muted}; font-size: clamp(13px, 3vw, 16px); line-height: 1.6; text-align: center; padding: 0 8px; word-break: break-word;">
+          <td style="color: ${THEME.muted}; font-size: 15px; line-height: 1.6; text-align: center; padding: 0 8px;">
             Hello ${name}, we regret to inform you that your application to join the Justice Shield network has been rejected at this time.
           </td>
         </tr>
       </table>
 
       ${rejectionReason ? `
-      <div style="background-color: ${THEME.card}; border: 1px solid ${THEME.border}; padding: 24px; border-radius: 4px; margin: 32px 0;">
+      <div style="background-color: #0b0f19; border: 1px solid ${THEME.border}; padding: 20px; border-radius: 8px; margin: 24px 0;">
         <h3 style="color: ${THEME.accent}; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin-top: 0;">Reason for Rejection</h3>
-        <table width="100%" border="0" cellpadding="0" cellspacing="0">
-          <tr>
-            <td style="color: ${THEME.muted}; font-size: clamp(12px, 2.5vw, 14px); line-height: 1.6; margin-bottom: 0; word-break: break-word; white-space: pre-wrap;">
-              ${rejectionReason}
-            </td>
-          </tr>
-        </table>
+        <p style="color: ${THEME.muted}; font-size: 14px; line-height: 1.6; margin: 0; white-space: pre-wrap;">${rejectionReason}</p>
       </div>` : ''}
 
-      <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-top: 24px;">
-        <tr>
-          <td style="color: ${THEME.muted}; font-size: clamp(12px, 2.5vw, 14px); line-height: 1.6; text-align: center; padding: 0 8px; word-break: break-word;">
-            Thank you for your interest in our platform.
-          </td>
-        </tr>
-      </table>
+      <p style="color: ${THEME.muted}; font-size: 14px; line-height: 1.6; text-align: center; margin-top: 24px;">
+        Thank you for your interest in our platform.
+      </p>
     `),
   });
 }
@@ -258,12 +256,12 @@ export async function sendPasswordResetEmail(email: string, token: string) {
     subject: "Reset Your Password - Justice Shield",
     htmlContent: wrapEmail(`
       <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Password Reset Request</h2>
-      <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
+      <p style="color: ${THEME.muted}; font-size: 15px; line-height: 1.6; text-align: center;">
         We received a request to reset the password for your Justice Shield account.
       </p>
       
-      <div style="text-align: center; margin: 40px 0;">
-        <a href="${resetUrl}" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Reset Password</a>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${resetUrl}" style="background-color: ${THEME.accent}; color: #ffffff; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; display: inline-block;">Reset Password</a>
       </div>
       
       <p style="color: ${THEME.footer}; font-size: 12px; line-height: 1.6; text-align: center;">
@@ -280,12 +278,12 @@ export async function sendVendorProfileSetupCompleteEmail(email: string, name: s
     subject: "Profile Setup Complete - Justice Shield",
     htmlContent: wrapEmail(`
       <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Setup Complete</h2>
-      <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
+      <p style="color: ${THEME.muted}; font-size: 15px; line-height: 1.6; text-align: center;">
         Hello ${name}, your attorney profile has been successfully created. You are now active in our network and ready to receive referrals.
       </p>
       
-      <div style="text-align: center; margin: 40px 0;">
-        <a href="${process.env.WEB_URL || 'http://localhost:3000'}/auth" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Login</a>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${process.env.WEB_URL || 'http://localhost:3000'}/auth" style="background-color: ${THEME.accent}; color: #ffffff; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; display: inline-block;">Login</a>
       </div>
     `),
   });
@@ -297,12 +295,12 @@ export async function sendMarketingProfileSetupCompleteEmail(email: string, name
     subject: "Profile Setup Complete - Justice Shield",
     htmlContent: wrapEmail(`
       <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Setup Complete</h2>
-      <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: center;">
+      <p style="color: ${THEME.muted}; font-size: 15px; line-height: 1.6; text-align: center;">
         Hello ${name}, your marketing partner profile has been successfully created. We are excited to have you as part of our strategic growth network.
       </p>
       
-      <div style="text-align: center; margin: 40px 0;">
-        <a href="${process.env.WEB_URL || 'http://localhost:3000'}/auth" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Login</a>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${process.env.WEB_URL || 'http://localhost:3000'}/auth" style="background-color: ${THEME.accent}; color: #ffffff; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; display: inline-block;">Login</a>
       </div>
     `),
   });
@@ -314,25 +312,25 @@ export async function sendContactReplyEmail(email: string, name: string, origina
     subject: "Response to Your Inquiry - Justice Shield",
     htmlContent: wrapEmail(`
       <h2 style="color: #ffffff; text-align: center; font-size: 20px; margin-bottom: 24px;">Message Response</h2>
-      <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: left;">
+      <p style="color: ${THEME.muted}; font-size: 15px; line-height: 1.6; text-align: left;">
         Hello ${name},
       </p>
-      <p style="color: ${THEME.muted}; font-size: 16px; line-height: 1.6; text-align: left; margin-bottom: 24px;">
+      <p style="color: ${THEME.muted}; font-size: 15px; line-height: 1.6; text-align: left; margin-bottom: 24px;">
         Thank you for contacting Justice Shield. Here is our response to your inquiry:
       </p>
       
-      <div style="background-color: ${THEME.card}; border: 1px solid ${THEME.border}; padding: 24px; border-radius: 4px; margin: 32px 0;">
+      <div style="background-color: #0b0f19; border: 1px solid ${THEME.border}; padding: 20px; border-radius: 8px; margin: 24px 0;">
         <h3 style="color: ${THEME.accent}; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin-top: 0;">Our Reply</h3>
-        <p style="color: ${THEME.text}; font-size: 14px; line-height: 1.6; margin-bottom: 0; white-space: pre-wrap;">${adminReply}</p>
+        <p style="color: ${THEME.text}; font-size: 14px; line-height: 1.6; margin: 0; white-space: pre-wrap;">${adminReply}</p>
       </div>
 
-      <div style="background-color: ${THEME.bg}; border-left: 3px solid ${THEME.border}; padding: 16px 24px; margin: 32px 0; opacity: 0.8;">
+      <div style="background-color: #080c14; border-left: 3px solid ${THEME.border}; padding: 14px 20px; margin: 24px 0;">
         <h4 style="color: ${THEME.muted}; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin-top: 0; margin-bottom: 8px;">Your Original Message</h4>
-        <p style="color: ${THEME.footer}; font-size: 13px; line-height: 1.5; margin-bottom: 0; font-style: italic; white-space: pre-wrap;">${originalMessage}</p>
+        <p style="color: ${THEME.footer}; font-size: 13px; line-height: 1.5; margin: 0; font-style: italic; white-space: pre-wrap;">${originalMessage}</p>
       </div>
       
-      <div style="text-align: center; margin: 40px 0;">
-        <a href="${process.env.WEB_URL || 'http://localhost:3000'}" style="background-color: ${THEME.accent}; color: #ffffff; padding: 16px 32px; text-decoration: none; border-radius: 2px; font-weight: bold; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; display: inline-block;">Visit Justice Shield</a>
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${process.env.WEB_URL || 'http://localhost:3000'}" style="background-color: ${THEME.accent}; color: #ffffff; padding: 14px 30px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; display: inline-block;">Visit Justice Shield</a>
       </div>
     `),
   });

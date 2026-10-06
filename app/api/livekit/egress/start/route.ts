@@ -4,6 +4,7 @@ import {
   EncodedFileOutput,
   EncodedFileType,
   RoomServiceClient,
+  S3Upload,
 } from "livekit-server-sdk";
 import { PrismaClient } from "@prisma/client";
 
@@ -74,18 +75,39 @@ export async function POST(req: NextRequest) {
 
     const fileName = `recording_${roomName}_${Date.now()}.mp4`;
     const dbPath = `/api/recordings/serve/${fileName}`;
-    const containerPath = `/home/egress/recordings/${fileName}`;
+
+    // Backblaze B2 S3 storage output
+    const b2KeyId = process.env.B2_KEY_ID!;
+    const b2AppKey = process.env.B2_APPLICATION_KEY!;
+    const b2Bucket = process.env.B2_BUCKET_NAME || "Justice-Shield";
+    const b2Endpoint = process.env.B2_ENDPOINT || "https://s3.us-east-005.backblazeb2.com";
+    const b2Region = process.env.B2_REGION || "us-east-005";
+
+    const s3 = new S3Upload({
+      accessKey: b2KeyId,
+      secret: b2AppKey,
+      bucket: b2Bucket,
+      endpoint: b2Endpoint,
+      region: b2Region,
+      forcePathStyle: true,
+    });
 
     const fileOutput = new EncodedFileOutput({
       fileType: EncodedFileType.MP4,
-      filepath: containerPath,
+      filepath: fileName,
+      output: {
+        case: "s3",
+        value: s3,
+      },
     });
+
+    console.log("[START] Launching composite egress with Backblaze B2 output to bucket:", b2Bucket);
 
     const info = await egressClient.startRoomCompositeEgress(roomName, fileOutput, {
       layout: "grid",
     });
 
-    console.log("[START] Egress started:", info.egressId);
+    console.log("[START] Egress started successfully:", info.egressId);
 
     const updateData = {
       egress_id: info.egressId,
